@@ -1,63 +1,126 @@
-"""
-Alakoro FiberSense - Event System
-Event-driven architecture with Redis Pub/Sub.
-"""
-from __future__ import annotations
-
-import json
-import logging
+"""Event definitions and utilities for event-driven architecture."""
 from enum import Enum
-from typing import Any, Callable, Dict, List
-
-from app.core.redis_client import event_bus
-
-logger = logging.getLogger(__name__)
+from typing import Dict, Any, Optional
+from datetime import datetime
+import json
+import uuid
 
 
 class EventType(str, Enum):
-    DAS_RAW_RECEIVED = "das.raw_received"
-    DAS_PROCESSING_COMPLETED = "das.processing.completed"
-    DAS_PROCESSING_ERROR = "das.processing.error"
+    """Event types for the event bus."""
+    # DAS Events
+    DAS_FILE_UPLOADED = "das.file_uploaded"
+    DAS_DATA_VALIDATED = "das.data_validated"
+    DAS_PROCESSING_STARTED = "das.processing_started"
+    DAS_PROCESSING_COMPLETED = "das.processing_completed"
+    DAS_PROCESSING_FAILED = "das.processing_failed"
 
-    DTS_RAW_RECEIVED = "dts.raw_received"
-    DTS_PROCESSING_COMPLETED = "dts.processing.completed"
-    DTS_PROCESSING_ERROR = "dts.processing.error"
-    DTS_HOTSPOT_DETECTED = "dts.hotspot.detected"
+    # DTS Events
+    DTS_FILE_UPLOADED = "dts.file_uploaded"
+    DTS_DATA_VALIDATED = "dts.data_validated"
+    DTS_PROCESSING_STARTED = "dts.processing_started"
+    DTS_PROCESSING_COMPLETED = "dts.processing_completed"
+    DTS_PROCESSING_FAILED = "dts.processing_failed"
 
-    DSS_RAW_RECEIVED = "dss.raw_received"
-    DSS_PROCESSING_COMPLETED = "dss.processing.completed"
-    DSS_PROCESSING_ERROR = "dss.processing.error"
-    DSS_EVENT_DETECTED = "dss.event.detected"
+    # DSS Events
+    DSS_FILE_UPLOADED = "dss.file_uploaded"
+    DSS_DATA_VALIDATED = "dss.data_validated"
+    DSS_PROCESSING_STARTED = "dss.processing_started"
+    DSS_PROCESSING_COMPLETED = "dss.processing_completed"
+    DSS_PROCESSING_FAILED = "dss.processing_failed"
 
-    SIMULATION_STARTED = "simulation.started"
-    SIMULATION_COMPLETED = "simulation.completed"
-    SIMULATION_ERROR = "simulation.error"
+    # Simulation Events
+    SIMULATION_REQUESTED = "sim.requested"
+    SIMULATION_STARTED = "sim.started"
+    SIMULATION_COMPLETED = "sim.completed"
+    SIMULATION_FAILED = "sim.failed"
 
-    ALERT_TRIGGERED = "alert.triggered"
-    ALERT_ACKNOWLEDGED = "alert.acknowledged"
+    # Visualization Events
+    VIZ_REQUESTED = "viz.requested"
+    VIZ_RENDERING_STARTED = "viz.rendering_started"
+    VIZ_RENDERING_COMPLETED = "viz.rendering_completed"
+    VIZ_RENDERING_FAILED = "viz.rendering_failed"
 
-    PROCESSING_COMPLETED = "processing.completed"
-    PROCESSING_ERROR = "processing.error"
+    # Wavelet Events
+    WAVELET_CWT_REQUESTED = "wavelet.cwt_requested"
+    WAVELET_CWT_COMPLETED = "wavelet.cwt_completed"
+    WAVELET_TRANSIENT_DETECTED = "wavelet.transient_detected"
+    WAVELET_DENOISE_REQUESTED = "wavelet.denoise_requested"
+    WAVELET_DENOISE_COMPLETED = "wavelet.denoise_completed"
 
-    WS_UPDATE = "ws.update"
+    # Alert Events
+    ALERT_THRESHOLD_EXCEEDED = "alert.threshold_exceeded"
+    ALERT_CRITICAL_DETECTED = "alert.critical_detected"
+
+    # System Events
+    STATUS_UPDATE = "status.update"
+    EXPORT_READY = "export.ready"
+    WS_PUSH = "ws.push"
 
 
-async def publish_event(event_type: EventType, data: Dict[str, Any]):
-    """Publica um evento no Redis."""
-    try:
-        message = json.dumps({"type": event_type.value, "data": data})
-        await event_bus.publish(event_type.value, message)
-    except Exception as e:
-        logger.error(f"Error publishing event {event_type}: {e}")
+class Event:
+    """Event message for the event bus."""
+
+    def __init__(
+        self,
+        event_type: EventType,
+        payload: Dict[str, Any],
+        correlation_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+    ):
+        self.event_type = event_type
+        self.payload = payload
+        self.correlation_id = correlation_id or str(uuid.uuid4())
+        self.timestamp = timestamp or datetime.utcnow()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "event_type": self.event_type.value,
+            "payload": self.payload,
+            "correlation_id": self.correlation_id,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), default=str)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Event":
+        return cls(
+            event_type=EventType(data["event_type"]),
+            payload=data["payload"],
+            correlation_id=data.get("correlation_id"),
+            timestamp=datetime.fromisoformat(data["timestamp"]) if "timestamp" in data else None,
+        )
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Event":
+        return cls.from_dict(json.loads(json_str))
 
 
-async def subscribe_event(event_type: EventType, handler: Callable):
-    """Subscreve um handler para um tipo de evento."""
-    async def wrapper(message: str):
-        try:
-            data = json.loads(message)
-            await handler(data.get("data", {}))
-        except Exception as e:
-            logger.error(f"Error handling event {event_type}: {e}")
+class EventChannels:
+    """Redis channel names for Alakoro FiberSense."""
 
-    await event_bus.subscribe(event_type.value, wrapper)
+    @staticmethod
+    def raw_data(signal_type: str) -> str:
+        return f"alakoro:{signal_type}:raw_data"
+
+    @staticmethod
+    def processing(signal_type: str) -> str:
+        return f"alakoro:{signal_type}:processing"
+
+    @staticmethod
+    def visualization(signal_type: str) -> str:
+        return f"alakoro:{signal_type}:visualization"
+
+    @staticmethod
+    def alerts() -> str:
+        return "alakoro:alerts"
+
+    @staticmethod
+    def status() -> str:
+        return "alakoro:status"
+
+    @staticmethod
+    def ws_broadcast() -> str:
+        return "alakoro:ws:broadcast"

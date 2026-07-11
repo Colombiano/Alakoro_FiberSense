@@ -1,44 +1,48 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.14)
 project(alakoro_engine VERSION 2.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find pybind11
-find_package(pybind11 REQUIRED)
+# Options
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
+option(BUILD_TESTS "Build tests" OFF)
 
-# Find Python
-find_package(Python3 REQUIRED COMPONENTS Development)
-
-# Source files
-set(SOURCES
+# Core library
+add_library(alakoro_core STATIC
     src/signal_processor.cpp
-    py_bindings.cpp
+    src/wavelet_transforms.cpp
 )
 
-# Create Python module
-pybind11_add_module(alakoro_engine ${SOURCES})
-
-target_include_directories(alakoro_engine PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${Python3_INCLUDE_DIRS}
+target_include_directories(alakoro_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(alakoro_engine PRIVATE
-    Python3::Python
-)
+# Python bindings
+if(BUILD_PYTHON_BINDINGS)
+    # Find pybind11
+    find_package(pybind11 QUIET)
+    if(NOT pybind11_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+            pybind11
+            GIT_REPOSITORY https://github.com/pybind/pybind11.git
+            GIT_TAG v2.11.1
+        )
+        FetchContent_MakeAvailable(pybind11)
+    endif()
 
-# Set properties
-set_target_properties(alakoro_engine PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build
-)
-
-# Enable optimizations
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(alakoro_engine PRIVATE -O3 -march=native -ffast-math)
-elseif(MSVC)
-    target_compile_options(alakoro_engine PRIVATE /O2)
+    pybind11_add_module(alakoro_engine py_bindings.cpp)
+    target_link_libraries(alakoro_engine PRIVATE alakoro_core)
+    set_target_properties(alakoro_engine PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
 endif()
 
-# Install
-install(TARGETS alakoro_engine DESTINATION .)
+# Tests
+if(BUILD_TESTS)
+    enable_testing()
+    add_executable(test_engine tests/test_engine.cpp)
+    target_link_libraries(test_engine PRIVATE alakoro_core)
+    add_test(NAME engine_tests COMMAND test_engine)
+endif()
