@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+
+# Docs
+docs/_build/
+
+# Data
+data/raw/
+data/processed/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,86 @@
+# Alakoro FiberSense - Configuracao Padrao
+
+pipeline:
+  name: "pipeline_default"
+  description: "Pipeline padrao de processamento DAS"
+  stages:
+    - decode
+    - calibrate
+    - filter
+    - detect
+    - classify
+    - export
+  
+  enable_streaming: false
+  stream_buffer_size: 100
+  
+  output_format: "hdf5"
+  output_path: "./data/processed"
+  save_intermediate: false
+  
+  num_workers: 4
+  batch_size: 10
+
+processing:
+  # Pre-processamento
+  apply_calibration: true
+  compensate_attenuation: true
+  attenuation_coefficient: 0.2
+  
+  # Filtragem
+  filter_type: "bandpass"
+  low_cutoff: 1.0
+  high_cutoff: 500.0
+  filter_order: 4
+  
+  # Deteccao
+  detection_threshold: 10.0
+  min_event_duration_ms: 10.0
+  max_event_duration_ms: 5000.0
+  min_channels: 1
+  merge_gap_ms: 50.0
+  
+  # STFT
+  stft_window_size: 256
+  stft_hop_size: 128
+  stft_window: "hann"
+  
+  # Classificacao
+  classify_events: true
+  ml_model_path: null
+  
+  # Qualidade
+  quality_threshold: 0.5
+  detect_dead_channels: true
+  dead_channel_threshold: 1e-6
+
+# Configuracoes de streaming
+streaming:
+  enabled: false
+  source: "simulated"
+  sample_rate: 1000
+  num_channels: 1000
+  buffer_size: 100
+
+# Configuracoes de logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/alakoro.log"
+  max_size: "10MB"
+  backup_count: 5
+
+# Configuracoes de API
+api:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+  
+# Configuracoes de banco de dados
+storage:
+  type: "hdf5"
+  path: "./data"
+  compression: "gzip"
+  compression_level: 4
