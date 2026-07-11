@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alakoro-frontend
+  namespace: alakoro
+  labels:
+    app: alakoro-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: alakoro-frontend
+  template:
+    metadata:
+      labels:
+        app: alakoro-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: alakoro/frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

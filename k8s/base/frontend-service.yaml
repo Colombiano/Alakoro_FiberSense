@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: alakoro-frontend
+  namespace: alakoro
+spec:
+  selector:
+    app: alakoro-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP

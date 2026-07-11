@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alakoro-consumer-dts
+  namespace: alakoro
+  labels:
+    app: alakoro-consumer-dts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alakoro-consumer-dts
+  template:
+    metadata:
+      labels:
+        app: alakoro-consumer-dts
+    spec:
+      containers:
+        - name: consumer
+          image: alakoro/backend:latest
+          command: ["python", "-m", "app.consumers", "--type", "dts"]
+          envFrom:
+            - configMapRef:
+                name: alakoro-config
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
