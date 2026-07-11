@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from app.core.config import get_settings
 from app.core.redis_client import event_bus
-from app.routers import das, dts, dss, upload, simulation, export
+from app.routers import das, dts, dss, upload, simulation, export, wavelet
 from app.consumers import start_event_consumers
 
 settings = get_settings()
@@ -65,6 +65,7 @@ app.include_router(dts.router, prefix="/api/dts", tags=["DTS"])
 app.include_router(dss.router, prefix="/api/dss", tags=["DSS"])
 app.include_router(simulation.router, prefix="/api/simulation", tags=["Simulation"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
+app.include_router(wavelet.router, prefix="/api/wavelet", tags=["Wavelet"])
 
 
 @app.get("/api/health")
@@ -88,6 +89,9 @@ async def info():
             "DAS - Distributed Acoustic Sensing",
             "DTS - Distributed Temperature Sensing",
             "DSS - Distributed Strain Sensing",
+            "CWT Wavelet Transforms (Morlet) for Transient Detection",
+            "Wavelet Scalogram Analysis",
+            "Wavelet Denoising (VisuShrink / SureShrink)",
             "Real-time Signal Simulation",
             "Multi-format Export (HDF5, NetCDF, CSV)",
         ],

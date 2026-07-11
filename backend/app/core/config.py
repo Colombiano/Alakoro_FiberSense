@@ -1,30 +1,53 @@
-"""
-Alakoro FiberSense - Configuration
-"""
-from __future__ import annotations
-
-from functools import lru_cache
-from typing import Optional
-
+"""Configuration management for Alakoro FiberSense."""
 from pydantic_settings import BaseSettings
+from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Alakoro FiberSense Pro"
-    APP_VERSION: str = "2.0.0"
-    DEBUG: bool = True
+    """Application settings loaded from environment variables."""
 
-    REDIS_URL: str = "redis://localhost:6379"
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    # Application
+    APP_NAME: str = "Alakoro FiberSense API"
+    APP_VERSION: str = "2.1.0"
+    DEBUG: bool = False
 
-    ENGINE_CPP_PATH: Optional[str] = None
+    # Server
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
 
-    MAX_UPLOAD_SIZE: int = 500 * 1024 * 1024  # 500MB
+    # Database
+    DATABASE_URL: str = "postgresql+asyncpg://alakoro:password@postgres:5432/alakoro"
+    DATABASE_POOL_SIZE: int = 20
+
+    # Redis (Event Bus)
+    REDIS_URL: str = "redis://redis:6379"
+    REDIS_DB: int = 0
+
+    # Celery
+    CELERY_BROKER_URL: str = "redis://redis:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://redis:6379/2"
+
+    # C++ Engine
+    C_ENGINE_PATH: str = "/app/engine/libalakoro.so"
+    C_ENGINE_ENABLED: bool = True
+
+    # File Storage
+    UPLOAD_DIR: str = "/app/uploads"
+    MAX_FILE_SIZE: int = 1073741824  # 1GB
+
+    # WebSocket
+    WS_HEARTBEAT_INTERVAL: int = 30
+
+    # Security
+    SECRET_KEY: str = "alakoro-fibersense-secret-key-change-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+    # Event Channels
+    EVENT_CHANNEL_PREFIX: str = "alakoro"
 
     class Config:
         env_file = ".env"
-        env_file_encoding = "utf-8"
+        case_sensitive = True
 
 
 @lru_cache()
