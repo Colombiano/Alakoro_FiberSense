@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔱 Alakoro FiberSense
+#  Alakorô FiberSense
 
 **Advanced Signal Processing Platform for Distributed Fiber Optic Sensing**
 
@@ -27,7 +27,7 @@
 
 ---
 
-## 🔱 What is Alakorô? | O que é Alakorô?
+##  What is Alakorô? | O que é Alakorô?
 
 **[EN]** **Alakorô** is a sacred instrument from the worship of the **Orixá Ogum** — the Yoruba deity of war, iron, and paths. It is formed by two **hand-forged iron bells** joined by a chain. Alakorô is used to invoke the deity, repel negative energies, and **open paths**.
 
@@ -325,7 +325,7 @@ Abra um Pull Request no GitHub para mesclar suas alterações no repositório or
 2. **pybind11** — native, mature support for C++17 Python bindings
 3. **HPC/Corporate environments** — many production systems use conservative Linux distributions (RHEL, CentOS) with older toolchains
 4. **For numerical computing** — C++17 already offers all necessary features: `constexpr`, lambdas, `auto`, `std::optional`, structured bindings, `std::variant`
-5. **C++20/23** — bring `concepts`, `ranges`, `modules`, but the gain for numerical processing is marginal. Upgrading to C++20 is simple (one line change in `CMakeLists.txt`) if needed
+5. **C++20/23** — bring `concepts`, `ranges`, `modules`, but the gain for numerical processing is marginal.
 
 **[PT]** Este projeto usa deliberadamente **C++17** para o engine de computação:
 
@@ -333,7 +333,7 @@ Abra um Pull Request no GitHub para mesclar suas alterações no repositório or
 2. **pybind11** — suporte nativo e maduro para bindings Python com C++17
 3. **Ambientes HPC/Corporativos** — muitos sistemas de produção usam distribuições Linux conservadoras (RHEL, CentOS) com toolchains mais antigos
 4. **Para computação numérica** — C++17 já oferece todas as features necessárias: `constexpr`, lambdas, `auto`, `std::optional`, structured bindings, `std::variant`
-5. **C++20/23** — trazem `concepts`, `ranges`, `modules`, mas o ganho para processamento numérico é marginal. A atualização para C++20 é simples (mudança de uma linha no `CMakeLists.txt`) se necessário
+5. **C++20/23** — trazem `concepts`, `ranges`, `modules`, mas o ganho para processamento numérico é marginal.
 
 ---
 
