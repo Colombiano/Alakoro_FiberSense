@@ -1,0 +1,9 @@
+include README.md
+include CHANGELOG.md
+include LICENSE
+include INSTALL.md
+include USER_GUIDE.md
+include CONTRIBUTING.md
+include requirements.txt
+recursive-include src/events *.json
+recursive-include tests *.py
