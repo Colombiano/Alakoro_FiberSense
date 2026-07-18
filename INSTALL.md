@@ -96,5 +96,5 @@ print(f"   DTS shape: {jt['dts'].shape}")
 ## 📞 Suporte / Support
 
 - 🐛 Issues: [github.com/Colombiano/Alakoro_FiberSense/issues](https://github.com/Colombiano/Alakoro_FiberSense/issues)
-- 📧 Email: seu_email@exemplo.com
+- 📧 Email: veja Issues no GitHub
 - 📖 Documentação: README.md

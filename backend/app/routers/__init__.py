@@ -1,1 +1,0 @@
-# Alakoro FiberSense - Routers

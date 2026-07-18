@@ -17,7 +17,7 @@ fi
 
 # Configurar git (ajuste se necessário)
 git config user.name "Luiz Paulo Colombiano" 2>/dev/null || true
-git config user.email "seu_email@exemplo.com" 2>/dev/null || true
+git config user.email "" 2>/dev/null || true
 
 echo ""
 echo "📋 Arquivos a serem commitados:"

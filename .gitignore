@@ -19,77 +19,22 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Virtual environments
-venv/
-ENV/
-env/
-.venv
+# Jupyter
+.ipynb_checkpoints
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
-
-# Build
-build/
-cmake-build-*/
-*.cmake
-CMakeCache.txt
-CMakeFiles/
-Makefile
-cmake_install.cmake
-compile_commands.json
-CTestTestfile.cmake
-_deps/
-
-# Compiled Dynamic libraries
-*.dll
-*.dylib
-*.exe
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Datasets
-data/raw/
-data/processed/
-*.h5
-*.hdf5
-*.tdms
-*.npy
-*.npz
-
-# Logs
-logs/
-*.log
-
-# Test coverage
-htmlcov/
-.coverage
-.coverage.*
-.coveragerc
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
 
 # OS
 .DS_Store
 Thumbs.db
-desktop.ini
 
-# Documentation
-docs/_build/
-docs/_static/
-docs/_templates/
-
-# Docker
-.docker/
+# Data
+*.h5
+*.hdf5
+*.npz
+*.pkl

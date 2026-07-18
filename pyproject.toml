@@ -9,10 +9,10 @@ description = "Alakoro FiberSense — Plataforma Open-Source Multi-Modal para DF
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Luiz Paulo Colombiano", email = "seu_email@exemplo.com"}
+    {name = "Luiz Paulo Colombiano", email = ""}
 ]
 maintainers = [
-    {name = "Luiz Paulo Colombiano", email = "seu_email@exemplo.com"}
+    {name = "Luiz Paulo Colombiano", email = ""}
 ]
 keywords = [
     "dfos", "das", "dts", "dss", "fiber-optic", "oil-gas", "petroleum",
