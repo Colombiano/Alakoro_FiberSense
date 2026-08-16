@@ -136,6 +136,7 @@ from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Como contribuir / How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Histórico de versões / Version history |
 | [LICENSE](LICENSE) | MIT License |
+| [cronograma/Alakoro_FiberSense_Documento_Integrado_Atualizado.md](cronograma/Alakoro_FiberSense_Documento_Integrado_Atualizado.md) | Cronograma e roadmap atualizado / Updated roadmap |
 
 ---
 
@@ -153,7 +154,8 @@ Alakoro FiberSense v2.2.1
 │   ├── simulation/          # signature_generator.py v4.1
 │   ├── processing/          # lfdas_processor.py v1.1.0
 │   ├── validation/          # signature_validator.py v1.2.1
-│   └── events/              # schema v1.1.0 (18 event types)
+│   ├── events/              # schema v1.1.0 (18 event types)
+│   └── ontology/            # modelo semântico RDF/OWL (v2.3.0)
 │
 ├── 🧪 tests/                # 40+ testes pytest
 ├── 🐳 Dockerfile            # Container Docker

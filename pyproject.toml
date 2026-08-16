@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "alakoro-fibersense"
-version = "2.2.1"
+version = "2.3.0"
 description = "Alakoro FiberSense — Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo / Open-Source Multi-Modal Platform for DFOS in Oil & Gas Wells"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
-    {name = "Luiz Paulo Colombiano", email = ""}
+    {name = "Luiz Paulo Colombiano"}
 ]
 maintainers = [
-    {name = "Luiz Paulo Colombiano", email = ""}
+    {name = "Luiz Paulo Colombiano"}
 ]
 keywords = [
     "dfos", "das", "dts", "dss", "fiber-optic", "oil-gas", "petroleum",
@@ -25,7 +25,6 @@ classifiers = [
     "Intended Audience :: Education",
     "Topic :: Scientific/Engineering :: Physics",
     "Topic :: Scientific/Engineering :: Information Analysis",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -41,6 +40,9 @@ dependencies = [
     "scipy>=1.7.0",
     "matplotlib>=3.4.0",
     "pytest>=7.0.0",
+    "rdflib>=7.0.0",
+    "dascore>=0.1.20",
+    "h5py>=3.7.0",
 ]
 
 [project.optional-dependencies]

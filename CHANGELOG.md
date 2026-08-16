@@ -1,5 +1,36 @@
 # Changelog — Alakoro FiberSense
 
+## v2.3.0 (2026-08-16)
+
+### Adições
+
+#### 1. Módulo de Ontologia (`src/ontology/`)
+- Modelo semântico RDF/OWL para domínio DFOS em poços de petróleo
+- Classes de domínio: `Well`, `Wellbore`, `Completion`, `FiberOpticCable`
+- Classes de sensing: `Interrogator`, `DASMeasurement`, `DTSMeasurement`, `DSSMeasurement`
+- Classes de eventos: `Event`, `JouleThomsonEvent`, `LeakEvent`, `FlowEvent`, `WarmBackEvent`
+- Serialização: Turtle, JSON-LD, OWL/XML
+- Bridge `SignatureOntologyBridge`: converte assinaturas sintéticas em entidades ontológicas
+
+#### 2. Correções de Empacotamento
+- `pyproject.toml`: removidos emails vazios que quebravam build
+- `pyproject.toml`: licença atualizada para formato SPDX (`license = "MIT"`)
+- `setup.py`: removido `use_scm_version` para evitar conflito de versionamento
+- `src/__init__.py`: adicionada função `main()` para entry point CLI
+
+#### 3. CI/CD
+- `.github/workflows/tests.yml`: adicionado job `build` com `python -m build` em todo PR/push
+
+#### 4. Documentação
+- `cronograma/Alakoro_FiberSense_Documento_Integrado_Atualizado.md`: roadmap realizado atualizado para v2.2.1
+- `README.md`: seção de arquitetura atualizada com módulo `ontology/`
+
+### Testes
+- 9 novos testes em `tests/test_ontology.py`
+- Total: 44 testes, todos passando
+
+---
+
 ## v2.2.1 (2026-07-18)
 
 ### Correções Aplicadas (6 issues)
