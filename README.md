@@ -1,4 +1,4 @@
-<h1 align="center">Alakoro FiberSense v2.2.1</h1>
+<h1 align="center">Alakoro FiberSense v2.5.0</h1>
 
 <p align="center">
   <strong>Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo</strong><br/>
@@ -49,18 +49,20 @@ pip install alakoro-fibersense
 
 ---
 
-### ✨ Novidades v2.2.1 / What's New
+### ✨ Novidades v2.5.0 / What's New
 
+- ✅ **C++20 Core** (`alakoro_core`) — DASData, DTSData, DSSData com pybind11 e metaprogramação moderna
+- ✅ **Integração DASDAE** — AlakoroSpool/AlakoroPatch compatíveis com DASCore + adapter Xdas
+- ✅ **Escape Hatches** — NumPy, pandas, xarray, ObsPy
+- ✅ **ProdML/WITSML** — leitura/escrita básica de arquivos Energistics
+- ✅ **Streaming** — monitoramento de diretório e stubs Kafka/MQTT
 - ✅ **15 Assinaturas Canônicas** (M15) — 6 originais + 9 novas
 - ✅ **LF-DAS / eXDTS** (M1) — temperatura de alta taxa (~2s refresh)
-- ✅ **Eventos Semânticos** (M12) — JSON Schema v1.1.0 (18 event types)
-- ✅ **Validador v1.2.1** — detecção de múltiplos picos para crossflow zonal
-- ✅ **Testes Unitários** — pytest com 40+ testes (91.3% validação)
+- ✅ **Ontologia** (`src/ontology`) — modelo RDF/OWL + bridge com assinaturas
+- ✅ **Testes Unitários** — pytest com 71 testes passando
 - ✅ **PyPI** — `pip install alakoro-fibersense`
-- ✅ **Docker** — `docker pull colombiano/alakoro-fibersense`
-- ✅ **CI/CD** — GitHub Actions com testes, lint, build, PyPI e release
+- ✅ **CI/CD** — GitHub Actions com testes, lint, build C++, PyPI e release
 - ✅ **Documentação Bilíngue** — PT + EN em todos os módulos
-- ✅ **Logo Alakoro** — Instrumento sagrado de Ogum entrelaçado com fibra óptica
 
 ---
 

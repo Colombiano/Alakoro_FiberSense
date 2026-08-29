@@ -1,5 +1,46 @@
 # Changelog — Alakoro FiberSense
 
+## v2.5.0 (2026-08-29) — Fase 2: Integração DASDAE
+
+### Adições
+
+#### 1. AlakoroSpool e AlakoroPatch (`src/io/alakoro_spool.py`)
+- Interfaces compatíveis com DASCore Patch/Spool
+- Métodos: `decimate`, `detrend`, `pass_filter`, `taper`, `select`, `convert_units`
+- Iteração, indexação, `map()`, `chunk()`, `update()`
+- Processamento paralelo com `ProcessPoolExecutor`/`ThreadPoolExecutor`
+
+#### 2. Adapter DASDAE (`src/io/dasdae.py`)
+- `DASDAEAdapter`: conversores Alakoro ↔ DASCore Patch/Spool
+- Funções de conveniência: `alakoro_to_dascore`, `dascore_to_alakoro`
+- Stubs para integração Xdas: `alakoro_to_xdas`, `xdas_to_alakoro`
+
+#### 3. Escape Hatches (`src/io/escape_hatches.py`)
+- Conversores para NumPy, pandas DataFrame, xarray DataArray, ObsPy Stream
+- Reversos: `from_numpy`, `from_dataframe`, `from_xarray`, `from_obspy`
+
+#### 4. ProdML e WITSML (`src/io/prodml.py`, `src/io/witsml.py`)
+- Leitura/escrita básica de arquivos ProdML XML
+- Leitura/escrita de logs WITSML
+- Classes `Well`, `Wellbore`, `WITSMLLog`
+
+#### 5. Streaming (`src/io/streaming.py`)
+- `DirectoryWatcher`: monitoramento de diretório
+- `StreamingSpool`: spool atualizável incrementalmente
+- Stubs para Kafka e MQTT
+
+#### 6. Exemplos e Notebooks
+- `examples/basic_io.py`: leitura DAS com Alakoro + DASCore
+- `examples/hybrid_processing.py`: processamento híbrido C++/Python
+- `examples/realtime_monitor.py`: monitoramento de diretório
+- `notebooks/01_dascore_integration.ipynb`: tutorial de integração
+
+### Testes
+- 16 novos testes em `tests/test_io_dasdae.py` e `tests/test_io_formats.py`
+- Total: 71 testes passando, 2 skipped (xarray não instalado)
+
+---
+
 ## v2.4.0 (2026-08-29) — Fase 1: Fundações C++20
 
 ### Adições
