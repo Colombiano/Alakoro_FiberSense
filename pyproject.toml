@@ -1,10 +1,13 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = [
+    "scikit-build-core>=0.9.0",
+    "pybind11>=2.12.0",
+]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "alakoro-fibersense"
-version = "2.3.0"
+version = "2.4.0"
 description = "Alakoro FiberSense — Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo / Open-Source Multi-Modal Platform for DFOS in Oil & Gas Wells"
 readme = "README.md"
 license = "MIT"
@@ -30,6 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: C++",
     "Operating System :: OS Independent",
     "Natural Language :: Portuguese (Brazilian)",
     "Natural Language :: English",
@@ -70,11 +74,16 @@ alakoro = "src.__init__:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["src*", "alakoro_core*"]
 exclude = ["tests*", "install*", "docs*"]
 
 [tool.setuptools.package-data]
 "src.events" = ["*.json"]
+
+[tool.scikit-build]
+cmake.source-dir = "src/cpp"
+cmake.build-type = "Release"
+wheel.packages = ["alakoro_core", "src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

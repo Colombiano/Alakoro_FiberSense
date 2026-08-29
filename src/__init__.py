@@ -7,7 +7,7 @@ Autor/Author: Luiz Paulo Colombiano
 Licença/License: MIT
 """
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 __author__ = "Luiz Paulo Colombiano"
 __license__ = "MIT"
 
@@ -16,6 +16,7 @@ def main():
     """Entry point mínimo da CLI / Minimal CLI entry point."""
     print(f"🎸 Alakoro FiberSense v{__version__}")
     print("Módulos disponíveis / Available modules:")
+    print("  - alakoro_core      (C++20 core: DASData, DTSData, DSSData, processors)")
     print("  - src.simulation    (SignatureGenerator, WellGeometry, AcquisitionConfig)")
     print("  - src.processing    (LFDASProcessor)")
     print("  - src.validation    (SignatureValidator)")

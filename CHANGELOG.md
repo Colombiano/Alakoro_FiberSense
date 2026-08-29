@@ -1,5 +1,33 @@
 # Changelog — Alakoro FiberSense
 
+## v2.4.0 (2026-08-29) — Fase 1: Fundações C++20
+
+### Adições
+
+#### 1. Módulo C++20 core (`alakoro_core/`)
+- Ponte C++20 ↔ Python via pybind11
+- Classes template `DASData`, `DTSData`, `DSSData` com tipos `float` e `double`
+- Metaprogramação moderna:
+  - `concepts` (`NumericScalar`, `FloatingPoint`, `AnySensingData`)
+  - `if constexpr` para especialização por modalidade em tempo de compilação
+  - `std::span` para views zero-copy sobre buffers internos
+  - `std::optional` e `constexpr std::string_view`
+- Buffer protocol: `np.array(data, copy=False)` retorna view NumPy 2D sem cópia
+- Processadores C++20: `detrend`, `demean`, `taper`, `lowpass_iir`, `decimate`
+- Serialização JSON-LD nativa (`to_jsonld()`)
+- Stubs documentados para Avro e Protobuf (futuras integrações)
+
+#### 2. Build e Empacotamento
+- `src/cpp/CMakeLists.txt` com C++20, flags rigorosas e pybind11
+- `pyproject.toml` migrado para `scikit-build-core`
+- Pacote `alakoro_core` exposto em Python
+
+#### 3. Testes
+- 10 novos testes em `tests/test_cpp_core.py`
+- Total: 57 testes, todos passando
+
+---
+
 ## v2.3.0 (2026-08-16)
 
 ### Adições

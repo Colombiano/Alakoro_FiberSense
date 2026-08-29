@@ -1,0 +1,69 @@
+"""
+Alakoro FiberSense — Pacote C++20 core.
+
+Este pacote expõe as estruturas de dados e processadores implementados
+em C++20 com pybind11. O módulo nativo é `_alakoro_core`.
+
+Para facilitar o uso, fornecemos aliases sem sufixo de tipo:
+  - DASData  -> DASData_d (double)
+  - DTSData  -> DTSData_d (double)
+  - DSSData  -> DSSData_d (double)
+"""
+
+from ._alakoro_core import (
+    AcquisitionMetadata,
+    DASData_f,
+    DASData_d,
+    DTSData_f,
+    DTSData_d,
+    DSSData_f,
+    DSSData_d,
+    detrend_f,
+    detrend_d,
+    demean_f,
+    demean_d,
+    taper_f,
+    taper_d,
+    decimate_f,
+    decimate_d,
+    serialize_avro,
+    serialize_protobuf,
+)
+
+# Aliases padrão: precisão double
+DASData = DASData_d
+DTSData = DTSData_d
+DSSData = DSSData_d
+
+# Aliases de processadores padrão: precisão double
+detrend = detrend_d
+demean = demean_d
+taper = taper_d
+decimate = decimate_d
+
+__all__ = [
+    "AcquisitionMetadata",
+    "DASData",
+    "DTSData",
+    "DSSData",
+    "DASData_f",
+    "DASData_d",
+    "DTSData_f",
+    "DTSData_d",
+    "DSSData_f",
+    "DSSData_d",
+    "detrend",
+    "demean",
+    "taper",
+    "decimate",
+    "detrend_f",
+    "detrend_d",
+    "demean_f",
+    "demean_d",
+    "taper_f",
+    "taper_d",
+    "decimate_f",
+    "decimate_d",
+    "serialize_avro",
+    "serialize_protobuf",
+]
