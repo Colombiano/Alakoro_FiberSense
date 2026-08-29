@@ -19,6 +19,9 @@ src/cpp/
 │   ├── concepts.hpp            # Concepts C++20
 │   ├── core.hpp                # SensingData, DASData, DTSData, DSSData
 │   ├── processors.hpp          # detrend, demean, taper, decimate
+│   ├── filters.hpp             # Butterworth lowpass/highpass/bandpass
+│   ├── fft.hpp                 # FFT, magnitude spectrum, PSD
+│   ├── wavelet.hpp             # CWT (Morlet, Ricker)
 │   └── serialization.hpp       # JSON-LD, Avro/Protobuf stubs
 ├── src/
 │   └── bindings.cpp            # Bindings pybind11
@@ -130,11 +133,11 @@ cmake --build . --parallel
 ## Testes
 
 ```bash
-pytest tests/test_cpp_core.py -v
+pytest tests/test_cpp_core.py tests/test_advanced_processors.py -v
 ```
 
 ## Próximos Passos
 
-- Implementar serialização Avro e Protobuf (`-DALAKORO_WITH_AVRO=ON`)
-- Adicionar processadores avançados: pass_filter Butterworth, FFT, wavelets
-- Integrar `alakoro_core` com `src.io.dascore` para conversão zero-copy Alakoro ↔ DASCore Patch
+- [ ] Implementar serialização Avro e Protobuf (`-DALAKORO_WITH_AVRO=ON`)
+- [x] Adicionar processadores avançados: pass_filter Butterworth, FFT, wavelets (concluído na v2.7.0)
+- [ ] Integrar `alakoro_core` com `src.io.dascore` para conversão zero-copy Alakoro ↔ DASCore Patch
