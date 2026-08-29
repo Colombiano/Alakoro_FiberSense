@@ -1,5 +1,36 @@
 # Changelog — Alakoro FiberSense
 
+## v2.7.0 (2026-08-29) — Fase 1/2: Processadores Avançados C++20
+
+### Adições
+
+#### 1. Processadores Avançados em C++20 (`src/cpp/include/alakoro/`)
+- `filters.hpp`: filtros Butterworth de 2ª ordem (lowpass, highpass, bandpass)
+  - Templates com `Order` não-tipo e `if constexpr` para especialização
+  - Cálculo de coeficientes via transformação bilinear
+- `fft.hpp`: FFT, magnitude spectrum e PSD por canal
+  - Implementação iterativa de radix-2 com bit-reversal
+  - Uso de `std::complex`, `std::span` e `std::size_t`
+- `wavelet.hpp`: Transformada Wavelet Contínua (CWT)
+  - Wavelets Morlet (complexa) e Ricker (Mexican Hat)
+  - Convolução circular e normalização L2
+  - Suporte a dados 2D (time, channels)
+
+#### 2. Bindings pybind11 (`src/cpp/src/bindings.cpp`)
+- Expõe filtros Butterworth, magnitude spectrum, PSD e CWT para Python
+- Helpers `vector_to_numpy` e `matrix_to_numpy` para conversão zero-copy/cópia controlada
+
+#### 3. Wrappers Python (`src/processing/advanced_processors.py`)
+- `butterworth_lowpass`, `butterworth_highpass`, `butterworth_bandpass`
+- `magnitude_spectrum`, `psd`, `cwt`
+- Operam sobre `AlakoroPatch` e retornam `AlakoroPatch` ou arrays NumPy
+
+### Testes
+- 8 novos testes em `tests/test_advanced_processors.py`
+- Total: 91 testes passando, 0 skipped
+
+---
+
 ## v2.6.0 (2026-08-29) — Fase 4 (parcial): Machine Learning
 
 ### Adições

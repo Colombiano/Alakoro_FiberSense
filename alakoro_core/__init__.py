@@ -26,6 +26,15 @@ from ._alakoro_core import (
     taper_d,
     decimate_f,
     decimate_d,
+    butterworth_lowpass_f,
+    butterworth_lowpass_d,
+    butterworth_highpass_f,
+    butterworth_highpass_d,
+    butterworth_bandpass_f,
+    butterworth_bandpass_d,
+    magnitude_spectrum_d,
+    psd_d,
+    cwt_d,
     serialize_avro,
     serialize_protobuf,
 )
@@ -40,6 +49,12 @@ detrend = detrend_d
 demean = demean_d
 taper = taper_d
 decimate = decimate_d
+butterworth_lowpass = butterworth_lowpass_d
+butterworth_highpass = butterworth_highpass_d
+butterworth_bandpass = butterworth_bandpass_d
+magnitude_spectrum = magnitude_spectrum_d
+psd = psd_d
+cwt = cwt_d
 
 __all__ = [
     "AcquisitionMetadata",
@@ -56,6 +71,12 @@ __all__ = [
     "demean",
     "taper",
     "decimate",
+    "butterworth_lowpass",
+    "butterworth_highpass",
+    "butterworth_bandpass",
+    "magnitude_spectrum",
+    "psd",
+    "cwt",
     "detrend_f",
     "detrend_d",
     "demean_f",
@@ -64,6 +85,15 @@ __all__ = [
     "taper_d",
     "decimate_f",
     "decimate_d",
+    "butterworth_lowpass_f",
+    "butterworth_lowpass_d",
+    "butterworth_highpass_f",
+    "butterworth_highpass_d",
+    "butterworth_bandpass_f",
+    "butterworth_bandpass_d",
+    "magnitude_spectrum_d",
+    "psd_d",
+    "cwt_d",
     "serialize_avro",
     "serialize_protobuf",
 ]

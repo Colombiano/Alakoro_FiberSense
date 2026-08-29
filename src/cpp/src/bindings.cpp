@@ -8,8 +8,11 @@
  */
 
 #include "alakoro/core.hpp"
+#include "alakoro/filters.hpp"
+#include "alakoro/fft.hpp"
 #include "alakoro/processors.hpp"
 #include "alakoro/serialization.hpp"
+#include "alakoro/wavelet.hpp"
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -21,6 +24,40 @@
 
 namespace py = pybind11;
 using namespace alakoro;
+
+/**
+ * @brief Converte std::vector<T> para numpy array 1D sem cópia.
+ *
+ * pybind11 pode fazer isso automaticamente com py::array_t, mas criamos
+ * um helper para garantir controle do dtype e do ownership.
+ */
+template <typename T>
+py::array_t<T> vector_to_numpy(const std::vector<T>& vec) {
+    return py::array_t<T>(
+        {vec.size()},
+        {sizeof(T)},
+        vec.data(),
+        py::cast(vec)  // pybind11 gerencia o lifetime do vetor
+    );
+}
+
+/**
+ * @brief Converte std::vector<std::vector<T>> para numpy array 2D.
+ */
+template <typename T>
+py::array_t<T> matrix_to_numpy(const std::vector<std::vector<T>>& mat) {
+    if (mat.empty()) {
+        return py::array_t<T>({0, 0}, static_cast<T*>(nullptr));
+    }
+    const std::size_t rows = mat.size();
+    const std::size_t cols = mat[0].size();
+    std::vector<T> flat;
+    flat.reserve(rows * cols);
+    for (const auto& row : mat) {
+        flat.insert(flat.end(), row.begin(), row.end());
+    }
+    return py::array_t<T>({rows, cols}, flat.data());
+}
 
 /**
  * @brief Registra uma classe SensingData<T, M> no módulo Python.
@@ -97,17 +134,6 @@ void bind_metadata(py::module& m) {
         });
 }
 
-/**
- * @brief Helpers para processadores funcionarem com SensingData via Python.
- */
-template <NumericScalar T, SensingModality M>
-void bind_processor_overloads(py::module& m) {
-    using DataT = SensingData<T, M>;
-
-    // Nota: não sobrecarregamos o nome global aqui para evitar ambiguidade.
-    // Em Python usamos alakoro_core.detrend_das(data), etc.
-}
-
 PYBIND11_MODULE(_alakoro_core, m) {
     m.doc() = "Alakoro FiberSense — C++20 core extension";
 
@@ -170,6 +196,96 @@ PYBIND11_MODULE(_alakoro_core, m) {
           },
           py::arg("data"), py::arg("factor"),
           "Decimate DAS double data by factor");
+
+    // ─── Filtros avançados ───
+    m.def("butterworth_lowpass_f",
+          [](SensingData<float, SensingModality::DAS>& d, double fs, double fc) {
+              alakoro::filters::butterworth_lowpass<float, 2>(
+                  d.data(), d.n_times(), d.n_channels(), fs, fc);
+          },
+          py::arg("data"), py::arg("sample_rate_hz"), py::arg("cutoff_hz"),
+          "Apply 2nd-order Butterworth lowpass filter (float)");
+
+    m.def("butterworth_lowpass_d",
+          [](SensingData<double, SensingModality::DAS>& d, double fs, double fc) {
+              alakoro::filters::butterworth_lowpass<double, 2>(
+                  d.data(), d.n_times(), d.n_channels(), fs, fc);
+          },
+          py::arg("data"), py::arg("sample_rate_hz"), py::arg("cutoff_hz"),
+          "Apply 2nd-order Butterworth lowpass filter (double)");
+
+    m.def("butterworth_highpass_f",
+          [](SensingData<float, SensingModality::DAS>& d, double fs, double fc) {
+              alakoro::filters::butterworth_highpass<float, 2>(
+                  d.data(), d.n_times(), d.n_channels(), fs, fc);
+          },
+          py::arg("data"), py::arg("sample_rate_hz"), py::arg("cutoff_hz"),
+          "Apply 2nd-order Butterworth highpass filter (float)");
+
+    m.def("butterworth_highpass_d",
+          [](SensingData<double, SensingModality::DAS>& d, double fs, double fc) {
+              alakoro::filters::butterworth_highpass<double, 2>(
+                  d.data(), d.n_times(), d.n_channels(), fs, fc);
+          },
+          py::arg("data"), py::arg("sample_rate_hz"), py::arg("cutoff_hz"),
+          "Apply 2nd-order Butterworth highpass filter (double)");
+
+    m.def("butterworth_bandpass_f",
+          [](SensingData<float, SensingModality::DAS>& d, double fs, double f1, double f2) {
+              alakoro::filters::butterworth_bandpass<float, 2>(
+                  d.data(), d.n_times(), d.n_channels(), fs, f1, f2);
+          },
+          py::arg("data"), py::arg("sample_rate_hz"), py::arg("low_hz"), py::arg("high_hz"),
+          "Apply 2nd-order Butterworth bandpass filter (float)");
+
+    m.def("butterworth_bandpass_d",
+          [](SensingData<double, SensingModality::DAS>& d, double fs, double f1, double f2) {
+              alakoro::filters::butterworth_bandpass<double, 2>(
+                  d.data(), d.n_times(), d.n_channels(), fs, f1, f2);
+          },
+          py::arg("data"), py::arg("sample_rate_hz"), py::arg("low_hz"), py::arg("high_hz"),
+          "Apply 2nd-order Butterworth bandpass filter (double)");
+
+    // ─── FFT e PSD ───
+    m.def("magnitude_spectrum_d",
+          [](const SensingData<double, SensingModality::DAS>& d) {
+              auto spec = alakoro::fft::magnitude_spectrum<double>(
+                  d.data(), d.n_times(), d.n_channels());
+              return vector_to_numpy(spec);
+          },
+          "Compute magnitude spectrum per channel (double)");
+
+    m.def("psd_d",
+          [](const SensingData<double, SensingModality::DAS>& d, double fs) {
+              auto spec = alakoro::fft::psd<double>(
+                  d.data(), d.n_times(), d.n_channels(), fs);
+              return vector_to_numpy(spec);
+          },
+          py::arg("data"), py::arg("sample_rate_hz"),
+          "Compute power spectral density per channel (double)");
+
+    // ─── Wavelet CWT ───
+    m.def("cwt_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             const std::vector<double>& scales,
+             double sample_rate_hz,
+             const std::string& wavelet_name) {
+              auto type = alakoro::wavelet::WaveletType::Morlet;
+              if (wavelet_name == "ricker") {
+                  type = alakoro::wavelet::WaveletType::Ricker;
+              }
+              auto coefs = alakoro::wavelet::cwt_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), scales, sample_rate_hz, type);
+              // Retorna lista de arrays 2D (um por canal)
+              py::list result;
+              for (const auto& channel_coefs : coefs) {
+                  result.append(matrix_to_numpy(channel_coefs));
+              }
+              return result;
+          },
+          py::arg("data"), py::arg("scales"), py::arg("sample_rate_hz"),
+          py::arg("wavelet") = "morlet",
+          "Compute CWT per channel (double). Returns list of (n_scales, n_times) arrays.");
 
     // ─── Serialização stubs ───
     m.def("serialize_avro", []() {
