@@ -37,7 +37,8 @@
 
 ### Testes
 - 16 novos testes em `tests/test_io_dasdae.py` e `tests/test_io_formats.py`
-- Total: 71 testes passando, 2 skipped (xarray não instalado)
+- Total: 72 testes passando, 1 skipped (xdas não instalado)
+- Dependências adicionadas: `xarray`, `pandas`, `obspy`
 
 ---
 
