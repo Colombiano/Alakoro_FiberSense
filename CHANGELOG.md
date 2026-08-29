@@ -1,5 +1,29 @@
 # Changelog — Alakoro FiberSense
 
+## v2.6.0 (2026-08-29) — Fase 4 (parcial): Machine Learning
+
+### Adições
+
+#### 1. Módulo de Machine Learning (`src/ml/`)
+- `data.py`: `DASDataset`, `DASDataLoader` e `split_dataset`
+- `features.py`: `DASFeatureExtractor` com estatísticas, PSD, wavelet e features DAS específicas
+- `models.py`: `EventCNN` (classificação), `UNet2D` (segmentação), `FlowRegressor` (fluxo)
+- `train.py`: `Trainer` com early stopping, LR scheduling e checkpoints
+- `eval.py`: métricas de classificação (accuracy, precision, recall, F1, ROC-AUC, PR-AUC)
+- `api.py`: `predict_event`, `predict_segmentation`, `predict_flow`, `load_model_for_inference`
+- `bridge.py`: `MLOntoBridge` integra predições à ontologia
+
+#### 2. Exemplos e Notebooks
+- `examples/ml_training.py`: treinamento de CNN com dados sintéticos
+- `notebooks/02_ml_training.ipynb`: tutorial de treinamento
+
+### Testes
+- 10 novos testes em `tests/test_ml.py`
+- Total: 83 testes passando, 0 skipped
+- Dependências adicionadas: `torch`, `torchvision`, `scikit-learn`
+
+---
+
 ## v2.5.0 (2026-08-29) — Fase 2: Integração DASDAE
 
 ### Adições

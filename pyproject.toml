@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "alakoro-fibersense"
-version = "2.5.0"
+version = "2.6.0"
 description = "Alakoro FiberSense — Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo / Open-Source Multi-Modal Platform for DFOS in Oil & Gas Wells"
 readme = "README.md"
 license = "MIT"
@@ -51,6 +51,9 @@ dependencies = [
     "h5py>=3.7.0",
     "obspy>=1.3.0",
     "xdas>=0.2.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "scikit-learn>=1.0.0",
 ]
 
 [project.optional-dependencies]
