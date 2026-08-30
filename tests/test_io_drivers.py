@@ -179,20 +179,20 @@ def test_fallback_read_uses_xdas_or_dascore(tmp_path: Path):
     """Fallback deve tentar Xdas/DASCore quando nenhum driver corresponder."""
     path = tmp_path / "fallback.nc"
 
-    # Cria um NetCDF simples via xdas para testar fallback
+    # Cria um NetCDF compatível via write_xdas para testar fallback
     try:
-        import xdas
+        import numpy as np
 
-        da = xdas.DataArray(
-            xdas.VirtualArray(shape=(4, 8)),
-            coords={
-                "distance": xdas.Coordinate(np.array([0, 1, 2, 3]), "distance"),
-                "time": xdas.Coordinate(np.array([0, 1, 2, 3, 4, 5, 6, 7]), "time"),
-            },
-        )
-        xdas.to_netcdf(da, path)
+        from src.io.alakoro_spool import AlakoroPatch
+        from src.io.dasdae import DASDAEAdapter
+        from src.io.xdas_formats import write_xdas
+
+        data = np.random.randn(8, 4).astype(np.float64)
+        dc_patch = DASDAEAdapter.array_to_patch(data, modality="das", dt_s=1.0, dx_m=1.0)
+        patch = AlakoroPatch(dc_patch, modality="das")
+        write_xdas(patch, path, engine="netcdf")
     except Exception as exc:
-        pytest.skip(f"Could not create xdas fallback fixture: {exc}")
+        pytest.skip(f"Could not create fallback fixture: {exc}")
 
     result = read_vendor(path)
     assert result is not None
