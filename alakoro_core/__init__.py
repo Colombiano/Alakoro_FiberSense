@@ -38,6 +38,10 @@ from ._alakoro_core import (
     sta_lta_d,
     hilbert_envelope_d,
     teager_kaiser_d,
+    median_filter_1d_d,
+    median_filter_2d_d,
+    svd_denoise_d,
+    wavelet_denoise_d,
     serialize_avro,
     serialize_protobuf,
 )
@@ -61,6 +65,10 @@ cwt = cwt_d
 sta_lta = sta_lta_d
 hilbert_envelope = hilbert_envelope_d
 teager_kaiser = teager_kaiser_d
+median_filter_1d = median_filter_1d_d
+median_filter_2d = median_filter_2d_d
+svd_denoise = svd_denoise_d
+wavelet_denoise = wavelet_denoise_d
 
 __all__ = [
     "AcquisitionMetadata",
@@ -92,6 +100,14 @@ __all__ = [
     "sta_lta_d",
     "hilbert_envelope_d",
     "teager_kaiser_d",
+    "median_filter_1d",
+    "median_filter_2d",
+    "svd_denoise",
+    "wavelet_denoise",
+    "median_filter_1d_d",
+    "median_filter_2d_d",
+    "svd_denoise_d",
+    "wavelet_denoise_d",
     "detrend_f",
     "detrend_d",
     "demean_f",

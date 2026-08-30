@@ -8,6 +8,7 @@
  */
 
 #include "alakoro/core.hpp"
+#include "alakoro/denoising.hpp"
 #include "alakoro/event_detection.hpp"
 #include "alakoro/filters.hpp"
 #include "alakoro/fft.hpp"
@@ -317,6 +318,49 @@ PYBIND11_MODULE(_alakoro_core, m) {
           },
           py::arg("data"),
           "Compute Teager-Kaiser energy operator per channel (double).");
+
+    // ─── Denoising ───
+    m.def("median_filter_1d_d",
+          [](const SensingData<double, SensingModality::DAS>& d, std::size_t window_size) {
+              auto filtered = alakoro::denoising::median_filter_1d_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), window_size);
+              return vector_to_numpy(filtered);
+          },
+          py::arg("data"), py::arg("window_size"),
+          "Apply 1D median filter per channel (double).");
+
+    m.def("median_filter_2d_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             std::size_t window_t, std::size_t window_c) {
+              auto filtered = alakoro::denoising::median_filter_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), window_t, window_c);
+              return vector_to_numpy(filtered);
+          },
+          py::arg("data"), py::arg("window_t"), py::arg("window_c"),
+          "Apply 2D median filter (double).");
+
+    m.def("svd_denoise_d",
+          [](const SensingData<double, SensingModality::DAS>& d, std::size_t n_components) {
+              auto denoised = alakoro::denoising::svd_denoise<double>(
+                  d.data(), d.n_times(), d.n_channels(), n_components);
+              return vector_to_numpy(denoised);
+          },
+          py::arg("data"), py::arg("n_components"),
+          "Denoise using SVD/PCA keeping n_components principal components (double).");
+
+    m.def("wavelet_denoise_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             const std::vector<double>& scales,
+             double sample_rate_hz,
+             double threshold,
+             const std::string& rule) {
+              auto denoised = alakoro::denoising::wavelet_denoise_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), scales, sample_rate_hz, threshold, rule);
+              return vector_to_numpy(denoised);
+          },
+          py::arg("data"), py::arg("scales"), py::arg("sample_rate_hz"),
+          py::arg("threshold"), py::arg("rule") = "soft",
+          "Wavelet thresholding denoising per channel using Morlet CWT (double).");
 
     // ─── Serialização stubs ───
     m.def("serialize_avro", []() {

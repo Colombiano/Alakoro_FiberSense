@@ -14,9 +14,13 @@ from alakoro_core import (
     butterworth_lowpass,
     cwt,
     hilbert_envelope,
+    median_filter_1d,
+    median_filter_2d,
     psd,
+    svd_denoise,
     sta_lta,
     teager_kaiser,
+    wavelet_denoise,
 )
 
 from src.io.alakoro_spool import AlakoroPatch
@@ -27,9 +31,13 @@ from src.processing.advanced_processors import (
     butterworth_lowpass as py_lowpass,
     cwt as py_cwt,
     hilbert_envelope as py_hilbert,
+    median_filter_1d as py_median_1d,
+    median_filter_2d as py_median_2d,
     psd as py_psd,
+    svd_denoise as py_svd_denoise,
     sta_lta as py_sta_lta,
     teager_kaiser as py_tkeo,
+    wavelet_denoise as py_wavelet_denoise,
 )
 
 
@@ -158,3 +166,56 @@ def test_python_wrappers_event_detection():
     assert np.all(envelope >= 0)
     energy = py_tkeo(patch)
     assert energy.size == 128 * 4
+
+
+def test_median_filter_1d_removes_spike():
+    n_t = 64
+    n_c = 2
+    data = np.random.randn(n_t, n_c) * 0.1
+    data[32, 0] = 100.0  # spike
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    filtered = median_filter_1d(das, window_size=5)
+    filtered_2d = filtered.reshape(n_t, n_c)
+    # O spike deve ser drasticamente atenuado
+    assert filtered_2d[32, 0] < 50.0
+    assert filtered_2d.shape == (n_t, n_c)
+
+
+def test_median_filter_2d_shape():
+    das = _make_das(32, 8)
+    filtered = median_filter_2d(das, window_t=3, window_c=3)
+    assert filtered.size == 32 * 8
+
+
+def test_svd_denoise_preserves_shape():
+    das = _make_das(32, 8)
+    denoised = svd_denoise(das, n_components=4)
+    assert denoised.size == 32 * 8
+
+
+def test_wavelet_denoise_reduces_noise():
+    n_t = 128
+    n_c = 2
+    t = np.linspace(0, 1, n_t)
+    data = np.sin(2 * np.pi * 20 * t).reshape(-1, 1) + np.random.randn(n_t, n_c) * 0.5
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    denoised = wavelet_denoise(das, scales=[1.0, 2.0, 4.0], sample_rate_hz=1000.0, threshold=0.5, rule="soft")
+    denoised_2d = denoised.reshape(n_t, n_c)
+    # O ruído deve ser reduzido (variância menor)
+    assert np.var(denoised_2d) < np.var(data)
+
+
+def test_python_wrappers_denoising():
+    patch = _make_patch(64, 4)
+    filtered = py_median_1d(patch, window_size=5)
+    assert filtered.shape == (64, 4)
+    filtered2 = py_median_2d(patch, window_t=3, window_c=3)
+    assert filtered2.shape == (64, 4)
+    denoised = py_svd_denoise(patch, n_components=2)
+    assert denoised.shape == (64, 4)
+    denoised_wav = py_wavelet_denoise(patch, scales=[1.0, 2.0], sample_rate_hz=1000.0, threshold=0.5)
+    assert denoised_wav.shape == (64, 4)

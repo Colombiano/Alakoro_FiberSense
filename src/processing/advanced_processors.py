@@ -23,9 +23,13 @@ from alakoro_core import (
     cwt as _cwt,
     hilbert_envelope as _hilbert_envelope,
     magnitude_spectrum as _magnitude_spectrum,
+    median_filter_1d as _median_filter_1d,
+    median_filter_2d as _median_filter_2d,
     psd as _psd,
+    svd_denoise as _svd_denoise,
     sta_lta as _sta_lta,
     teager_kaiser as _teager_kaiser,
+    wavelet_denoise as _wavelet_denoise,
 )
 
 from src.io.alakoro_spool import AlakoroPatch
@@ -150,6 +154,56 @@ def teager_kaiser(patch: AlakoroPatch) -> np.ndarray:
     return _teager_kaiser(das)
 
 
+def median_filter_1d(patch: AlakoroPatch, window_size: int) -> AlakoroPatch:
+    """Aplica filtro de mediana 1D por canal."""
+    das = _patch_to_dasdata(patch)
+    filtered = _median_filter_1d(das, window_size)
+    from src.io.dasdae import DASDAEAdapter
+    new_patch = DASDAEAdapter.array_to_patch(
+        filtered.reshape(das.n_times, das.n_channels), modality=patch.modality
+    )
+    return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
+
+
+def median_filter_2d(patch: AlakoroPatch,
+                     window_t: int,
+                     window_c: int) -> AlakoroPatch:
+    """Aplica filtro de mediana 2D (tempo x canais)."""
+    das = _patch_to_dasdata(patch)
+    filtered = _median_filter_2d(das, window_t, window_c)
+    from src.io.dasdae import DASDAEAdapter
+    new_patch = DASDAEAdapter.array_to_patch(
+        filtered.reshape(das.n_times, das.n_channels), modality=patch.modality
+    )
+    return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
+
+
+def svd_denoise(patch: AlakoroPatch, n_components: int) -> AlakoroPatch:
+    """Denoising por SVD/PCA mantendo n_components componentes principais."""
+    das = _patch_to_dasdata(patch)
+    denoised = _svd_denoise(das, n_components)
+    from src.io.dasdae import DASDAEAdapter
+    new_patch = DASDAEAdapter.array_to_patch(
+        denoised.reshape(das.n_times, das.n_channels), modality=patch.modality
+    )
+    return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
+
+
+def wavelet_denoise(patch: AlakoroPatch,
+                    scales: List[float],
+                    sample_rate_hz: float,
+                    threshold: float,
+                    rule: str = "soft") -> AlakoroPatch:
+    """Denoising por thresholding de coeficientes wavelet (Morlet)."""
+    das = _patch_to_dasdata(patch)
+    denoised = _wavelet_denoise(das, scales, sample_rate_hz, threshold, rule)
+    from src.io.dasdae import DASDAEAdapter
+    new_patch = DASDAEAdapter.array_to_patch(
+        denoised.reshape(das.n_times, das.n_channels), modality=patch.modality
+    )
+    return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
+
+
 __all__ = [
     "butterworth_lowpass",
     "butterworth_highpass",
@@ -160,4 +214,8 @@ __all__ = [
     "sta_lta",
     "hilbert_envelope",
     "teager_kaiser",
+    "median_filter_1d",
+    "median_filter_2d",
+    "svd_denoise",
+    "wavelet_denoise",
 ]
