@@ -61,7 +61,7 @@ pip install alakoro-fibersense
 - ✅ **15 Assinaturas Canônicas** (M15) — 6 originais + 9 novas
 - ✅ **LF-DAS / eXDTS** (M1) — temperatura de alta taxa (~2s refresh)
 - ✅ **Ontologia** (`src/ontology`) — modelo RDF/OWL + bridge com assinaturas
-- ✅ **Testes Unitários** — pytest com 91 testes passando
+- ✅ **Testes Unitários** — pytest com 93 testes passando
 - ✅ **PyPI** — `pip install alakoro-fibersense`
 - ✅ **CI/CD** — GitHub Actions com testes, lint, build C++, PyPI e release
 - ✅ **Documentação Bilíngue** — PT + EN em todos os módulos

@@ -25,9 +25,21 @@
 - `magnitude_spectrum`, `psd`, `cwt`
 - Operam sobre `AlakoroPatch` e retornam `AlakoroPatch` ou arrays NumPy
 
+#### 4. Integração com processadores existentes
+- `LFDASProcessor` (`src/processing/lfdas_processor.py`):
+  - Novo parâmetro `use_cpp_backend` para usar filtro Butterworth C++20
+  - Backend scipy permanece como padrão para compatibilidade
+- `SignatureValidator` (`src/validation/signature_validator.py`):
+  - Novo parâmetro `advanced_checks` para ativar validações por PSD e CWT
+  - Detecta conteúdo de frequência e transientes no sinal DAS
+
+#### 5. Notebook de exemplos
+- `notebooks/03_advanced_processors.ipynb`: Butterworth, FFT/PSD, CWT, LF-DAS C++ e validação avançada
+
 ### Testes
 - 8 novos testes em `tests/test_advanced_processors.py`
-- Total: 91 testes passando, 0 skipped
+- 2 novos testes em `tests/test_alakoro_fibersense.py` para backend C++ e validação avançada
+- Total: 93 testes passando, 0 skipped
 
 ---
 

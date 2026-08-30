@@ -203,6 +203,15 @@ class TestLFDASProcessor:
         dtdz = lfdas.compute_dtdz(result['temperature'], well.depth_array)
         assert dtdz.shape == result['temperature'].shape
 
+    def test_cpp_backend_lowpass_shape(self, generator):
+        lfdas_cpp = LFDASProcessor(
+            cutoff_hz=1.0, refresh_rate_target_s=2.0, use_cpp_backend=True
+        )
+        sig = generator.generate_joule_thomson()
+        result = lfdas_cpp.process(sig['das'], trace_interval_s=2.0)
+        assert result['temperature'].shape[1] == sig['das'].shape[1]
+        assert result['metadata']['cpp_backend'] is True
+
 
 # ═══════════════════════════════════════════════════════════
 # TESTES DE VALIDAÇÃO / VALIDATOR TESTS
@@ -256,6 +265,16 @@ class TestSignatureValidator:
         gradient_tests = [t for t in result['tests'] if 'Gradiente' in t['message']]
         assert len(gradient_tests) > 0
         assert gradient_tests[0]['passed']
+
+    def test_advanced_checks_frequency_and_transient(self, generator, validator):
+        sig = generator.generate_valve_chatter(valve_depth=1400.0)
+        result = validator.validate_signature(
+            sig, advanced_checks=True, sample_rate_hz=1000.0
+        )
+        psd_tests = [t for t in result['tests'] if 'PSD' in t['message']]
+        cwt_tests = [t for t in result['tests'] if 'CWT' in t['message']]
+        assert len(psd_tests) > 0
+        assert len(cwt_tests) > 0
 
 
 # ═══════════════════════════════════════════════════════════

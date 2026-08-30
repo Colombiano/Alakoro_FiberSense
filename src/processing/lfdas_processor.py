@@ -25,6 +25,10 @@ from scipy import signal as scipy_signal
 from scipy.ndimage import gaussian_filter1d
 from typing import Dict
 
+from src.io.alakoro_spool import AlakoroPatch
+from src.io.dasdae import DASDAEAdapter
+from src.processing.advanced_processors import butterworth_lowpass as cpp_lowpass
+
 
 class LFDASProcessor:
     """
@@ -43,7 +47,8 @@ class LFDASProcessor:
         filter_order: int = 4,
         sampling_rate_hz: float = 1000.0,
         refresh_rate_target_s: float = 2.0,
-        spatial_smooth_sigma: float = 2.0
+        spatial_smooth_sigma: float = 2.0,
+        use_cpp_backend: bool = False
     ):
         """
         Args:
@@ -52,12 +57,14 @@ class LFDASProcessor:
             sampling_rate_hz: Taxa de amostragem original do DAS / Original DAS sampling rate
             refresh_rate_target_s: Taxa de refresh desejada (padrão: 2.0s) / Target refresh rate (default: 2.0s)
             spatial_smooth_sigma: Sigma do suavizamento espacial Gaussian / Gaussian spatial smoothing sigma
+            use_cpp_backend: Se True, usa o filtro Butterworth C++20 do alakoro_core / If True, use alakoro_core C++20 Butterworth filter
         """
         self.cutoff_hz = cutoff_hz
         self.filter_order = filter_order
         self.sampling_rate_hz = sampling_rate_hz
         self.refresh_rate_target_s = refresh_rate_target_s
         self.spatial_smooth_sigma = spatial_smooth_sigma
+        self.use_cpp_backend = use_cpp_backend
 
         # Calcular decimation factor automaticamente / Auto-calculate decimation factor
         self.decimation_factor = int(sampling_rate_hz * refresh_rate_target_s)
@@ -79,9 +86,19 @@ class LFDASProcessor:
         """Pipeline LF-DAS completo / Complete LF-DAS pipeline"""
         n_t, n_z = das_data.shape
 
-        filtered = np.zeros_like(das_data)
-        for z in range(n_z):
-            filtered[:, z] = scipy_signal.filtfilt(self.b, self.a, das_data[:, z])
+        if self.use_cpp_backend:
+            # Backend C++20: filtro Butterworth de 2ª ordem do alakoro_core
+            patch = DASDAEAdapter.array_to_patch(das_data.astype(np.float64), modality="das")
+            patch = AlakoroPatch(patch, modality="das")
+            filtered_patch = cpp_lowpass(
+                patch, sample_rate_hz=self.sampling_rate_hz, cutoff_hz=self.cutoff_hz
+            )
+            filtered = filtered_patch.data
+        else:
+            # Backend scipy: filtro Butterworth de ordem configurável
+            filtered = np.zeros_like(das_data)
+            for z in range(n_z):
+                filtered[:, z] = scipy_signal.filtfilt(self.b, self.a, das_data[:, z])
 
         decimated = filtered[::self.decimation_factor, :]
 
@@ -97,6 +114,17 @@ class LFDASProcessor:
         time_original = np.arange(n_t) * trace_interval_s
         time_decimated = time_original[::self.decimation_factor]
 
+        method = (
+            'LF-DAS Butterworth C++20 <1Hz + decimation'
+            if self.use_cpp_backend
+            else 'LF-DAS Butterworth IIR <1Hz + decimation'
+        )
+        method_pt = (
+            'LF-DAS Butterworth C++20 <1Hz + decimação'
+            if self.use_cpp_backend
+            else 'LF-DAS Butterworth IIR <1Hz + decimação'
+        )
+
         return {
             'temperature': temperature,
             'time_s': time_decimated,
@@ -104,14 +132,15 @@ class LFDASProcessor:
             'refresh_rate_s': self.refresh_rate_s,
             'cutoff_hz': self.cutoff_hz,
             'metadata': {
-                'method': 'LF-DAS Butterworth IIR <1Hz + decimation',
-                'method_pt': 'LF-DAS Butterworth IIR <1Hz + decimação',
+                'method': method,
+                'method_pt': method_pt,
                 'original_sampling_hz': self.sampling_rate_hz,
                 'decimated_sampling_hz': self.sampling_rate_hz / self.decimation_factor,
                 'thermal_coefficient': thermal_coefficient,
                 'spatial_smooth_sigma': self.spatial_smooth_sigma,
                 'refresh_rate_target_s': self.refresh_rate_target_s,
                 'refresh_rate_actual_s': self.refresh_rate_s,
+                'cpp_backend': self.use_cpp_backend,
             }
         }
 

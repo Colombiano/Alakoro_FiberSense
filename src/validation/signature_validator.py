@@ -18,6 +18,10 @@ import numpy as np
 from typing import Dict, Tuple, List, Optional
 from scipy.signal import find_peaks
 
+from src.io.alakoro_spool import AlakoroPatch
+from src.io.dasdae import DASDAEAdapter
+from src.processing.advanced_processors import psd as cpp_psd, cwt as cpp_cwt
+
 
 class SignatureValidator:
     """Validador de assinaturas sintéticas / Synthetic signature validator"""
@@ -196,7 +200,61 @@ class SignatureValidator:
 
         return True, f"{name}: LF-DAS OK (refresh={refresh:.2f}s, pertΔT={temp_range:.2e}°C) ✓"
 
-    def validate_signature(self, sig_data: Dict, lfdas_result: Dict = None) -> Dict:
+    def _check_frequency_content(self, das: np.ndarray,
+                                  sample_rate_hz: float = 1000.0,
+                                  min_freq_hz: float = 1.0,
+                                  max_freq_hz: float = 100.0,
+                                  name: str = "DAS") -> Tuple[bool, str]:
+        """
+        Verifica se há energia significativa na banda de frequência esperada
+        usando PSD do alakoro_core.
+        """
+        try:
+            patch = DASDAEAdapter.array_to_patch(das.astype(np.float64), modality="das")
+            patch = AlakoroPatch(patch, modality="das")
+            spec = cpp_psd(patch, sample_rate_hz=sample_rate_hz)
+            n_freq = das.shape[0] // 2 + 1
+            freqs = np.linspace(0, sample_rate_hz / 2, n_freq)
+            band_mask = (freqs >= min_freq_hz) & (freqs <= max_freq_hz)
+            band_energy = np.sum(spec.reshape(n_freq, -1)[band_mask, :])
+            total_energy = np.sum(spec)
+            if total_energy < 1e-20:
+                return True, f"{name}: PSD sem energia significativa"
+            ratio = band_energy / total_energy
+            if ratio > 0.1:
+                return True, f"{name}: {ratio*100:.1f}% da energia na banda {min_freq_hz}-{max_freq_hz}Hz ✓"
+            return False, f"{name}: apenas {ratio*100:.1f}% da energia na banda esperada"
+        except Exception as e:
+            return False, f"{name}: falha no cálculo de PSD ({e})"
+
+    def _check_transient_presence(self, das: np.ndarray,
+                                   sample_rate_hz: float = 1000.0,
+                                   scales: List[float] = None,
+                                   name: str = "DAS") -> Tuple[bool, str]:
+        """
+        Usa CWT para verificar a presença de transientes localizados no tempo.
+        Útil para assinaturas como valve chatter, slugging e leaks.
+        """
+        if scales is None:
+            scales = [1.0, 2.0, 4.0, 8.0]
+        try:
+            patch = DASDAEAdapter.array_to_patch(das.astype(np.float64), modality="das")
+            patch = AlakoroPatch(patch, modality="das")
+            coefs = cpp_cwt(patch, scales=scales, sample_rate_hz=sample_rate_hz, wavelet="morlet")
+            max_energy = max(np.max(c) for c in coefs)
+            mean_energy = np.mean([np.mean(c) for c in coefs])
+            if mean_energy < 1e-20:
+                return True, f"{name}: CWT sem energia significativa"
+            ratio = max_energy / mean_energy
+            if ratio > 5.0:
+                return True, f"{name}: transientes detectados (CWT max/mean={ratio:.1f}) ✓"
+            return False, f"{name}: poucos transientes detectados (CWT max/mean={ratio:.1f})"
+        except Exception as e:
+            return False, f"{name}: falha no cálculo de CWT ({e})"
+
+    def validate_signature(self, sig_data: Dict, lfdas_result: Dict = None,
+                           advanced_checks: bool = False,
+                           sample_rate_hz: float = 1000.0) -> Dict:
         sig_type = sig_data['signature_type']
         params = sig_data['parameters']
         dts = sig_data['dts']
@@ -263,6 +321,12 @@ class SignatureValidator:
         if lfdas_result is not None:
             tests.append(self._check_lfdas_output(lfdas_result, "LF-DAS"))
 
+        if advanced_checks and das is not None and np.any(das != 0):
+            tests.append(self._check_frequency_content(
+                das, sample_rate_hz=sample_rate_hz, name="DAS (PSD)"))
+            tests.append(self._check_transient_presence(
+                das, sample_rate_hz=sample_rate_hz, name="DAS (CWT)"))
+
         for passed, msg in tests:
             results['tests'].append({'passed': passed, 'message': msg})
             if passed:
@@ -275,7 +339,9 @@ class SignatureValidator:
 
         return results
 
-    def run_full_validation(self, signatures: Dict, lfdas_processor=None) -> List[Dict]:
+    def run_full_validation(self, signatures: Dict, lfdas_processor=None,
+                            advanced_checks: bool = False,
+                            sample_rate_hz: float = 1000.0) -> List[Dict]:
         all_results = []
 
         print("="*70)
@@ -296,7 +362,11 @@ class SignatureValidator:
                 except Exception as e:
                     print(f"   ⚠️ LF-DAS falhou: {e}")
 
-            result = self.validate_signature(sig, lfdas_result)
+            result = self.validate_signature(
+                sig, lfdas_result,
+                advanced_checks=advanced_checks,
+                sample_rate_hz=sample_rate_hz
+            )
             all_results.append(result)
 
             for test in result['tests']:
