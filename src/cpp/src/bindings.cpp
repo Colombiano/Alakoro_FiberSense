@@ -14,6 +14,7 @@
 #include "alakoro/fft.hpp"
 #include "alakoro/processors.hpp"
 #include "alakoro/serialization.hpp"
+#include "alakoro/time_frequency.hpp"
 #include "alakoro/wavelet.hpp"
 
 #include <pybind11/numpy.h>
@@ -361,6 +362,44 @@ PYBIND11_MODULE(_alakoro_core, m) {
           py::arg("data"), py::arg("scales"), py::arg("sample_rate_hz"),
           py::arg("threshold"), py::arg("rule") = "soft",
           "Wavelet thresholding denoising per channel using Morlet CWT (double).");
+
+    // ─── Análise tempo-frequência ───
+    m.def("spectrogram_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             std::size_t window_size,
+             std::size_t hop_size,
+             std::size_t n_fft) {
+              auto specs = alakoro::time_frequency::spectrogram_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), window_size, hop_size, n_fft);
+              py::list result;
+              for (const auto& spec : specs) {
+                  result.append(matrix_to_numpy(spec));
+              }
+              return result;
+          },
+          py::arg("data"), py::arg("window_size"), py::arg("hop_size"), py::arg("n_fft"),
+          "Compute spectrogram per channel (double). Returns list of (n_frames, n_freq) arrays.");
+
+    m.def("cross_correlation_d",
+          [](const SensingData<double, SensingModality::DAS>& d, std::size_t max_lag) {
+              auto corr = alakoro::time_frequency::cross_correlation_channels<double>(
+                  d.data(), d.n_times(), d.n_channels(), max_lag);
+              return vector_to_numpy(corr);
+          },
+          py::arg("data"), py::arg("max_lag"),
+          "Compute cross-correlation between adjacent channels (double). Returns (n_channels, 2*max_lag+1) array.");
+
+    m.def("coherence_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             std::size_t window_size,
+             std::size_t hop_size,
+             std::size_t n_fft) {
+              auto coh = alakoro::time_frequency::coherence_channels<double>(
+                  d.data(), d.n_times(), d.n_channels(), window_size, hop_size, n_fft);
+              return vector_to_numpy(coh);
+          },
+          py::arg("data"), py::arg("window_size"), py::arg("hop_size"), py::arg("n_fft"),
+          "Compute magnitude squared coherence between adjacent channels (double). Returns (n_channels, n_freq) array.");
 
     // ─── Serialização stubs ───
     m.def("serialize_avro", []() {

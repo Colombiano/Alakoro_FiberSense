@@ -12,11 +12,14 @@ from alakoro_core import (
     butterworth_bandpass,
     butterworth_highpass,
     butterworth_lowpass,
+    coherence,
+    cross_correlation,
     cwt,
     hilbert_envelope,
     median_filter_1d,
     median_filter_2d,
     psd,
+    spectrogram,
     svd_denoise,
     sta_lta,
     teager_kaiser,
@@ -29,11 +32,14 @@ from src.processing.advanced_processors import (
     butterworth_bandpass as py_bandpass,
     butterworth_highpass as py_highpass,
     butterworth_lowpass as py_lowpass,
+    coherence_channels as py_coherence,
+    cross_correlation_channels as py_xcorr,
     cwt as py_cwt,
     hilbert_envelope as py_hilbert,
     median_filter_1d as py_median_1d,
     median_filter_2d as py_median_2d,
     psd as py_psd,
+    spectrogram as py_spectrogram,
     svd_denoise as py_svd_denoise,
     sta_lta as py_sta_lta,
     teager_kaiser as py_tkeo,
@@ -219,3 +225,56 @@ def test_python_wrappers_denoising():
     assert denoised.shape == (64, 4)
     denoised_wav = py_wavelet_denoise(patch, scales=[1.0, 2.0], sample_rate_hz=1000.0, threshold=0.5)
     assert denoised_wav.shape == (64, 4)
+
+
+def test_spectrogram_shape():
+    das = _make_das(64, 2)
+    specs = spectrogram(das, window_size=16, hop_size=8, n_fft=16)
+    assert len(specs) == 2  # um por canal
+    assert specs[0].shape[1] == 9  # n_fft/2 + 1
+
+
+def test_cross_correlation_finds_lag():
+    n_t = 128
+    n_c = 2
+    # Pulso gaussiano no canal 0 e mesmo pulso atrasado no canal 1
+    data = np.zeros((n_t, n_c))
+    pulse = np.exp(-0.5 * ((np.arange(n_t) - 40) / 5) ** 2)
+    data[:, 0] = pulse
+    data[5:, 1] = pulse[:-5]
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    corr = cross_correlation(das, max_lag=15)
+    corr_2d = corr.reshape(n_c, 31)
+    # y é x atrasado em 5 amostras; a correlação deve ter um pico forte
+    assert corr_2d[0].max() > 0.9
+    # O pico deve estar próximo de lag = +5 (índice max_lag + 5)
+    peak_idx = np.argmax(corr_2d[0])
+    assert abs(int(peak_idx) - 20) <= 3
+
+
+def test_coherence_high_for_identical_signals():
+    n_t = 128
+    n_c = 2
+    t = np.linspace(0, 1, n_t)
+    data = np.sin(2 * np.pi * 10 * t).reshape(-1, 1).repeat(n_c, axis=1)
+    # Pouco ruído para preservar alta coerência
+    data += np.random.randn(n_t, n_c) * 0.02
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    coh = coherence(das, window_size=32, hop_size=16, n_fft=32)
+    coh_2d = coh.reshape(n_c, 17)
+    # Coerência máxima entre sinais idênticos deve ser alta
+    assert np.max(coh_2d[0]) > 0.9
+
+
+def test_python_wrappers_time_frequency():
+    patch = _make_patch(64, 2)
+    specs = py_spectrogram(patch, window_size=16, hop_size=8, n_fft=16)
+    assert len(specs) == 2
+    corr = py_xcorr(patch, max_lag=5)
+    assert corr.shape == (2 * 11,)
+    coh = py_coherence(patch, window_size=16, hop_size=8, n_fft=16)
+    assert coh.shape == (2 * 9,)

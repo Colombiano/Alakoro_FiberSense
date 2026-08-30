@@ -20,12 +20,15 @@ from alakoro_core import (
     butterworth_bandpass as _butterworth_bandpass,
     butterworth_highpass as _butterworth_highpass,
     butterworth_lowpass as _butterworth_lowpass,
+    coherence as _coherence,
+    cross_correlation as _cross_correlation,
     cwt as _cwt,
     hilbert_envelope as _hilbert_envelope,
     magnitude_spectrum as _magnitude_spectrum,
     median_filter_1d as _median_filter_1d,
     median_filter_2d as _median_filter_2d,
     psd as _psd,
+    spectrogram as _spectrogram,
     svd_denoise as _svd_denoise,
     sta_lta as _sta_lta,
     teager_kaiser as _teager_kaiser,
@@ -204,6 +207,42 @@ def wavelet_denoise(patch: AlakoroPatch,
     return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
 
 
+def spectrogram(patch: AlakoroPatch,
+                window_size: int,
+                hop_size: int,
+                n_fft: int) -> List[np.ndarray]:
+    """
+    Calcula o espectrograma para cada canal.
+
+    Retorna lista de arrays com shape (n_frames, n_freq).
+    """
+    das = _patch_to_dasdata(patch)
+    return _spectrogram(das, window_size, hop_size, n_fft)
+
+
+def cross_correlation_channels(patch: AlakoroPatch, max_lag: int) -> np.ndarray:
+    """
+    Calcula correlação cruzada entre canais adjacentes.
+
+    Retorna array de shape (n_channels, 2*max_lag+1).
+    """
+    das = _patch_to_dasdata(patch)
+    return _cross_correlation(das, max_lag)
+
+
+def coherence_channels(patch: AlakoroPatch,
+                       window_size: int,
+                       hop_size: int,
+                       n_fft: int) -> np.ndarray:
+    """
+    Calcula magnitude squared coherence entre canais adjacentes.
+
+    Retorna array de shape (n_channels, n_fft/2+1).
+    """
+    das = _patch_to_dasdata(patch)
+    return _coherence(das, window_size, hop_size, n_fft)
+
+
 __all__ = [
     "butterworth_lowpass",
     "butterworth_highpass",
@@ -218,4 +257,7 @@ __all__ = [
     "median_filter_2d",
     "svd_denoise",
     "wavelet_denoise",
+    "spectrogram",
+    "cross_correlation_channels",
+    "coherence_channels",
 ]

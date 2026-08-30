@@ -42,6 +42,9 @@ from ._alakoro_core import (
     median_filter_2d_d,
     svd_denoise_d,
     wavelet_denoise_d,
+    spectrogram_d,
+    cross_correlation_d,
+    coherence_d,
     serialize_avro,
     serialize_protobuf,
 )
@@ -69,6 +72,9 @@ median_filter_1d = median_filter_1d_d
 median_filter_2d = median_filter_2d_d
 svd_denoise = svd_denoise_d
 wavelet_denoise = wavelet_denoise_d
+spectrogram = spectrogram_d
+cross_correlation = cross_correlation_d
+coherence = coherence_d
 
 __all__ = [
     "AcquisitionMetadata",
@@ -104,10 +110,16 @@ __all__ = [
     "median_filter_2d",
     "svd_denoise",
     "wavelet_denoise",
+    "spectrogram",
+    "cross_correlation",
+    "coherence",
     "median_filter_1d_d",
     "median_filter_2d_d",
     "svd_denoise_d",
     "wavelet_denoise_d",
+    "spectrogram_d",
+    "cross_correlation_d",
+    "coherence_d",
     "detrend_f",
     "detrend_d",
     "demean_f",
