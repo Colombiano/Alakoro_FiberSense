@@ -1,5 +1,20 @@
 # Changelog — Alakoro FiberSense
 
+## v2.8.3 (2026-08-30) — Correção de bug de memória nos bindings C++
+
+### Correções
+
+#### 1. Use-after-free em `src/cpp/src/bindings.cpp`
+- `vector_to_numpy` e `matrix_to_numpy` retornavam arrays NumPy apontando para `std::vector::data()` de objetos locais já destruídos.
+- Corrigido usando `py::capsule` com deleter customizado para manter o vetor vivo enquanto o array NumPy existir.
+- Impacto: elimina lixo de memória e `NaN` esporádicos em processadores como `wavelet_denoise`, `median_filter_1d`, `cwt`, `spectrogram`, `emd`, `eemd`.
+
+#### 2. Testes
+- Removido `xfail` de `test_wavelet_denoise_reduces_noise`.
+- Total: 141 testes passando, 0 skipped/xfailed.
+
+---
+
 ## v2.8.2 (2026-08-30) — Integração completa com Xdas
 
 ### Adições

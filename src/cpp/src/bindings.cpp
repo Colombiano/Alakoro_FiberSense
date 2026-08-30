@@ -33,17 +33,16 @@ using namespace alakoro;
 /**
  * @brief Converte std::vector<T> para numpy array 1D sem cópia.
  *
- * pybind11 pode fazer isso automaticamente com py::array_t, mas criamos
- * um helper para garantir controle do dtype e do ownership.
+ * O vetor é movido para um py::capsule com deleter customizado,
+ * garantindo que o array NumPy mantenha os dados vivos.
  */
 template <typename T>
-py::array_t<T> vector_to_numpy(const std::vector<T>& vec) {
-    return py::array_t<T>(
-        {vec.size()},
-        {sizeof(T)},
-        vec.data(),
-        py::cast(vec)  // pybind11 gerencia o lifetime do vetor
-    );
+py::array_t<T> vector_to_numpy(std::vector<T> vec) {
+    const std::size_t size = vec.size();
+    T* data = vec.data();
+    auto* owned = new std::vector<T>(std::move(vec));
+    py::capsule capsule(owned, [](void* p) { delete static_cast<std::vector<T>*>(p); });
+    return py::array_t<T>({size}, {sizeof(T)}, data, capsule);
 }
 
 /**
@@ -61,7 +60,7 @@ py::array_t<T> matrix_to_numpy(const std::vector<std::vector<T>>& mat) {
     for (const auto& row : mat) {
         flat.insert(flat.end(), row.begin(), row.end());
     }
-    return py::array_t<T>({rows, cols}, flat.data());
+    return vector_to_numpy(std::move(flat)).reshape({static_cast<py::ssize_t>(rows), static_cast<py::ssize_t>(cols)});
 }
 
 /**

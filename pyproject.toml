@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "alakoro-fibersense"
-version = "2.8.2"
+version = "2.8.3"
 description = "Alakoro FiberSense — Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo / Open-Source Multi-Modal Platform for DFOS in Oil & Gas Wells"
 readme = "README.md"
 license = "MIT"

@@ -213,7 +213,6 @@ def test_svd_denoise_preserves_shape():
     assert denoised.size == 32 * 8
 
 
-@pytest.mark.xfail(reason="wavelet_denoise C++ returns NaN/uninitialized memory — known bug to be fixed")
 def test_wavelet_denoise_reduces_noise():
     n_t = 128
     n_c = 2
