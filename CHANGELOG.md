@@ -1,5 +1,33 @@
 # Changelog — Alakoro FiberSense
 
+## v2.9.0 (2026-08-30) — Arquitetura de plugins para drivers proprietários
+
+### Adições
+
+#### 1. Base de drivers de fabricantes (`src/io/drivers/base.py`)
+- `BaseVendorDriver` — interface abstrata para plugins de drivers DFOS/DAS.
+- Métodos: `is_available()`, `detect()`, `read()`, `metadata()`.
+- O core Alakoro permanece sob licença MIT; drivers proprietários podem ser distribuídos em pacotes separados.
+
+#### 2. Registry de plugins (`src/io/drivers/registry.py`)
+- `VendorDriverRegistry` descobre drivers via entry point `alakoro.driver`.
+- Detecção automática por extensão/arquivo.
+- Fallback para leitores open-source Xdas e DASCore quando nenhum driver proprietário corresponder.
+- Funções públicas: `read_vendor()`, `list_available_drivers()`, `detect_driver()`.
+
+#### 3. Driver de exemplo open-source (`src/io/drivers/optional/example_vendor.py`)
+- Formato hipotético `.exd` baseado em HDF5.
+- Inclui `write_example_file()` para geração de fixtures de teste.
+- Registrado via entry point em `pyproject.toml`.
+
+#### 4. Testes (`tests/test_io_drivers.py`)
+- Testes de API pública, registry, detecção, leitura, `vendor_hint`, fallback e descoberta por entry point mockado.
+
+#### 5. Documentação (`docs/drivers/plugins.md`)
+- Guia de arquitetura de plugins, API, registro por entry point e orientações de propriedade intelectual.
+
+---
+
 ## v2.8.3 (2026-08-30) — Correção de bug de memória nos bindings C++
 
 ### Correções
