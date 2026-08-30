@@ -48,6 +48,9 @@ from ._alakoro_core import (
     gauge_length_compensation_d,
     lms_filter_d,
     rls_filter_d,
+    emd_d,
+    eemd_d,
+    nmf_d,
     serialize_avro,
     serialize_protobuf,
 )
@@ -81,6 +84,9 @@ coherence = coherence_d
 gauge_length_compensation = gauge_length_compensation_d
 lms_filter = lms_filter_d
 rls_filter = rls_filter_d
+emd = emd_d
+eemd = eemd_d
+nmf = nmf_d
 
 __all__ = [
     "AcquisitionMetadata",
@@ -122,12 +128,18 @@ __all__ = [
     "gauge_length_compensation",
     "lms_filter",
     "rls_filter",
+    "emd",
+    "eemd",
+    "nmf",
     "spectrogram_d",
     "cross_correlation_d",
     "coherence_d",
     "gauge_length_compensation_d",
     "lms_filter_d",
     "rls_filter_d",
+    "emd_d",
+    "eemd_d",
+    "nmf_d",
     "median_filter_1d_d",
     "median_filter_2d_d",
     "svd_denoise_d",

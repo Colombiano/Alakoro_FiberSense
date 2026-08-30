@@ -15,11 +15,14 @@ from alakoro_core import (
     coherence,
     cross_correlation,
     cwt,
+    eemd,
+    emd,
     gauge_length_compensation,
     hilbert_envelope,
     lms_filter,
     median_filter_1d,
     median_filter_2d,
+    nmf,
     psd,
     rls_filter,
     spectrogram,
@@ -38,11 +41,14 @@ from src.processing.advanced_processors import (
     coherence_channels as py_coherence,
     cross_correlation_channels as py_xcorr,
     cwt as py_cwt,
+    eemd as py_eemd,
+    emd as py_emd,
     gauge_length_compensation as py_gauge,
     hilbert_envelope as py_hilbert,
     lms_filter as py_lms,
     median_filter_1d as py_median_1d,
     median_filter_2d as py_median_2d,
+    nmf as py_nmf,
     psd as py_psd,
     rls_filter as py_rls,
     spectrogram as py_spectrogram,
@@ -333,3 +339,59 @@ def test_python_wrappers_adaptive():
     assert lms.shape == (64, 4)
     rls = py_rls(patch, lambda_=0.99, delta=0.1, filter_order=4)
     assert rls.shape == (64, 4)
+
+
+def test_emd_decomposes_signal():
+    n_t = 128
+    n_c = 2
+    t = np.linspace(0, 1, n_t)
+    # Sinal composto por duas frequências
+    data = np.sin(2 * np.pi * 5 * t).reshape(-1, 1) + np.sin(2 * np.pi * 20 * t).reshape(-1, 1)
+    data = np.repeat(data, n_c, axis=1)
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    imfs = emd(das, max_imfs=3)
+    # Deve retornar lista de canais, cada um com IMFs + resíduo
+    assert len(imfs) == n_c
+    assert len(imfs[0]) >= 2
+
+
+def test_eemd_decomposes_signal():
+    n_t = 128
+    n_c = 2
+    t = np.linspace(0, 1, n_t)
+    data = np.sin(2 * np.pi * 5 * t).reshape(-1, 1)
+    data = np.repeat(data, n_c, axis=1)
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    imfs = eemd(das, n_ensembles=5, noise_std=0.1, max_imfs=3)
+    assert len(imfs) == n_c
+    assert len(imfs[0]) >= 2
+
+
+def test_nmf_factorizes_nonnegative_matrix():
+    n_t = 32
+    n_c = 8
+    # Matriz não-negativa
+    data = np.random.rand(n_t, n_c) + 0.1
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    W, H = nmf(das, n_components=3, max_iter=50)
+    assert W.size == n_t * 3
+    assert H.size == 3 * n_c
+    assert np.min(W) >= -1e-9
+    assert np.min(H) >= -1e-9
+
+
+def test_python_wrappers_decomposition():
+    patch = _make_patch(64, 2)
+    imfs = py_emd(patch, max_imfs=3)
+    assert len(imfs) == 2
+    eimfs = py_eemd(patch, n_ensembles=3, noise_std=0.1, max_imfs=3)
+    assert len(eimfs) == 2
+    W, H = py_nmf(patch, n_components=2, max_iter=50)
+    assert W.size == 64 * 2
+    assert H.size == 2 * 2

@@ -11,7 +11,7 @@ Também fornece funções que operam diretamente sobre AlakoroPatch.
 
 from __future__ import annotations
 
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -23,12 +23,15 @@ from alakoro_core import (
     coherence as _coherence,
     cross_correlation as _cross_correlation,
     cwt as _cwt,
+    eemd as _eemd,
+    emd as _emd,
     gauge_length_compensation as _gauge_compensation,
     hilbert_envelope as _hilbert_envelope,
     lms_filter as _lms_filter,
     magnitude_spectrum as _magnitude_spectrum,
     median_filter_1d as _median_filter_1d,
     median_filter_2d as _median_filter_2d,
+    nmf as _nmf,
     psd as _psd,
     rls_filter as _rls_filter,
     spectrogram as _spectrogram,
@@ -295,6 +298,41 @@ def rls_filter(patch: AlakoroPatch,
     return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
 
 
+def emd(patch: AlakoroPatch, max_imfs: int = 5) -> List[List[np.ndarray]]:
+    """
+    EMD por canal.
+
+    Retorna lista de listas: [channel][imf] -> array 1D.
+    """
+    das = _patch_to_dasdata(patch)
+    return _emd(das, max_imfs)
+
+
+def eemd(patch: AlakoroPatch,
+         n_ensembles: int,
+         noise_std: float,
+         max_imfs: int = 5) -> List[List[np.ndarray]]:
+    """
+    EEMD por canal.
+
+    Retorna lista de listas: [channel][imf] -> array 1D.
+    """
+    das = _patch_to_dasdata(patch)
+    return _eemd(das, n_ensembles, noise_std, max_imfs)
+
+
+def nmf(patch: AlakoroPatch,
+        n_components: int,
+        max_iter: int = 100) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    NMF da matriz (time, channels).
+
+    Retorna (W, H) onde data ≈ W @ H.
+    """
+    das = _patch_to_dasdata(patch)
+    return _nmf(das, n_components, max_iter)
+
+
 __all__ = [
     "butterworth_lowpass",
     "butterworth_highpass",
@@ -315,4 +353,7 @@ __all__ = [
     "gauge_length_compensation",
     "lms_filter",
     "rls_filter",
+    "emd",
+    "eemd",
+    "nmf",
 ]

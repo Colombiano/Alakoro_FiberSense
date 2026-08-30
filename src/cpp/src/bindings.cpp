@@ -9,6 +9,7 @@
 
 #include "alakoro/adaptive.hpp"
 #include "alakoro/core.hpp"
+#include "alakoro/decomposition.hpp"
 #include "alakoro/denoising.hpp"
 #include "alakoro/event_detection.hpp"
 #include "alakoro/filters.hpp"
@@ -438,6 +439,56 @@ PYBIND11_MODULE(_alakoro_core, m) {
           },
           py::arg("data"), py::arg("lambda_"), py::arg("delta"), py::arg("filter_order"),
           "Apply RLS adaptive filter per channel using adjacent channel as reference (double). Returns error signal.");
+
+    // ─── Decomposições avançadas ───
+    m.def("emd_d",
+          [](const SensingData<double, SensingModality::DAS>& d, std::size_t max_imfs) {
+              auto imfs = alakoro::decomposition::emd_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), max_imfs);
+              py::list channel_results;
+              for (const auto& channel_imfs : imfs) {
+                  py::list imf_list;
+                  for (const auto& imf : channel_imfs) {
+                      imf_list.append(vector_to_numpy(imf));
+                  }
+                  channel_results.append(imf_list);
+              }
+              return channel_results;
+          },
+          py::arg("data"), py::arg("max_imfs") = 5,
+          "EMD per channel (double). Returns list of [IMFs + residue] per channel.");
+
+    m.def("eemd_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             std::size_t n_ensembles,
+             double noise_std,
+             std::size_t max_imfs) {
+              auto imfs = alakoro::decomposition::eemd_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), n_ensembles, noise_std, max_imfs);
+              py::list channel_results;
+              for (const auto& channel_imfs : imfs) {
+                  py::list imf_list;
+                  for (const auto& imf : channel_imfs) {
+                      imf_list.append(vector_to_numpy(imf));
+                  }
+                  channel_results.append(imf_list);
+              }
+              return channel_results;
+          },
+          py::arg("data"), py::arg("n_ensembles"), py::arg("noise_std"), py::arg("max_imfs") = 5,
+          "EEMD per channel (double).");
+
+    m.def("nmf_d",
+          [](const SensingData<double, SensingModality::DAS>& d, std::size_t n_components, std::size_t max_iter) -> py::tuple {
+              auto result_nmf = alakoro::decomposition::nmf<double>(
+                  d.data(), d.n_times(), d.n_channels(), n_components, max_iter);
+              py::tuple result(2);
+              result[0] = vector_to_numpy(result_nmf.first);
+              result[1] = vector_to_numpy(result_nmf.second);
+              return result;
+          },
+          py::arg("data"), py::arg("n_components"), py::arg("max_iter") = 100,
+          "NMF factorization V = W * H (double). Returns (W, H) flat arrays.");
 
     // ─── Serialização stubs ───
     m.def("serialize_avro", []() {
