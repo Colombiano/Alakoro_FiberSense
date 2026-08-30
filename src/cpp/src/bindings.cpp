@@ -8,6 +8,7 @@
  */
 
 #include "alakoro/core.hpp"
+#include "alakoro/event_detection.hpp"
 #include "alakoro/filters.hpp"
 #include "alakoro/fft.hpp"
 #include "alakoro/processors.hpp"
@@ -286,6 +287,36 @@ PYBIND11_MODULE(_alakoro_core, m) {
           py::arg("data"), py::arg("scales"), py::arg("sample_rate_hz"),
           py::arg("wavelet") = "morlet",
           "Compute CWT per channel (double). Returns list of (n_scales, n_times) arrays.");
+
+    // ─── Detecção de eventos ───
+    m.def("sta_lta_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             std::size_t n_sta,
+             std::size_t n_lta) {
+              auto ratio = alakoro::event_detection::sta_lta_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), n_sta, n_lta);
+              return vector_to_numpy(ratio);
+          },
+          py::arg("data"), py::arg("n_sta"), py::arg("n_lta"),
+          "Compute STA/LTA ratio per channel (double).");
+
+    m.def("hilbert_envelope_d",
+          [](const SensingData<double, SensingModality::DAS>& d) {
+              auto envelope = alakoro::event_detection::hilbert_envelope_2d<double>(
+                  d.data(), d.n_times(), d.n_channels());
+              return vector_to_numpy(envelope);
+          },
+          py::arg("data"),
+          "Compute Hilbert envelope per channel (double).");
+
+    m.def("teager_kaiser_d",
+          [](const SensingData<double, SensingModality::DAS>& d) {
+              auto energy = alakoro::event_detection::teager_kaiser_2d<double>(
+                  d.data(), d.n_times(), d.n_channels());
+              return vector_to_numpy(energy);
+          },
+          py::arg("data"),
+          "Compute Teager-Kaiser energy operator per channel (double).");
 
     // ─── Serialização stubs ───
     m.def("serialize_avro", []() {

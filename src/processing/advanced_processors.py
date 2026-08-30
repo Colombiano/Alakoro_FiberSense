@@ -21,8 +21,11 @@ from alakoro_core import (
     butterworth_highpass as _butterworth_highpass,
     butterworth_lowpass as _butterworth_lowpass,
     cwt as _cwt,
+    hilbert_envelope as _hilbert_envelope,
     magnitude_spectrum as _magnitude_spectrum,
     psd as _psd,
+    sta_lta as _sta_lta,
+    teager_kaiser as _teager_kaiser,
 )
 
 from src.io.alakoro_spool import AlakoroPatch
@@ -115,6 +118,38 @@ def cwt(patch: AlakoroPatch,
     return _cwt(das, scales, sample_rate_hz, wavelet)
 
 
+def sta_lta(patch: AlakoroPatch,
+            n_sta: int,
+            n_lta: int) -> np.ndarray:
+    """
+    Calcula razão STA/LTA para cada canal.
+
+    Retorna array 1D flat com shape (n_valid * n_channels,).
+    """
+    das = _patch_to_dasdata(patch)
+    return _sta_lta(das, n_sta, n_lta)
+
+
+def hilbert_envelope(patch: AlakoroPatch) -> np.ndarray:
+    """
+    Calcula a envoltória de Hilbert para cada canal.
+
+    Retorna array 1D flat com shape (n_times * n_channels,).
+    """
+    das = _patch_to_dasdata(patch)
+    return _hilbert_envelope(das)
+
+
+def teager_kaiser(patch: AlakoroPatch) -> np.ndarray:
+    """
+    Calcula o operador de energia de Teager-Kaiser para cada canal.
+
+    Retorna array 1D flat com shape (n_times * n_channels,).
+    """
+    das = _patch_to_dasdata(patch)
+    return _teager_kaiser(das)
+
+
 __all__ = [
     "butterworth_lowpass",
     "butterworth_highpass",
@@ -122,4 +157,7 @@ __all__ = [
     "magnitude_spectrum",
     "psd",
     "cwt",
+    "sta_lta",
+    "hilbert_envelope",
+    "teager_kaiser",
 ]

@@ -35,6 +35,9 @@ from ._alakoro_core import (
     magnitude_spectrum_d,
     psd_d,
     cwt_d,
+    sta_lta_d,
+    hilbert_envelope_d,
+    teager_kaiser_d,
     serialize_avro,
     serialize_protobuf,
 )
@@ -55,6 +58,9 @@ butterworth_bandpass = butterworth_bandpass_d
 magnitude_spectrum = magnitude_spectrum_d
 psd = psd_d
 cwt = cwt_d
+sta_lta = sta_lta_d
+hilbert_envelope = hilbert_envelope_d
+teager_kaiser = teager_kaiser_d
 
 __all__ = [
     "AcquisitionMetadata",
@@ -77,6 +83,15 @@ __all__ = [
     "magnitude_spectrum",
     "psd",
     "cwt",
+    "sta_lta",
+    "hilbert_envelope",
+    "teager_kaiser",
+    "magnitude_spectrum_d",
+    "psd_d",
+    "cwt_d",
+    "sta_lta_d",
+    "hilbert_envelope_d",
+    "teager_kaiser_d",
     "detrend_f",
     "detrend_d",
     "demean_f",
@@ -91,9 +106,6 @@ __all__ = [
     "butterworth_highpass_d",
     "butterworth_bandpass_f",
     "butterworth_bandpass_d",
-    "magnitude_spectrum_d",
-    "psd_d",
-    "cwt_d",
     "serialize_avro",
     "serialize_protobuf",
 ]

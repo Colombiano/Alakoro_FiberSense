@@ -7,7 +7,17 @@ import math
 import numpy as np
 import pytest
 
-from alakoro_core import DASData, butterworth_bandpass, butterworth_highpass, butterworth_lowpass, cwt, psd
+from alakoro_core import (
+    DASData,
+    butterworth_bandpass,
+    butterworth_highpass,
+    butterworth_lowpass,
+    cwt,
+    hilbert_envelope,
+    psd,
+    sta_lta,
+    teager_kaiser,
+)
 
 from src.io.alakoro_spool import AlakoroPatch
 from src.io.dasdae import DASDAEAdapter
@@ -16,7 +26,10 @@ from src.processing.advanced_processors import (
     butterworth_highpass as py_highpass,
     butterworth_lowpass as py_lowpass,
     cwt as py_cwt,
+    hilbert_envelope as py_hilbert,
     psd as py_psd,
+    sta_lta as py_sta_lta,
+    teager_kaiser as py_tkeo,
 )
 
 
@@ -97,3 +110,51 @@ def test_python_wrappers_cwt():
     coefs = py_cwt(patch, scales, sample_rate_hz=1000.0, wavelet="morlet")
     assert len(coefs) == 2
     assert coefs[0].shape == (2, 64)
+
+
+def test_sta_lta_detects_pulse():
+    # Sinal com pulso quadrado no meio
+    n_t = 256
+    n_c = 2
+    data = np.random.randn(n_t, n_c) * 0.1
+    data[120:140, :] += 5.0
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    ratio = sta_lta(das, n_sta=5, n_lta=20)
+    ratio_2d = ratio.reshape(n_t - 5 - 20 + 1, n_c)
+    # A razão deve subir durante/depois o pulso
+    assert ratio_2d.max() > 5.0
+
+
+def test_hilbert_envelope_nonnegative():
+    das = _make_das(128, 4)
+    envelope = hilbert_envelope(das)
+    arr = envelope.reshape(128, 4)
+    assert arr.shape == (128, 4)
+    assert np.all(arr >= 0)
+
+
+def test_teager_kaiser_highlights_transient():
+    n_t = 128
+    n_c = 2
+    data = np.random.randn(n_t, n_c) * 0.1
+    data[60:70, :] += np.sin(np.linspace(0, 4 * np.pi, 10)).reshape(-1, 1) * 3.0
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    energy = teager_kaiser(das)
+    energy_2d = energy.reshape(n_t, n_c)
+    # O pico de energia deve estar próximo ao transient
+    assert energy_2d[60:70, :].max() > energy_2d[:50, :].max() * 5
+
+
+def test_python_wrappers_event_detection():
+    patch = _make_patch(128, 4)
+    ratio = py_sta_lta(patch, n_sta=5, n_lta=20)
+    assert ratio.ndim == 1
+    envelope = py_hilbert(patch)
+    assert envelope.size == 128 * 4
+    assert np.all(envelope >= 0)
+    energy = py_tkeo(patch)
+    assert energy.size == 128 * 4
