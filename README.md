@@ -1,4 +1,4 @@
-<h1 align="center">Alakoro FiberSense v2.7.0</h1>
+<h1 align="center">Alakoro FiberSense v2.8.0</h1>
 
 <p align="center">
   <strong>Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo</strong><br/>
@@ -51,7 +51,7 @@ pip install alakoro-fibersense
 
 ### ✨ Novidades v2.7.0 / What's New
 
-- ✅ **Processadores Avançados C++20** (`alakoro_core`) — Butterworth, FFT/PSD, CWT (Morlet/Ricker)
+- ✅ **Biblioteca Completa de Processadores Avançados C++20** (`alakoro_core`) — Butterworth, FFT/PSD, CWT, STA/LTA, Hilbert, TKEO, median/SVD/wavelet denoising, STFT, cross-correlation, coherence, gauge compensation, LMS/RLS, EMD/EEMD, NMF
 - ✅ **Machine Learning** (`src/ml`) — CNN, U-Net, regressor; Trainer; métricas; API de inferência
 - ✅ **C++20 Core** (`alakoro_core`) — DASData, DTSData, DSSData com pybind11 e metaprogramação moderna
 - ✅ **Integração DASDAE** — AlakoroSpool/AlakoroPatch compatíveis com DASCore + adapter Xdas
@@ -61,7 +61,7 @@ pip install alakoro-fibersense
 - ✅ **15 Assinaturas Canônicas** (M15) — 6 originais + 9 novas
 - ✅ **LF-DAS / eXDTS** (M1) — temperatura de alta taxa (~2s refresh)
 - ✅ **Ontologia** (`src/ontology`) — modelo RDF/OWL + bridge com assinaturas
-- ✅ **Testes Unitários** — pytest com 93 testes passando
+- ✅ **Testes Unitários** — pytest com 113 testes passando
 - ✅ **PyPI** — `pip install alakoro-fibersense`
 - ✅ **CI/CD** — GitHub Actions com testes, lint, build C++, PyPI e release
 - ✅ **Documentação Bilíngue** — PT + EN em todos os módulos

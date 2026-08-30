@@ -22,6 +22,11 @@ src/cpp/
 │   ├── filters.hpp             # Butterworth lowpass/highpass/bandpass
 │   ├── fft.hpp                 # FFT, magnitude spectrum, PSD
 │   ├── wavelet.hpp             # CWT (Morlet, Ricker)
+│   ├── event_detection.hpp     # STA/LTA, Hilbert envelope, TKEO
+│   ├── denoising.hpp           # median filter, SVD, wavelet thresholding
+│   ├── time_frequency.hpp      # STFT, cross-correlation, coherence
+│   ├── adaptive.hpp            # gauge compensation, LMS, RLS
+│   ├── decomposition.hpp       # EMD, EEMD, NMF
 │   └── serialization.hpp       # JSON-LD, Avro/Protobuf stubs
 ├── src/
 │   └── bindings.cpp            # Bindings pybind11

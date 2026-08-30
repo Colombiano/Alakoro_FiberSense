@@ -27,7 +27,11 @@ from typing import Dict
 
 from src.io.alakoro_spool import AlakoroPatch
 from src.io.dasdae import DASDAEAdapter
-from src.processing.advanced_processors import butterworth_lowpass as cpp_lowpass
+from src.processing.advanced_processors import (
+    butterworth_lowpass as cpp_lowpass,
+    median_filter_1d as cpp_median,
+    wavelet_denoise as cpp_wavelet_denoise,
+)
 
 
 class LFDASProcessor:
@@ -48,7 +52,12 @@ class LFDASProcessor:
         sampling_rate_hz: float = 1000.0,
         refresh_rate_target_s: float = 2.0,
         spatial_smooth_sigma: float = 2.0,
-        use_cpp_backend: bool = False
+        use_cpp_backend: bool = False,
+        use_median_filter: bool = False,
+        median_window_size: int = 5,
+        use_wavelet_denoise: bool = False,
+        wavelet_scales: list = None,
+        wavelet_threshold: float = 0.5,
     ):
         """
         Args:
@@ -58,6 +67,11 @@ class LFDASProcessor:
             refresh_rate_target_s: Taxa de refresh desejada (padrão: 2.0s) / Target refresh rate (default: 2.0s)
             spatial_smooth_sigma: Sigma do suavizamento espacial Gaussian / Gaussian spatial smoothing sigma
             use_cpp_backend: Se True, usa o filtro Butterworth C++20 do alakoro_core / If True, use alakoro_core C++20 Butterworth filter
+            use_median_filter: Se True, aplica filtro de mediana 1D antes do Butterworth
+            median_window_size: Tamanho da janela do filtro de mediana (ímpar)
+            use_wavelet_denoise: Se True, aplica wavelet thresholding antes do Butterworth
+            wavelet_scales: Escalas da CWT para wavelet denoise (padrão: [1,2,4])
+            wavelet_threshold: Threshold para wavelet denoising
         """
         self.cutoff_hz = cutoff_hz
         self.filter_order = filter_order
@@ -65,6 +79,11 @@ class LFDASProcessor:
         self.refresh_rate_target_s = refresh_rate_target_s
         self.spatial_smooth_sigma = spatial_smooth_sigma
         self.use_cpp_backend = use_cpp_backend
+        self.use_median_filter = use_median_filter
+        self.median_window_size = median_window_size
+        self.use_wavelet_denoise = use_wavelet_denoise
+        self.wavelet_scales = wavelet_scales if wavelet_scales is not None else [1.0, 2.0, 4.0]
+        self.wavelet_threshold = wavelet_threshold
 
         # Calcular decimation factor automaticamente / Auto-calculate decimation factor
         self.decimation_factor = int(sampling_rate_hz * refresh_rate_target_s)
@@ -86,19 +105,41 @@ class LFDASProcessor:
         """Pipeline LF-DAS completo / Complete LF-DAS pipeline"""
         n_t, n_z = das_data.shape
 
+        # Pré-processamento opcional com processadores avançados C++20
+        working = das_data.astype(np.float64)
+        if self.use_median_filter:
+            patch = AlakoroPatch(
+                DASDAEAdapter.array_to_patch(working, modality="das"),
+                modality="das"
+            )
+            working = cpp_median(patch, window_size=self.median_window_size).data
+
+        if self.use_wavelet_denoise:
+            patch = AlakoroPatch(
+                DASDAEAdapter.array_to_patch(working, modality="das"),
+                modality="das"
+            )
+            working = cpp_wavelet_denoise(
+                patch, scales=self.wavelet_scales,
+                sample_rate_hz=self.sampling_rate_hz,
+                threshold=self.wavelet_threshold
+            ).data
+
         if self.use_cpp_backend:
             # Backend C++20: filtro Butterworth de 2ª ordem do alakoro_core
-            patch = DASDAEAdapter.array_to_patch(das_data.astype(np.float64), modality="das")
-            patch = AlakoroPatch(patch, modality="das")
+            patch = AlakoroPatch(
+                DASDAEAdapter.array_to_patch(working, modality="das"),
+                modality="das"
+            )
             filtered_patch = cpp_lowpass(
                 patch, sample_rate_hz=self.sampling_rate_hz, cutoff_hz=self.cutoff_hz
             )
             filtered = filtered_patch.data
         else:
             # Backend scipy: filtro Butterworth de ordem configurável
-            filtered = np.zeros_like(das_data)
+            filtered = np.zeros_like(working)
             for z in range(n_z):
-                filtered[:, z] = scipy_signal.filtfilt(self.b, self.a, das_data[:, z])
+                filtered[:, z] = scipy_signal.filtfilt(self.b, self.a, working[:, z])
 
         decimated = filtered[::self.decimation_factor, :]
 
@@ -141,6 +182,8 @@ class LFDASProcessor:
                 'refresh_rate_target_s': self.refresh_rate_target_s,
                 'refresh_rate_actual_s': self.refresh_rate_s,
                 'cpp_backend': self.use_cpp_backend,
+                'median_filter': self.use_median_filter,
+                'wavelet_denoise': self.use_wavelet_denoise,
             }
         }
 

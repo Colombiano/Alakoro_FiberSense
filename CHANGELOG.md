@@ -1,5 +1,47 @@
 # Changelog — Alakoro FiberSense
 
+## v2.8.0 (2026-08-29) — Fase 1/2: Biblioteca Completa de Processadores Avançados C++20
+
+### Adições
+
+#### 1. Detectores de eventos (`src/cpp/include/alakoro/event_detection.hpp`)
+- STA/LTA (Short-Term / Long-Term Average) para detecção de chegada de eventos
+- Hilbert envelope via FFT para extração de envoltória de amplitude
+- Teager-Kaiser Energy Operator (TKEO) para realce de transientes
+
+#### 2. Denoising (`src/cpp/include/alakoro/denoising.hpp`)
+- Median filter 1D/2D com `std::nth_element`
+- SVD/PCA denoising via método de Jacobi (sem dependências externas)
+- Wavelet thresholding denoising usando CWT Morlet
+
+#### 3. Análise tempo-frequência e propagação (`src/cpp/include/alakoro/time_frequency.hpp`)
+- STFT e espectrograma com janela de Hann
+- Cross-correlation entre canais adjacentes
+- Magnitude squared coherence entre canais adjacentes
+
+#### 4. Filtros adaptativos e calibração (`src/cpp/include/alakoro/adaptive.hpp`)
+- Compensação aproximada de gauge length
+- Filtro adaptativo LMS
+- Filtro adaptativo RLS
+
+#### 5. Decomposições avançadas (`src/cpp/include/alakoro/decomposition.hpp`)
+- EMD (Empirical Mode Decomposition) com spline cúbico natural
+- EEMD (Ensemble EMD) com ensemble de realizações
+- NMF (Non-negative Matrix Factorization) por algoritmo multiplicativo
+
+#### 6. Integrações
+- `LFDASProcessor`: opções `use_median_filter` e `use_wavelet_denoise`
+- `SignatureValidator`: checks avançados de STA/LTA e coherence
+
+#### 7. Documentação
+- `notebooks/03_advanced_processors.ipynb` atualizado com exemplos de todos os processadores
+
+### Testes
+- 21 testes em `tests/test_advanced_processors.py` cobrindo todos os processadores
+- Total: 113 testes passando, 0 skipped
+
+---
+
 ## v2.7.0 (2026-08-29) — Fase 1/2: Processadores Avançados C++20
 
 ### Adições

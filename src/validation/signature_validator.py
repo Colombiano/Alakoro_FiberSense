@@ -20,7 +20,12 @@ from scipy.signal import find_peaks
 
 from src.io.alakoro_spool import AlakoroPatch
 from src.io.dasdae import DASDAEAdapter
-from src.processing.advanced_processors import psd as cpp_psd, cwt as cpp_cwt
+from src.processing.advanced_processors import (
+    psd as cpp_psd,
+    cwt as cpp_cwt,
+    sta_lta as cpp_sta_lta,
+    coherence_channels as cpp_coherence,
+)
 
 
 class SignatureValidator:
@@ -252,6 +257,47 @@ class SignatureValidator:
         except Exception as e:
             return False, f"{name}: falha no cálculo de CWT ({e})"
 
+    def _check_event_onset(self, das: np.ndarray,
+                            sample_rate_hz: float = 1000.0,
+                            n_sta: int = 10,
+                            n_lta: int = 50,
+                            threshold: float = 3.0,
+                            name: str = "DAS") -> Tuple[bool, str]:
+        """
+        Usa STA/LTA para detectar o início de eventos no sinal DAS.
+        """
+        try:
+            patch = DASDAEAdapter.array_to_patch(das.astype(np.float64), modality="das")
+            patch = AlakoroPatch(patch, modality="das")
+            ratio = cpp_sta_lta(patch, n_sta=n_sta, n_lta=n_lta)
+            max_ratio = np.max(ratio)
+            if max_ratio > threshold:
+                return True, f"{name}: onset detectado (STA/LTA max={max_ratio:.1f}) ✓"
+            return False, f"{name}: nenhum onset detectado (STA/LTA max={max_ratio:.1f})"
+        except Exception as e:
+            return False, f"{name}: falha no cálculo de STA/LTA ({e})"
+
+    def _check_channel_coherence(self, das: np.ndarray,
+                                  sample_rate_hz: float = 1000.0,
+                                  name: str = "DAS") -> Tuple[bool, str]:
+        """
+        Usa magnitude squared coherence entre canais adjacentes para detectar
+        zonas com resposta coerente a um evento.
+        """
+        try:
+            patch = DASDAEAdapter.array_to_patch(das.astype(np.float64), modality="das")
+            patch = AlakoroPatch(patch, modality="das")
+            window_size = min(64, das.shape[0] // 2)
+            hop_size = window_size // 2
+            n_fft = window_size
+            coh = cpp_coherence(patch, window_size=window_size, hop_size=hop_size, n_fft=n_fft)
+            mean_coh = np.mean(coh)
+            if mean_coh > 0.3:
+                return True, f"{name}: coerência entre canais = {mean_coh:.2f} ✓"
+            return False, f"{name}: baixa coerência entre canais = {mean_coh:.2f}"
+        except Exception as e:
+            return False, f"{name}: falha no cálculo de coerência ({e})"
+
     def validate_signature(self, sig_data: Dict, lfdas_result: Dict = None,
                            advanced_checks: bool = False,
                            sample_rate_hz: float = 1000.0) -> Dict:
@@ -326,6 +372,10 @@ class SignatureValidator:
                 das, sample_rate_hz=sample_rate_hz, name="DAS (PSD)"))
             tests.append(self._check_transient_presence(
                 das, sample_rate_hz=sample_rate_hz, name="DAS (CWT)"))
+            tests.append(self._check_event_onset(
+                das, sample_rate_hz=sample_rate_hz, name="DAS (STA/LTA)"))
+            tests.append(self._check_channel_coherence(
+                das, sample_rate_hz=sample_rate_hz, name="DAS (coherence)"))
 
         for passed, msg in tests:
             results['tests'].append({'passed': passed, 'message': msg})
