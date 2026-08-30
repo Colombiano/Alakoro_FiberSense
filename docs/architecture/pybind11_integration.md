@@ -27,6 +27,7 @@ src/cpp/
 │   ├── time_frequency.hpp      # STFT, cross-correlation, coherence
 │   ├── adaptive.hpp            # gauge compensation, LMS, RLS
 │   ├── decomposition.hpp       # EMD, EEMD, NMF
+│   ├── thermal.hpp             # Processadores térmicos para DTS
 │   └── serialization.hpp       # JSON-LD, Avro/Protobuf stubs
 ├── src/
 │   └── bindings.cpp            # Bindings pybind11
@@ -141,8 +142,36 @@ cmake --build . --parallel
 pytest tests/test_cpp_core.py tests/test_advanced_processors.py -v
 ```
 
+## Modalidades Suportadas
+
+O `alakoro_core` expõe tipos e processadores para três modalidades DFOS:
+
+| Modalidade | Tipo C++ double | Tipo C++ float | Unidade padrão |
+|------------|-----------------|----------------|----------------|
+| DAS        | `DASData_d`     | `DASData_f`    | `strain_rate`  |
+| DTS        | `DTSData_d`     | `DTSData_f`    | `degC`         |
+| DSS        | `DSSData_d`     | `DSSData_f`    | —              |
+
+Os processadores avançados (Butterworth, FFT, CWT, denoising, etc.) são expostos
+em variantes `*_d_das` e `*_d_dts`. A camada Python em
+`src.processing.advanced_processors` escolhe automaticamente a variante correta
+com base em `AlakoroPatch.modality`.
+
+### Processadores térmicos (DTS)
+
+Disponíveis apenas para DTS:
+
+- `thermal_gradient_d` — gradiente dT/dz ao longo da profundidade.
+- `geothermal_baseline_correction_d` — remoção de baseline geotérmico linear.
+- `thermal_anomaly_detection_d` — detecção de anomalias por desvio padrão temporal.
+- `spatial_median_filter_d` — filtro de mediana espacial ao longo da profundidade.
+
 ## Próximos Passos
 
 - [ ] Implementar serialização Avro e Protobuf (`-DALAKORO_WITH_AVRO=ON`)
-- [x] Adicionar processadores avançados: pass_filter Butterworth, FFT, wavelets (concluído na v2.7.0)
-- [ ] Integrar `alakoro_core` com `src.io.dascore` para conversão zero-copy Alakoro ↔ DASCore Patch
+- [x] Adicionar processadores avançados: pass_filter Butterworth, FFT, wavelets
+- [x] Generalizar processadores avançados para DAS, DTS e DSS (concluído na v2.10.0)
+- [x] Adicionar processadores térmicos C++20 para DTS (concluído na v2.10.0)
+- [x] Integrar `alakoro_core` com `src.io.dascore` para conversão zero-copy Alakoro ↔ DASCore Patch (concluído na v2.8.1)
+- [ ] Adicionar estimativa adaptativa de gradiente geotérmico (`estimate_geothermal_gradient`)
+- [ ] Otimizações SIMD/OpenMP para processadores térmicos e de eventos

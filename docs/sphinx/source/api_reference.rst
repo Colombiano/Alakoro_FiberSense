@@ -38,6 +38,31 @@ Módulo de Processamento / Processing Module
       :members:
       :undoc-members:
 
+.. automodule:: src.processing.dts_processor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+   .. autoclass:: DTSThermalProcessor
+      :members:
+      :undoc-members:
+
+Módulo de Machine Learning / Machine Learning Module
+-----------------------------------------------------
+
+.. automodule:: src.ml.features
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+   .. autoclass:: DASFeatureExtractor
+      :members:
+      :undoc-members:
+
+   .. autoclass:: DTSFeatureExtractor
+      :members:
+      :undoc-members:
+
 Módulo de Validação / Validation Module
 ----------------------------------------
 

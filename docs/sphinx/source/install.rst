@@ -80,6 +80,6 @@ Verificando a Instalação / Verifying Installation
    gen = SignatureGenerator(well, acq)
    jt = gen.generate_joule_thomson(interface_depth=1500.0)
 
-   print(f"✅ Alakoro FiberSense v2.2.1 pronto! / ready!")
+   print(f"✅ Alakoro FiberSense v2.10.0 pronto! / ready!")
    print(f"   Assinatura gerada: {jt['signature_type'].pt}")
    print(f"   DTS shape: {jt['dts'].shape}")

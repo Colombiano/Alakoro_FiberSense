@@ -119,6 +119,44 @@ As 15 Assinaturas Canônicas / The 15 Canonical Signatures
      - Cement Channeling
      - Canais no cimento / Cement channels
 
+Processar com DTS / Process with DTS
+-------------------------------------
+
+O Alakoro v2.10.0 introduz processadores térmicos C++20 e um pipeline
+completo para dados DTS:
+
+.. code-block:: python
+
+   from src.processing import DTSThermalProcessor
+
+   proc = DTSThermalProcessor(
+       depth_step_m=1.0,
+       surface_temp=20.0,
+       geothermal_gradient=0.03,
+       spatial_median_window=5,
+       anomaly_threshold_sigma=3.0,
+       lowpass_cutoff_hz=0.5,
+       sample_rate_hz=1.0,
+       use_cpp_backend=True,
+   )
+   result = proc.process(temperature)
+
+   print(f"Preprocessed: {result['temperature_preprocessed'].shape}")
+   print(f"Corrected:    {result['temperature_corrected'].shape}")
+   print(f"Gradient:     {result['thermal_gradient'].shape}")
+   print(f"Anomalies:    {result['anomalies'].sum()}")
+
+Extração de Features / Feature Extraction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from src.ml.features import DTSFeatureExtractor
+
+   extractor = DTSFeatureExtractor()
+   features = extractor(temperature, depth_step_m=1.0)
+   print(f"Features: {features.shape}")
+
 Executar Testes / Run Tests
 ---------------------------
 
@@ -132,6 +170,9 @@ Executar Testes / Run Tests
 
    # Apenas LF-DAS / Only LF-DAS
    pytest tests/test_alakoro_fibersense.py::TestLFDASProcessor -v
+
+   # Apenas DTS / Only DTS
+   pytest tests/test_dts_processor.py -v
 
    # Com cobertura / With coverage
    pytest tests/ --cov=src --cov-report=html
