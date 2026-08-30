@@ -45,6 +45,9 @@ from ._alakoro_core import (
     spectrogram_d,
     cross_correlation_d,
     coherence_d,
+    gauge_length_compensation_d,
+    lms_filter_d,
+    rls_filter_d,
     serialize_avro,
     serialize_protobuf,
 )
@@ -75,6 +78,9 @@ wavelet_denoise = wavelet_denoise_d
 spectrogram = spectrogram_d
 cross_correlation = cross_correlation_d
 coherence = coherence_d
+gauge_length_compensation = gauge_length_compensation_d
+lms_filter = lms_filter_d
+rls_filter = rls_filter_d
 
 __all__ = [
     "AcquisitionMetadata",
@@ -113,6 +119,15 @@ __all__ = [
     "spectrogram",
     "cross_correlation",
     "coherence",
+    "gauge_length_compensation",
+    "lms_filter",
+    "rls_filter",
+    "spectrogram_d",
+    "cross_correlation_d",
+    "coherence_d",
+    "gauge_length_compensation_d",
+    "lms_filter_d",
+    "rls_filter_d",
     "median_filter_1d_d",
     "median_filter_2d_d",
     "svd_denoise_d",

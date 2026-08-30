@@ -7,6 +7,7 @@
  * zero-copy (quando possível) dos dados internos.
  */
 
+#include "alakoro/adaptive.hpp"
 #include "alakoro/core.hpp"
 #include "alakoro/denoising.hpp"
 #include "alakoro/event_detection.hpp"
@@ -400,6 +401,43 @@ PYBIND11_MODULE(_alakoro_core, m) {
           },
           py::arg("data"), py::arg("window_size"), py::arg("hop_size"), py::arg("n_fft"),
           "Compute magnitude squared coherence between adjacent channels (double). Returns (n_channels, n_freq) array.");
+
+    // ─── Filtros adaptativos e compensação de gauge ───
+    m.def("gauge_length_compensation_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             double gauge_length_m,
+             double channel_spacing_m,
+             double regularization) {
+              auto compensated = alakoro::adaptive::gauge_length_compensation<double>(
+                  d.data(), d.n_times(), d.n_channels(), gauge_length_m, channel_spacing_m, regularization);
+              return vector_to_numpy(compensated);
+          },
+          py::arg("data"), py::arg("gauge_length_m"), py::arg("channel_spacing_m"),
+          py::arg("regularization") = 0.1,
+          "Approximate gauge length compensation per channel (double).");
+
+    m.def("lms_filter_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             double mu,
+             std::size_t filter_order) {
+              auto filtered = alakoro::adaptive::lms_filter_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), mu, filter_order);
+              return vector_to_numpy(filtered);
+          },
+          py::arg("data"), py::arg("mu"), py::arg("filter_order"),
+          "Apply LMS adaptive filter per channel using adjacent channel as reference (double). Returns error signal.");
+
+    m.def("rls_filter_d",
+          [](const SensingData<double, SensingModality::DAS>& d,
+             double lambda_,
+             double delta,
+             std::size_t filter_order) {
+              auto filtered = alakoro::adaptive::rls_filter_2d<double>(
+                  d.data(), d.n_times(), d.n_channels(), lambda_, delta, filter_order);
+              return vector_to_numpy(filtered);
+          },
+          py::arg("data"), py::arg("lambda_"), py::arg("delta"), py::arg("filter_order"),
+          "Apply RLS adaptive filter per channel using adjacent channel as reference (double). Returns error signal.");
 
     // ─── Serialização stubs ───
     m.def("serialize_avro", []() {

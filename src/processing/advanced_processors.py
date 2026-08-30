@@ -23,11 +23,14 @@ from alakoro_core import (
     coherence as _coherence,
     cross_correlation as _cross_correlation,
     cwt as _cwt,
+    gauge_length_compensation as _gauge_compensation,
     hilbert_envelope as _hilbert_envelope,
+    lms_filter as _lms_filter,
     magnitude_spectrum as _magnitude_spectrum,
     median_filter_1d as _median_filter_1d,
     median_filter_2d as _median_filter_2d,
     psd as _psd,
+    rls_filter as _rls_filter,
     spectrogram as _spectrogram,
     svd_denoise as _svd_denoise,
     sta_lta as _sta_lta,
@@ -243,6 +246,55 @@ def coherence_channels(patch: AlakoroPatch,
     return _coherence(das, window_size, hop_size, n_fft)
 
 
+def gauge_length_compensation(patch: AlakoroPatch,
+                              gauge_length_m: float,
+                              channel_spacing_m: float,
+                              regularization: float = 0.1) -> AlakoroPatch:
+    """Compensação aproximada de gauge length no domínio espacial."""
+    das = _patch_to_dasdata(patch)
+    compensated = _gauge_compensation(das, gauge_length_m, channel_spacing_m, regularization)
+    from src.io.dasdae import DASDAEAdapter
+    new_patch = DASDAEAdapter.array_to_patch(
+        compensated.reshape(das.n_times, das.n_channels), modality=patch.modality
+    )
+    return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
+
+
+def lms_filter(patch: AlakoroPatch,
+               mu: float,
+               filter_order: int) -> AlakoroPatch:
+    """
+    Aplica filtro adaptativo LMS por canal.
+
+    Usa o canal vizinho como referência e retorna o sinal de erro.
+    """
+    das = _patch_to_dasdata(patch)
+    filtered = _lms_filter(das, mu, filter_order)
+    from src.io.dasdae import DASDAEAdapter
+    new_patch = DASDAEAdapter.array_to_patch(
+        filtered.reshape(das.n_times, das.n_channels), modality=patch.modality
+    )
+    return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
+
+
+def rls_filter(patch: AlakoroPatch,
+               lambda_: float,
+               delta: float,
+               filter_order: int) -> AlakoroPatch:
+    """
+    Aplica filtro adaptativo RLS por canal.
+
+    Usa o canal vizinho como referência e retorna o sinal de erro.
+    """
+    das = _patch_to_dasdata(patch)
+    filtered = _rls_filter(das, lambda_, delta, filter_order)
+    from src.io.dasdae import DASDAEAdapter
+    new_patch = DASDAEAdapter.array_to_patch(
+        filtered.reshape(das.n_times, das.n_channels), modality=patch.modality
+    )
+    return AlakoroPatch(new_patch, well_id=patch.well_id, modality=patch.modality)
+
+
 __all__ = [
     "butterworth_lowpass",
     "butterworth_highpass",
@@ -260,4 +312,7 @@ __all__ = [
     "spectrogram",
     "cross_correlation_channels",
     "coherence_channels",
+    "gauge_length_compensation",
+    "lms_filter",
+    "rls_filter",
 ]

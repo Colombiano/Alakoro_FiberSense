@@ -15,10 +15,13 @@ from alakoro_core import (
     coherence,
     cross_correlation,
     cwt,
+    gauge_length_compensation,
     hilbert_envelope,
+    lms_filter,
     median_filter_1d,
     median_filter_2d,
     psd,
+    rls_filter,
     spectrogram,
     svd_denoise,
     sta_lta,
@@ -35,10 +38,13 @@ from src.processing.advanced_processors import (
     coherence_channels as py_coherence,
     cross_correlation_channels as py_xcorr,
     cwt as py_cwt,
+    gauge_length_compensation as py_gauge,
     hilbert_envelope as py_hilbert,
+    lms_filter as py_lms,
     median_filter_1d as py_median_1d,
     median_filter_2d as py_median_2d,
     psd as py_psd,
+    rls_filter as py_rls,
     spectrogram as py_spectrogram,
     svd_denoise as py_svd_denoise,
     sta_lta as py_sta_lta,
@@ -278,3 +284,52 @@ def test_python_wrappers_time_frequency():
     assert corr.shape == (2 * 11,)
     coh = py_coherence(patch, window_size=16, hop_size=8, n_fft=16)
     assert coh.shape == (2 * 9,)
+
+
+def test_gauge_length_compensation_shape():
+    das = _make_das(32, 8)
+    compensated = gauge_length_compensation(das, gauge_length_m=2.0, channel_spacing_m=1.0)
+    assert compensated.size == 32 * 8
+
+
+def test_lms_filter_reduces_interference():
+    n_t = 256
+    n_c = 2
+    t = np.linspace(0, 1, n_t)
+    interference = np.sin(2 * np.pi * 10 * t)
+    data = np.random.randn(n_t, n_c) * 0.1
+    data[:, 0] += interference * 2.0
+    data[:, 1] += interference * 1.5
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    error = lms_filter(das, mu=0.01, filter_order=8)
+    error_2d = error.reshape(n_t, n_c)
+    # O erro (resíduo após cancelamento) deve ter menos energia do que o canal primário
+    assert np.var(error_2d[50:, 0]) < np.var(data[50:, 0])
+
+
+def test_rls_filter_reduces_interference():
+    n_t = 256
+    n_c = 2
+    t = np.linspace(0, 1, n_t)
+    interference = np.sin(2 * np.pi * 10 * t)
+    data = np.random.randn(n_t, n_c) * 0.1
+    data[:, 0] += interference * 2.0
+    data[:, 1] += interference * 1.5
+    das = DASData(n_times=n_t, n_channels=n_c)
+    arr = np.array(das, copy=False)
+    arr[:, :] = data
+    error = rls_filter(das, lambda_=0.99, delta=0.1, filter_order=8)
+    error_2d = error.reshape(n_t, n_c)
+    assert np.var(error_2d[50:, 0]) < np.var(data[50:, 0])
+
+
+def test_python_wrappers_adaptive():
+    patch = _make_patch(64, 4)
+    compensated = py_gauge(patch, gauge_length_m=2.0, channel_spacing_m=1.0)
+    assert compensated.shape == (64, 4)
+    lms = py_lms(patch, mu=0.01, filter_order=4)
+    assert lms.shape == (64, 4)
+    rls = py_rls(patch, lambda_=0.99, delta=0.1, filter_order=4)
+    assert rls.shape == (64, 4)
