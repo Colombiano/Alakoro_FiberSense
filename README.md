@@ -54,7 +54,7 @@ pip install alakoro-fibersense
 - ✅ **Biblioteca Completa de Processadores Avançados C++20** (`alakoro_core`) — Butterworth, FFT/PSD, CWT, STA/LTA, Hilbert, TKEO, median/SVD/wavelet denoising, STFT, cross-correlation, coherence, gauge compensation, LMS/RLS, EMD/EEMD, NMF
 - ✅ **Machine Learning** (`src/ml`) — CNN, U-Net, regressor; Trainer; métricas; API de inferência
 - ✅ **C++20 Core** (`alakoro_core`) — DASData, DTSData, DSSData com pybind11 e metaprogramação moderna
-- ✅ **Integração DASDAE** — AlakoroSpool/AlakoroPatch compatíveis com DASCore + adapter Xdas
+- ✅ **Integração DASDAE** — AlakoroSpool/AlakoroPatch compatíveis com DASCore; leitura/escrita de formatos DASCore (dasdae, pickle, etc.); pipeline híbrido DASCore + C++20
 - ✅ **Escape Hatches** — NumPy, pandas, xarray, ObsPy
 - ✅ **ProdML/WITSML** — leitura/escrita básica de arquivos Energistics
 - ✅ **Streaming** — monitoramento de diretório e stubs Kafka/MQTT

@@ -1,5 +1,32 @@
 # Changelog — Alakoro FiberSense
 
+## v2.8.1 (2026-08-30) — Integração DASCore: formatos + pipeline híbrido
+
+### Adições
+
+#### 1. Leitura/escrita de formatos DASCore (`src/io/dascore_formats.py`)
+- `read(path, ...)`: lê arquivos/diretórios suportados pelo DASCore e retorna `AlakoroPatch` ou `AlakoroSpool`.
+- `write(obj, path, file_format=...)`: salva `AlakoroPatch`/`AlakoroSpool` em formatos DASCore (dasdae, pickle, etc.).
+- `supported_formats()`: lista os formatos detectados em `dascore.io`.
+- Conversores de conveniência: `patch_from_dascore`, `spool_from_dascore`.
+
+#### 2. Pipeline híbrido DASCore + C++20 (`src/processing/hybrid_pipeline.py`)
+- `HybridPipeline` com API fluente: `.dascore(method, ...)`, `.cpp(processor, ...)`, `.apply_array(processor, ...)`.
+- Permite encadear métodos nativos do DASCore (detrend, pass_filter, decimate) com processadores avançados C++20 (median_filter_1d, wavelet_denoise, butterworth, etc.).
+- Aceita `AlakoroPatch`, `Patch` DASCore ou `np.ndarray` como entrada.
+- Histórico de passos (`history`) e suporte a clone.
+
+#### 3. Testes e exemplos
+- `tests/test_io_dascore_formats.py`: 13 testes cobrindo formatos, roundtrip e pipeline híbrido.
+- `examples/dascore_formats.py`: demonstra leitura/escrita de múltiplos formatos.
+- `examples/hybrid_pipeline.py`: demonstra pipeline fluente DASCore + C++20.
+- `notebooks/01_dascore_integration.ipynb` atualizado com seções de formatos e pipeline híbrido.
+
+### Testes
+- Total: 126 testes passando, 0 skipped
+
+---
+
 ## v2.8.0 (2026-08-29) — Fase 1/2: Biblioteca Completa de Processadores Avançados C++20
 
 ### Adições

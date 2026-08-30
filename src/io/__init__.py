@@ -2,6 +2,13 @@
 
 from .alakoro_spool import AlakoroPatch, AlakoroSpool
 from .dascore import alakoro_to_patch, patch_to_alakoro
+from .dascore_formats import (
+    read as read_dascore,
+    write as write_dascore,
+    supported_formats as supported_dascore_formats,
+    patch_from_dascore,
+    spool_from_dascore,
+)
 from .dasdae import (
     DASDAEAdapter,
     alakoro_to_dascore,
@@ -26,6 +33,11 @@ from .streaming import StreamingSpool, DirectoryWatcher
 __all__ = [
     "alakoro_to_patch",
     "patch_to_alakoro",
+    "read_dascore",
+    "write_dascore",
+    "supported_dascore_formats",
+    "patch_from_dascore",
+    "spool_from_dascore",
     "AlakoroPatch",
     "AlakoroSpool",
     "DASDAEAdapter",
