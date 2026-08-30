@@ -1,4 +1,4 @@
-<h1 align="center">Alakoro FiberSense v2.8.0</h1>
+<h1 align="center">Alakoro FiberSense v2.9.0</h1>
 
 <p align="center">
   <strong>Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo</strong><br/>
@@ -49,19 +49,21 @@ pip install alakoro-fibersense
 
 ---
 
-### ✨ Novidades v2.7.0 / What's New
+### ✨ Novidades v2.9.0 / What's New in v2.9.0
 
+- ✅ **Arquitetura de Plugins para Drivers Proprietários** (`src/io/drivers`) — `BaseVendorDriver`, `VendorDriverRegistry` com descoberta via entry point `alakoro.driver`, fallback para DASCore/Xdas e driver de exemplo `.exd`
 - ✅ **Biblioteca Completa de Processadores Avançados C++20** (`alakoro_core`) — Butterworth, FFT/PSD, CWT, STA/LTA, Hilbert, TKEO, median/SVD/wavelet denoising, STFT, cross-correlation, coherence, gauge compensation, LMS/RLS, EMD/EEMD, NMF
 - ✅ **Machine Learning** (`src/ml`) — CNN, U-Net, regressor; Trainer; métricas; API de inferência
 - ✅ **C++20 Core** (`alakoro_core`) — DASData, DTSData, DSSData com pybind11 e metaprogramação moderna
-- ✅ **Integração DASDAE** — AlakoroSpool/AlakoroPatch compatíveis com DASCore e Xdas; leitura/escrita de formatos DASCore (dasdae, pickle) e Xdas (NetCDF); DataCollection Xdas; pipeline híbrido DASCore/Xdas + C++20
+- ✅ **Integração Nativa com DASCore** — `AlakoroPatch`/`AlakoroSpool` compatíveis; leitura/escrita de formatos DASCore (dasdae, pickle, tdms, segy, febus, optodas, etc.); pipeline híbrido DASCore + C++20
+- ✅ **Integração Nativa com Xdas** — conversão direta `AlakoroPatch ↔ xdas.DataArray` e `AlakoroSpool ↔ xdas.DataCollection`; leitura/escrita NetCDF; pipeline híbrido Xdas + C++20
 - ✅ **Escape Hatches** — NumPy, pandas, xarray, ObsPy
 - ✅ **ProdML/WITSML** — leitura/escrita básica de arquivos Energistics
 - ✅ **Streaming** — monitoramento de diretório e stubs Kafka/MQTT
 - ✅ **15 Assinaturas Canônicas** (M15) — 6 originais + 9 novas
 - ✅ **LF-DAS / eXDTS** (M1) — temperatura de alta taxa (~2s refresh)
 - ✅ **Ontologia** (`src/ontology`) — modelo RDF/OWL + bridge com assinaturas
-- ✅ **Testes Unitários** — pytest com 113 testes passando
+- ✅ **Testes Unitários** — pytest com 154 testes passando
 - ✅ **PyPI** — `pip install alakoro-fibersense`
 - ✅ **CI/CD** — GitHub Actions com testes, lint, build C++, PyPI e release
 - ✅ **Documentação Bilíngue** — PT + EN em todos os módulos
@@ -87,6 +89,52 @@ result = lfdas.process(jt['das'], trace_interval_s=2.0)
 validator = SignatureValidator(well, acq)
 validation = validator.validate_signature(jt, result)
 print(f"✅ {validation['passed']}/{validation['total']} passaram ({validation['success_rate']:.0f}%)")
+```
+
+---
+
+### 🔌 Drivers Proprietários / Vendor Drivers
+
+O Alakoro v2.9.0 introduz uma arquitetura de **plugins opcionais para drivers de fabricantes** DFOS/DAS. O core permanece MIT; drivers comerciais são distribuídos em pacotes separados e registrados via entry point `alakoro.driver`.
+
+**Alakoro v2.9.0 introduces an optional plugin architecture for DFOS/DAS vendor drivers.** The core stays MIT; commercial drivers live in separate packages and register via the `alakoro.driver` entry point.
+
+```python
+from src.io.drivers import read_vendor, list_available_drivers, detect_driver
+
+# Lista drivers disponíveis / List available drivers
+print(list_available_drivers())
+
+# Detecta o driver adequado / Detect the right driver
+print(detect_driver("/dados/poco.exd"))
+
+# Lê com fallback automático para DASCore/Xdas / Read with automatic DASCore/Xdas fallback
+patch = read_vendor("/dados/poco.exd")
+
+# Força um driver específico / Force a specific driver
+patch = read_vendor("/dados/poco.bin", vendor_hint="meu_fabricante")
+```
+
+> 📖 Veja o guia completo em [docs/drivers/plugins.md](docs/drivers/plugins.md).
+> 📖 See the full guide at [docs/drivers/plugins.md](docs/drivers/plugins.md).
+
+---
+
+### 📂 Leitura de Dados / Reading Data
+
+```python
+# Via DASCore / Via DASCore
+from src.io.dascore_formats import read as read_dascore
+spool = read_dascore("/dados/poco_tdms/")
+
+# Via Xdas / Via Xdas
+from src.io.xdas_formats import read_xdas
+patch = read_xdas("/dados/poco.nc")
+
+# Conversão direta / Direct conversion
+from src.io.xdas_adapter import alakoro_to_xdas, xdas_to_alakoro
+xda = alakoro_to_xdas(patch)
+patch_back = xdas_to_alakoro(xda)
 ```
 
 ---
@@ -147,29 +195,41 @@ from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 ### 🏗️ Arquitetura / Architecture
 
 ```
-Alakoro FiberSense v2.2.1
+Alakoro FiberSense v2.9.0
 │
-├── 🟢 install/              # Modo Leigo (clique duplo)
+├── 🟢 install/              # Modo Leigo (clique duplo / double-click)
 │   ├── INSTALL_WINDOWS.bat
 │   ├── INSTALL_UNIX.sh
 │   └── INSTALL_GUI.py
 │
-├── 🔵 src/                  # Código-fonte corrigido
-│   ├── simulation/          # signature_generator.py v4.1
-│   ├── processing/          # lfdas_processor.py v1.1.0
-│   ├── validation/          # signature_validator.py v1.2.1
-│   ├── events/              # schema v1.1.0 (18 event types)
-│   └── ontology/            # modelo semântico RDF/OWL (v2.3.0)
+├── 🔵 src/                  # Código-fonte principal / Main source code
+│   ├── simulation/          # Geração de assinaturas e geometria de poço
+│   ├── processing/          # LF-DAS, processadores avançados e pipelines híbridos
+│   ├── validation/          # Validação de assinaturas canônicas
+│   ├── events/              # Schema de eventos (JSON-LD / RDF)
+│   ├── ontology/            # Modelo semântico RDF/OWL + bridge com assinaturas
+│   ├── io/                  # Entrada/saída de dados
+│   │   ├── dascore.py / dascore_formats.py  # Integração DASCore
+│   │   ├── xdas_adapter.py / xdas_formats.py # Integração Xdas
+│   │   ├── drivers/         # Plugins de drivers proprietários (MIT-safe)
+│   │   │   ├── base.py      # BaseVendorDriver
+│   │   │   ├── registry.py  # Descoberta por entry point + fallback
+│   │   │   └── optional/    # Drivers opcionais embarcados (ex: example_vendor)
+│   │   ├── prodml.py / witsml.py             # Formatos Energistics
+│   │   └── streaming.py     # Streaming de diretórios / stubs Kafka/MQTT
+│   └── ml/                  # Machine Learning (CNN, U-Net, regressor, trainer)
 │
-├── 🧪 tests/                # 40+ testes pytest
+├── 🧪 tests/                # 154+ testes pytest
 ├── 🐳 Dockerfile            # Container Docker
 ├── ⚙️ .github/workflows/    # CI/CD (testes, Docker, PyPI, release)
-├── 📦 pyproject.toml        # Metadata PyPI (PEP 517/518)
+├── 📦 pyproject.toml        # Metadata PyPI (PEP 517/518) + entry points
 ├── 📦 setup.py             # Compatibilidade legacy
 ├── 📦 MANIFEST.in          # Arquivos extras no pacote
 │
 ├── 🎸 docs/                 # Documentação completa
 │   ├── sphinx/              # Site Sphinx (make html)
+│   ├── drivers/             # Guia de plugins para drivers proprietários
+│   ├── architecture/        # Documentação de arquitetura
 │   ├── Alakoro_Demo.ipynb   # Notebook Jupyter interativo
 │   └── alakoro_logo.png     # Logo (Alakoro + Fibra Óptica)
 │
