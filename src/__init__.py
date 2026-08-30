@@ -18,10 +18,23 @@ def main():
     print("Módulos disponíveis / Available modules:")
     print("  - alakoro_core      (C++20 core: DASData, DTSData, DSSData, processors)")
     print("  - src.simulation    (SignatureGenerator, WellGeometry, AcquisitionConfig)")
-    print("  - src.processing    (LFDASProcessor)")
+    print("  - src.processing    (LFDASProcessor, DTSThermalProcessor)")
     print("  - src.validation    (SignatureValidator)")
     print("  - src.events        (EVENT_SCHEMA)")
+    print("  - src.gui           (AlakoroMainWindow — PySide6 GUI)")
     print(f"Licença / License: {__license__}")
+
+
+def main_gui():
+    """Entry point da interface gráfica desktop / Desktop GUI entry point."""
+    try:
+        from src.gui.main_window import main as _gui_main
+    except ImportError as exc:
+        raise ImportError(
+            "GUI dependencies not installed. Run: "
+            "pip install alakoro-fibersense[gui]"
+        ) from exc
+    _gui_main()
 
 
 if __name__ == "__main__":

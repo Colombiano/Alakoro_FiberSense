@@ -44,7 +44,8 @@ Características / Features
 - **LF-DAS / eXDTS** (M1) — temperatura de alta taxa (~2s refresh)
 - **Eventos Semânticos** (M12) — JSON Schema v1.1.0 (18 event types)
 - **Validador v1.2.1** — detecção de múltiplos picos + validações térmicas C++20
-- **Testes Unitários** — pytest com 163 testes passando
+- **GUI Desktop** — PySide6 + PyQtGraph (`alakoro-gui`)
+- **Testes Unitários** — pytest com 164 testes passando
 - **PyPI** — ``pip install alakoro-fibersense``
 - **Docker** — imagem oficial disponível
 - **Documentação Bilíngue** — PT + EN

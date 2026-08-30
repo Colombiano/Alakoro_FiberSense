@@ -36,12 +36,20 @@
   C++ correta (DAS/DTS/DSS).
 - Adicionados wrappers para processadores térmicos.
 
-#### 7. Testes (`tests/test_dts_processor.py`)
+#### 7. GUI Desktop (`src/gui`)
+- Interface gráfica com **PySide6** (LGPL) e **PyQtGraph**.
+- `DataLoaderDialog`: seleção de arquivo com detecção de formato e modalidade.
+- `HeatmapView` e `ProfileView`: visualização 2D e perfis.
+- Painéis de processadores: filtros, denoising, eventos, térmicos e ML.
+- `ProcessingWorker` em `QThread` para não travar a UI.
+- Entry point `alakoro-gui` e extra opcional `[gui]` no `pyproject.toml`.
+
+#### 8. Testes (`tests/test_dts_processor.py`)
 - 9 testes cobrindo buffer DTS, processadores térmicos C++, pipeline
   `DTSThermalProcessor`, `DTSFeatureExtractor` e validação de modalidade.
 
 ### Testes
-- Total: 163 testes passando, 1 skipped.
+- Total: 164 testes passando, 0 skipped.
 
 ---
 

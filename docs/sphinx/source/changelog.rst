@@ -24,7 +24,9 @@ Adições / Additions
 Resultado / Result
 ^^^^^^^^^^^^^^^^^^
 
-* Total: 163 testes passando, 1 skipped.
+* Total: 164 testes passando, 0 skipped.
+* **GUI Desktop** (`src/gui`) — PySide6 + PyQtGraph para visualização e
+  processamento interativo de dados DFOS.
 
 v2.2.1 (2026-07-18)
 -------------------

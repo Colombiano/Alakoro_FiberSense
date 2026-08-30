@@ -51,6 +51,7 @@ pip install alakoro-fibersense
 
 ### ✨ Novidades v2.10.0 / What's New in v2.10.0
 
+- ✅ **Interface Gráfica Desktop** (`src/gui`) — PySide6 + PyQtGraph: carregamento, visualização 2D, processadores, pipeline DTS, validação e exportação
 - ✅ **Paridade DTS/DAS** — todos os processadores avançados C++20 agora suportam DAS e DTS (`*_d_das` / `*_d_dts`); DSS com fallback básico
 - ✅ **Processadores Térmicos C++20** (`alakoro_core`) — `thermal_gradient_d`, `geothermal_baseline_correction_d`, `thermal_anomaly_detection_d`, `spatial_median_filter_d`
 - ✅ **DTSThermalProcessor** (`src/processing/dts_processor.py`) — pipeline completo de limpeza, correção geotérmica, gradiente dT/dz, detecção de anomalias e velocidade de frente térmica
@@ -145,6 +146,32 @@ patch = read_vendor("/dados/poco.bin", vendor_hint="meu_fabricante")
 
 > 📖 Veja o guia completo em [docs/drivers/plugins.md](docs/drivers/plugins.md).
 > 📖 See the full guide at [docs/drivers/plugins.md](docs/drivers/plugins.md).
+
+---
+
+### 🖥️ Interface Gráfica Desktop / Desktop GUI
+
+O Alakoro v2.10.0 inclui uma **GUI desktop nativa** construída com **PySide6** (licença LGPL) e **PyQtGraph** para visualização científica de alta performance.
+
+**Alakoro v2.10.0 includes a native desktop GUI** built with **PySide6** (LGPL license) and **PyQtGraph** for high-performance scientific visualization.
+
+```bash
+# Instalar com dependências da GUI / Install with GUI dependencies
+pip install alakoro-fibersense[gui]
+
+# Launch
+alakoro-gui
+```
+
+Funcionalidades / Features:
+- 📂 Carregamento de arquivos com detecção automática de formato (DASCore/Xdas/drivers)
+- 🗺️ Mapa de calor 2D e perfis (time × distance/depth)
+- 🔧 Painel de processadores: Butterworth, detrend/demean/taper, median/SVD denoising, STA/LTA, PSD
+- 🌡️ Painel térmico DTS: gradiente, baseline geotérmico, anomalias, pipeline completo
+- 🤖 Validação de assinaturas e inferência ML
+- 💾 Exportação para NetCDF, NumPy, PNG, CSV
+
+> A GUI roda em thread separada para não travar a interface durante processamentos C++20.
 
 ---
 

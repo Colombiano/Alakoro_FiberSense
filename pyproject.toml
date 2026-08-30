@@ -57,6 +57,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gui = [
+    "PySide6>=6.5.0",
+    "PyQtGraph>=0.13.0",
+    "qdarkstyle>=3.0.0",
+]
 dev = [
     "pytest-cov>=4.0.0",
     "flake8>=6.0.0",
@@ -78,6 +83,7 @@ Changelog = "https://github.com/Colombiano/Alakoro_FiberSense/blob/main/CHANGELO
 
 [project.scripts]
 alakoro = "src.__init__:main"
+alakoro-gui = "src.__init__:main_gui"
 
 [project.entry-points."alakoro.driver"]
 example_vendor = "src.io.drivers.optional.example_vendor:ExampleVendorDriver"

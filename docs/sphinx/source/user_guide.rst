@@ -157,6 +157,29 @@ Extração de Features / Feature Extraction
    features = extractor(temperature, depth_step_m=1.0)
    print(f"Features: {features.shape}")
 
+Interface Gráfica Desktop / Desktop GUI
+----------------------------------------
+
+O Alakoro oferece uma GUI desktop opcional construída com PySide6 e PyQtGraph:
+
+.. code-block:: bash
+
+   pip install alakoro-fibersense[gui]
+   alakoro-gui
+
+A interface permite:
+
+* Carregar arquivos DFOS com detecção automática de formato.
+* Visualizar mapas de calor 2D e perfis.
+* Aplicar processadores (Butterworth, denoising, STA/LTA, etc.).
+* Rodar pipeline térmico para DTS.
+* Validar assinaturas e exportar resultados.
+
+.. code-block:: python
+
+   from src.gui import main_gui
+   main_gui()
+
 Executar Testes / Run Tests
 ---------------------------
 

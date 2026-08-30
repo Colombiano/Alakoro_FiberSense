@@ -47,6 +47,18 @@ Módulo de Processamento / Processing Module
       :members:
       :undoc-members:
 
+Interface Gráfica / Graphical User Interface
+---------------------------------------------
+
+.. automodule:: src.gui.main_window
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+   .. autoclass:: AlakoroMainWindow
+      :members:
+      :undoc-members:
+
 Módulo de Machine Learning / Machine Learning Module
 -----------------------------------------------------
 
