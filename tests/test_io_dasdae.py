@@ -97,10 +97,12 @@ def test_alakoro_spool_to_dascore():
     assert len(list(dc_spool)) == 2
 
 
-def test_xdas_conversion_stubs_when_not_installed():
-    pytest.importorskip("xdas", reason="xdas not installed, skipping xdas test")
+def test_xdas_conversion_via_adapter():
+    from src.io.xdas_adapter import alakoro_to_xdas, xdas_to_alakoro
 
     patch = _make_patch()
-    da = DASDAEAdapter.to_xdas(patch.patch)
-    back = DASDAEAdapter.from_xdas(da)
-    assert isinstance(back, Patch)
+    da = alakoro_to_xdas(patch)
+    back = xdas_to_alakoro(da, well_id="W-01")
+    assert isinstance(back, AlakoroPatch)
+    assert back.shape == patch.shape
+    assert back.well_id == "W-01"

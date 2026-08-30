@@ -14,6 +14,7 @@ from dascore import Patch
 
 from src.io.alakoro_spool import AlakoroPatch, AlakoroSpool
 from src.io.dasdae import DASDAEAdapter
+from src.io.xdas_adapter import alakoro_to_xdas, xdas_to_alakoro
 
 
 class HybridPipeline:
@@ -164,6 +165,94 @@ class HybridPipeline:
             return func(self._patch, *args, **kwargs)
         except Exception as exc:
             raise RuntimeError(f"C++ processor '{processor}' failed: {exc}") from exc
+
+    def xdas(self, processor: str, *args: Any, **kwargs: Any) -> "HybridPipeline":
+        """
+        Aplica um processador do ecossistema Xdas (xdas.signal, xdas.fft)
+        ou um método do xdas.DataArray.
+
+        Args:
+            processor: nome da função (ex: 'detrend', 'filter', 'hilbert',
+                       'decimate', 'resample', 'rfft').
+            *args, **kwargs: argumentos do processador.
+        """
+        import xdas
+        import xdas.signal as xs
+        import xdas.fft as xf
+
+        da = alakoro_to_xdas(self._patch)
+
+        # Métodos do próprio DataArray
+        if hasattr(da, processor):
+            func = getattr(da, processor)
+            try:
+                result = func(*args, **kwargs)
+            except Exception as exc:
+                raise RuntimeError(f"Xdas DataArray method '{processor}' failed: {exc}") from exc
+        # Módulos signal / fft
+        elif hasattr(xs, processor):
+            func = getattr(xs, processor)
+            try:
+                result = func(da, *args, **kwargs)
+            except Exception as exc:
+                raise RuntimeError(f"Xdas signal function '{processor}' failed: {exc}") from exc
+        elif hasattr(xf, processor):
+            func = getattr(xf, processor)
+            try:
+                result = func(da, *args, **kwargs)
+            except Exception as exc:
+                raise RuntimeError(f"Xdas fft function '{processor}' failed: {exc}") from exc
+        else:
+            raise AttributeError(
+                f"Xdas has no method/function '{processor}'. "
+                f"Available in xdas.signal: detrend, filter, filtfilt, decimate, "
+                f"resample, hilbert, stft. Available in xdas.fft: rfft, fft, irfft."
+            )
+
+        if isinstance(result, xdas.DataArray):
+            # Garante que o resultado tenha dims (time, distance) para manter AlakoroPatch
+            if result.ndim != 2:
+                raise ValueError(
+                    f"Xdas processor '{processor}' changed dimensionality to {result.ndim}D. "
+                    f"HybridPipeline requires 2D (time, distance) output."
+                )
+            self._patch = xdas_to_alakoro(
+                result, well_id=self._patch.well_id, modality=self._patch.modality
+            )
+        else:
+            raise TypeError(
+                f"Xdas processor '{processor}' returned unexpected type {type(result)}. "
+                f"Use .apply_array_xdas('{processor}', ...) for array outputs."
+            )
+
+        self._history.append(f"xdas.{processor}")
+        return self
+
+    def apply_array_xdas(
+        self, processor: str, *args: Any, **kwargs: Any
+    ) -> Union[np.ndarray, List[np.ndarray]]:
+        """
+        Executa um processador Xdas que retorna array(s) e retorna o resultado
+        bruto, encerrando o pipeline.
+
+        Útil para: stft, rfft, etc.
+        """
+        import xdas.signal as xs
+        import xdas.fft as xf
+
+        da = alakoro_to_xdas(self._patch)
+
+        if hasattr(xs, processor):
+            func = getattr(xs, processor)
+        elif hasattr(xf, processor):
+            func = getattr(xf, processor)
+        else:
+            raise AttributeError(f"Xdas has no function '{processor}'")
+
+        try:
+            return func(da, *args, **kwargs)
+        except Exception as exc:
+            raise RuntimeError(f"Xdas processor '{processor}' failed: {exc}") from exc
 
     def to_patch(self) -> AlakoroPatch:
         """Retorna o AlakoroPatch resultante."""

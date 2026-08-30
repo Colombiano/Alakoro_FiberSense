@@ -1,5 +1,35 @@
 # Changelog — Alakoro FiberSense
 
+## v2.8.2 (2026-08-30) — Integração completa com Xdas
+
+### Adições
+
+#### 1. Conversão direta Alakoro ↔ Xdas (`src/io/xdas_adapter.py`)
+- `alakoro_to_xdas(patch)` e `xdas_to_alakoro(da)` — conversão direta preservando `well_id`, `modality` e metadados.
+- `spool_to_datacollection(spool)` e `datacollection_to_spool(dc)` — `AlakoroSpool` ↔ `xdas.DataCollection`.
+- `array_to_dataarray()` / `dataarray_to_array()` — conversão de/para arrays NumPy.
+- Coordenadas Xdas regulares (`SampledCoordinate`) para evitar warnings de inferência.
+
+#### 2. Leitura/escrita de formatos Xdas (`src/io/xdas_formats.py`)
+- `read_xdas(path, ...)` — lê arquivo único (`xdas.open`) ou múltiplos arquivos (`xdas.open_mfdataarray`).
+- `write_xdas(obj, path, engine=...)` — salva em NetCDF, com inferência por extensão.
+- `supported_xdas_formats()` — lista engines de `xdas.io`.
+- Suporte a lazy loading via parâmetro `lazy`.
+
+#### 3. Pipeline híbrido Xdas (`src/processing/hybrid_pipeline.py`)
+- Novo método `.xdas(processor, ...)` para encadear processadores `xdas.signal` / `xdas.fft` (detrend, filter, hilbert, decimate, rfft, etc.) com processadores C++20 e DASCore.
+- Novo método `.apply_array_xdas(...)` para processadores que retornam arrays (ex: `rfft`).
+
+#### 4. Testes e exemplos
+- `tests/test_io_xdas_formats.py`: 14 testes reais de conversão, roundtrip NetCDF, DataCollection e pipeline híbrido.
+- `examples/xdas_formats.py` e `examples/xdas_hybrid_pipeline.py`.
+- Notebook `notebooks/01_dasdae_integration.ipynb` unificado (DASCore + Xdas).
+
+### Testes
+- Total: 142 testes passando, 0 skipped
+
+---
+
 ## v2.8.1 (2026-08-30) — Integração DASCore: formatos + pipeline híbrido
 
 ### Adições

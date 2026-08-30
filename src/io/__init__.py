@@ -29,6 +29,15 @@ from .escape_hatches import (
 from .prodml import read as read_prodml, write as write_prodml
 from .witsml import read_log as read_witsml_log, write_log as write_witsml_log
 from .streaming import StreamingSpool, DirectoryWatcher
+from .xdas_adapter import (
+    alakoro_to_xdas,
+    xdas_to_alakoro,
+    spool_to_datacollection,
+    datacollection_to_spool,
+    array_to_dataarray,
+    dataarray_to_array,
+)
+from .xdas_formats import read_xdas, write_xdas, supported_xdas_formats
 
 __all__ = [
     "alakoro_to_patch",
@@ -45,6 +54,13 @@ __all__ = [
     "dascore_to_alakoro",
     "alakoro_to_xdas",
     "xdas_to_alakoro",
+    "spool_to_datacollection",
+    "datacollection_to_spool",
+    "array_to_dataarray",
+    "dataarray_to_array",
+    "read_xdas",
+    "write_xdas",
+    "supported_xdas_formats",
     "to_numpy",
     "from_numpy",
     "to_dataframe",
