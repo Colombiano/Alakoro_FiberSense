@@ -21,19 +21,20 @@ class HeatmapView(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setLabel("bottom", "Tempo / Time")
-        self.plot_widget.setLabel("left", "Distância/Profundidade / Distance/Depth")
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        self.graphics_layout = pg.GraphicsLayoutWidget()
+        layout.addWidget(self.graphics_layout)
+
+        self.plot_item = self.graphics_layout.addPlot(row=0, col=0)
+        self.plot_item.setLabel("bottom", "Tempo / Time")
+        self.plot_item.setLabel("left", "Distância/Profundidade / Distance/Depth")
+        self.plot_item.showGrid(x=True, y=True, alpha=0.3)
 
         self.image_item = pg.ImageItem()
-        self.plot_widget.addItem(self.image_item)
+        self.plot_item.addItem(self.image_item)
 
-        self.colorbar = pg.ColorBarItem(interactive=False)
+        self.colorbar = pg.ColorBarItem(interactive=False, orientation="vertical")
         self.colorbar.setImageItem(self.image_item)
-        self.colorbar.setOrientation("right")
-
-        layout.addWidget(self.plot_widget)
+        self.graphics_layout.addItem(self.colorbar, row=0, col=1)
 
     def set_data(self, data: np.ndarray, title: str = "Heatmap"):
         """
@@ -49,7 +50,7 @@ class HeatmapView(QWidget):
         # Transpor para (channels, time) porque ImageItem espera (linhas, colunas)
         # e a origem é no canto inferior esquerdo por padrão.
         self.image_item.setImage(data.T, autoLevels=True)
-        self.plot_widget.setTitle(title)
+        self.plot_item.setTitle(title)
 
     def clear(self):
         self.image_item.clear()

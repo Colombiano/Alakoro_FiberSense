@@ -177,8 +177,19 @@ A interface permite:
 
 .. code-block:: python
 
-   from src.gui import main_gui
-   main_gui()
+   from src.gui import main
+   main()
+
+Veja o notebook demonstrativo / See the demo notebook:
+`docs/Alakoro_GUI_Demo.ipynb <../../Alakoro_GUI_Demo.ipynb>`_
+
+.. image:: ../../images/gui_main_window.png
+   :alt: Janela principal da GUI / Main GUI window
+   :width: 90%
+
+.. image:: ../../images/gui_profile_view.png
+   :alt: Aba de perfis / Profiles tab
+   :width: 90%
 
 Executar Testes / Run Tests
 ---------------------------
