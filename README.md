@@ -1,4 +1,4 @@
-<h1 align="center">Alakoro FiberSense v2.9.0</h1>
+<h1 align="center">Alakoro FiberSense v2.10.0</h1>
 
 <p align="center">
   <strong>Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo</strong><br/>
@@ -49,8 +49,13 @@ pip install alakoro-fibersense
 
 ---
 
-### ✨ Novidades v2.9.0 / What's New in v2.9.0
+### ✨ Novidades v2.10.0 / What's New in v2.10.0
 
+- ✅ **Paridade DTS/DAS** — todos os processadores avançados C++20 agora suportam DAS e DTS (`*_d_das` / `*_d_dts`); DSS com fallback básico
+- ✅ **Processadores Térmicos C++20** (`alakoro_core`) — `thermal_gradient_d`, `geothermal_baseline_correction_d`, `thermal_anomaly_detection_d`, `spatial_median_filter_d`
+- ✅ **DTSThermalProcessor** (`src/processing/dts_processor.py`) — pipeline completo de limpeza, correção geotérmica, gradiente dT/dz, detecção de anomalias e velocidade de frente térmica
+- ✅ **DTSFeatureExtractor** (`src/ml/features.py`) — features estatísticas, espectrais, térmicas e de anomalia para ML em DTS
+- ✅ **Validação Térmica Avançada** (`src/validation/signature_validator.py`) — checks de gradiente, anomalias e baseline geotérmico via C++20
 - ✅ **Arquitetura de Plugins para Drivers Proprietários** (`src/io/drivers`) — `BaseVendorDriver`, `VendorDriverRegistry` com descoberta via entry point `alakoro.driver`, fallback para DASCore/Xdas e driver de exemplo `.exd`
 - ✅ **Biblioteca Completa de Processadores Avançados C++20** (`alakoro_core`) — Butterworth, FFT/PSD, CWT, STA/LTA, Hilbert, TKEO, median/SVD/wavelet denoising, STFT, cross-correlation, coherence, gauge compensation, LMS/RLS, EMD/EEMD, NMF
 - ✅ **Machine Learning** (`src/ml`) — CNN, U-Net, regressor; Trainer; métricas; API de inferência
@@ -63,7 +68,7 @@ pip install alakoro-fibersense
 - ✅ **15 Assinaturas Canônicas** (M15) — 6 originais + 9 novas
 - ✅ **LF-DAS / eXDTS** (M1) — temperatura de alta taxa (~2s refresh)
 - ✅ **Ontologia** (`src/ontology`) — modelo RDF/OWL + bridge com assinaturas
-- ✅ **Testes Unitários** — pytest com 154 testes passando
+- ✅ **Testes Unitários** — pytest com 163 testes passando
 - ✅ **PyPI** — `pip install alakoro-fibersense`
 - ✅ **CI/CD** — GitHub Actions com testes, lint, build C++, PyPI e release
 - ✅ **Documentação Bilíngue** — PT + EN em todos os módulos
@@ -89,6 +94,29 @@ result = lfdas.process(jt['das'], trace_interval_s=2.0)
 validator = SignatureValidator(well, acq)
 validation = validator.validate_signature(jt, result)
 print(f"✅ {validation['passed']}/{validation['total']} passaram ({validation['success_rate']:.0f}%)")
+```
+
+#### 🌡️ Processamento Térmico DTS / DTS Thermal Processing
+
+```python
+import numpy as np
+from src.processing import DTSThermalProcessor
+
+# temperature: array (n_times, n_channels) em °C
+temperature = np.random.randn(1000, 300) * 0.1 + 20.0
+
+proc = DTSThermalProcessor(
+    depth_step_m=1.0,
+    surface_temp=20.0,
+    geothermal_gradient=0.03,
+    spatial_median_window=5,
+    anomaly_threshold_sigma=3.0,
+    use_cpp_backend=True,
+)
+result = proc.process(temperature)
+
+print(result['thermal_gradient'].shape)  # (1000, 300)
+print(result['anomalies'].sum())         # número de amostras anômalas
 ```
 
 ---

@@ -25,6 +25,9 @@ from src.processing.advanced_processors import (
     cwt as cpp_cwt,
     sta_lta as cpp_sta_lta,
     coherence_channels as cpp_coherence,
+    thermal_gradient as cpp_thermal_gradient,
+    thermal_anomaly_detection as cpp_thermal_anomaly,
+    geothermal_baseline_correction as cpp_geothermal_baseline,
 )
 
 
@@ -277,6 +280,64 @@ class SignatureValidator:
         except Exception as e:
             return False, f"{name}: falha no cálculo de STA/LTA ({e})"
 
+    def _check_thermal_gradient_cpp(self, dts: np.ndarray,
+                                     depth_step_m: float = 1.0,
+                                     expected_range: Tuple[float, float] = (0.015, 0.045),
+                                     name: str = "DTS") -> Tuple[bool, str]:
+        """
+        Verifica gradiente térmico usando processador C++20.
+        """
+        try:
+            patch = DASDAEAdapter.array_to_patch(dts.astype(np.float64), modality="dts", dx_m=depth_step_m)
+            patch = AlakoroPatch(patch, modality="dts")
+            gradient = cpp_thermal_gradient(patch, depth_step_m=depth_step_m)
+            mean_gradient = np.mean(gradient)
+            if expected_range[0] <= mean_gradient <= expected_range[1]:
+                return True, f"{name}: gradiente térmico C++ = {mean_gradient:.4f} °C/m ✓"
+            return False, f"{name}: gradiente térmico C++ = {mean_gradient:.4f} °C/m (fora do esperado)"
+        except Exception as e:
+            return False, f"{name}: falha no gradiente térmico C++ ({e})"
+
+    def _check_thermal_anomalies_cpp(self, dts: np.ndarray,
+                                      depth_step_m: float = 1.0,
+                                      threshold_sigma: float = 3.0,
+                                      name: str = "DTS") -> Tuple[bool, str]:
+        """
+        Detecta anomalias térmicas usando processador C++20.
+        """
+        try:
+            patch = DASDAEAdapter.array_to_patch(dts.astype(np.float64), modality="dts", dx_m=depth_step_m)
+            patch = AlakoroPatch(patch, modality="dts")
+            anomalies = cpp_thermal_anomaly(patch, threshold_sigma=threshold_sigma)
+            anomaly_ratio = np.mean(anomalies)
+            if anomaly_ratio > 0.01:
+                return True, f"{name}: anomalias térmicas C++ = {anomaly_ratio*100:.1f}% ✓"
+            return False, f"{name}: poucas anomalias térmicas C++ = {anomaly_ratio*100:.1f}%"
+        except Exception as e:
+            return False, f"{name}: falha na detecção de anomalias C++ ({e})"
+
+    def _check_geothermal_baseline_cpp(self, dts: np.ndarray,
+                                        depth_step_m: float = 1.0,
+                                        surface_temp: float = 20.0,
+                                        gradient: float = 0.03,
+                                        name: str = "DTS") -> Tuple[bool, str]:
+        """
+        Verifica se a correção de baseline geotérmico C++20 produz resíduos pequenos.
+        """
+        try:
+            patch = DASDAEAdapter.array_to_patch(dts.astype(np.float64), modality="dts", dx_m=depth_step_m)
+            patch = AlakoroPatch(patch, modality="dts")
+            corrected = cpp_geothermal_baseline(
+                patch, depth_step_m=depth_step_m, surface_temp=surface_temp, gradient=gradient
+            )
+            residual = corrected.data.mean(axis=0)
+            mean_residual = np.mean(np.abs(residual))
+            if mean_residual < 5.0:
+                return True, f"{name}: baseline geotérmico C++ resíduo = {mean_residual:.2f}°C ✓"
+            return False, f"{name}: baseline geotérmico C++ resíduo alto = {mean_residual:.2f}°C"
+        except Exception as e:
+            return False, f"{name}: falha na correção de baseline C++ ({e})"
+
     def _check_channel_coherence(self, das: np.ndarray,
                                   sample_rate_hz: float = 1000.0,
                                   name: str = "DAS") -> Tuple[bool, str]:
@@ -376,6 +437,11 @@ class SignatureValidator:
                 das, sample_rate_hz=sample_rate_hz, name="DAS (STA/LTA)"))
             tests.append(self._check_channel_coherence(
                 das, sample_rate_hz=sample_rate_hz, name="DAS (coherence)"))
+
+        if advanced_checks and dts is not None and np.any(dts != 0):
+            tests.append(self._check_thermal_gradient_cpp(dts, name="DTS (gradiente C++)"))
+            tests.append(self._check_thermal_anomalies_cpp(dts, name="DTS (anomalias C++)"))
+            tests.append(self._check_geothermal_baseline_cpp(dts, name="DTS (baseline C++)"))
 
         for passed, msg in tests:
             results['tests'].append({'passed': passed, 'message': msg})

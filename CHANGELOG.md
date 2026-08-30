@@ -1,5 +1,50 @@
 # Changelog — Alakoro FiberSense
 
+## v2.10.0 (2026-08-30) — Paridade DTS/DAS e Processadores Térmicos C++20
+
+### Adições
+
+#### 1. Processadores térmicos C++20 (`src/cpp/include/alakoro/thermal.hpp`)
+- `thermal_gradient` — gradiente dT/dz ao longo da profundidade.
+- `geothermal_baseline_correction` — remoção de baseline geotérmico linear.
+- `thermal_anomaly_detection` — detecção de anomalias por desvio padrão temporal.
+- `spatial_median_filter` — filtro de mediana espacial ao longo da profundidade.
+- `estimate_geothermal_gradient` — regressão linear do perfil geotérmico.
+
+#### 2. Generalização dos bindings C++20 para DAS/DTS/DSS (`src/cpp/src/bindings.cpp`)
+- Todas as funções avançadas expostas com variantes `_d_das` e `_d_dts`.
+- DSS usa fallback para DAS enquanto não houver implementações específicas.
+- Processadores térmicos expostos apenas para DTS.
+
+#### 3. `DTSThermalProcessor` (`src/processing/dts_processor.py`)
+- Pipeline completo: pré-processamento espacial/temporal, correção geotérmica,
+  cálculo de gradiente, detecção de anomalias e estatísticas por canal.
+- Método auxiliar `compute_thermal_front_velocity` para rastrear frentes térmicas.
+
+#### 4. `DTSFeatureExtractor` (`src/ml/features.py`)
+- Features estatísticas, espectrais, térmicas (gradiente geotérmico, dT/dz) e
+  de anomalia para treinamento de modelos de ML em dados DTS.
+
+#### 5. Validação térmica avançada (`src/validation/signature_validator.py`)
+- `_check_thermal_gradient_cpp`, `_check_thermal_anomalies_cpp`,
+  `_check_geothermal_baseline_cpp` usando processadores C++20.
+- Ativadas em `validate_signature(..., advanced_checks=True)` quando há dados DTS.
+
+#### 6. `advanced_processors.py` multimodal (`src/processing/advanced_processors.py`)
+- Todos os wrappers Python de processadores avançados respeitam `patch.modality`.
+- Mapa de dispatch `_PROCESSOR_MAP` roteia automaticamente para a implementação
+  C++ correta (DAS/DTS/DSS).
+- Adicionados wrappers para processadores térmicos.
+
+#### 7. Testes (`tests/test_dts_processor.py`)
+- 9 testes cobrindo buffer DTS, processadores térmicos C++, pipeline
+  `DTSThermalProcessor`, `DTSFeatureExtractor` e validação de modalidade.
+
+### Testes
+- Total: 163 testes passando, 1 skipped.
+
+---
+
 ## v2.9.0 (2026-08-30) — Arquitetura de plugins para drivers proprietários
 
 ### Adições
