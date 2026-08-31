@@ -1,5 +1,5 @@
 """
-Alakoro FiberSense v2.10.0
+Alakoro FiberSense v2.11.0
 Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo
 Open-Source Multi-Modal Platform for DFOS in Oil & Gas Wells
 
@@ -7,7 +7,7 @@ Autor/Author: Luiz Paulo Colombiano
 Licença/License: MIT
 """
 
-__version__ = "2.10.0"
+__version__ = "2.11.0"
 __author__ = "Luiz Paulo Colombiano"
 __license__ = "MIT"
 

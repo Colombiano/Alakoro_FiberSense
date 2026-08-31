@@ -1,6 +1,30 @@
 Changelog
 =========
 
+v2.11.0 (2026-08-30) — Evolução da GUI Desktop
+------------------------------------------------
+
+Adições / Additions
+^^^^^^^^^^^^^^^^^^^
+
+* **Cursor sync** entre heatmap e perfis; coordenadas na status bar.
+* **Drag-and-drop** e menu de arquivos recentes.
+* **Undo/redo** de processamentos e progresso percentual nos workers.
+* **Espectrograma STFT** configurável, ROI no heatmap e controle de colormap/escala.
+* **Perfis interativos** com seleção de tempos e média ± desvio.
+* **Pipeline visual** e presets JSON; batch processing em pastas.
+* **Relatório detalhado** de validação com exportação HTML; máscara de anomalias.
+* **Train Model Wizard** para Random Forest/SVM a partir de features ``.npy``.
+* **Exportação de figuras** configuráveis e relatórios HTML/PDF.
+* **Carregamento em thread** e cache de processamentos.
+* **Log persistente** em ``~/.alakoro/alakoro.log`` e suporte a i18n.
+* **Testes de GUI** com ``pytest-qt`` (``tests/test_gui.py``).
+
+Resultado / Result
+^^^^^^^^^^^^^^^^^^
+
+* Total: 169 testes passando, 0 skipped.
+
 v2.10.0 (2026-08-30) — Paridade DTS/DAS e Processadores Térmicos C++20
 -----------------------------------------------------------------------
 

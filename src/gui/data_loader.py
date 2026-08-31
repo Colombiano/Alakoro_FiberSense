@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -19,37 +19,16 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QComboBox,
     QVBoxLayout,
 )
 
+from src.gui.workers.load_worker import LoadWorker
+from src.gui.format_hints import detect_format
 from src.io.alakoro_spool import AlakoroPatch
 from src.io.dasdae import DASDAEAdapter
-
-
-# Mapeamento de extensões conhecidas
-_EXTENSION_HINTS = {
-    ".tdms": "TDMS (National Instruments)",
-    ".segy": "SEG-Y",
-    ".sgy": "SEG-Y",
-    ".h5": "HDF5",
-    ".hdf5": "HDF5",
-    ".nc": "NetCDF",
-    ".netcdf": "NetCDF",
-    ".dasdae": "DASDAE",
-    ".pkl": "Pickle",
-    ".pickle": "Pickle",
-    ".miniseed": "MiniSEED",
-    ".mseed": "MiniSEED",
-    ".exd": "Example Vendor (HDF5)",
-}
-
-
-def detect_format(path: Path) -> str:
-    """Detecta o formato do arquivo a partir da extensão."""
-    suffix = path.suffix.lower()
-    return _EXTENSION_HINTS.get(suffix, suffix or "desconhecido")
 
 
 def load_patch(path: str | Path, modality: str = "das") -> Optional[AlakoroPatch]:
@@ -99,6 +78,8 @@ class DataLoaderDialog(QDialog):
         self.setWindowTitle("Carregar Dados / Load Data")
         self.setMinimumWidth(500)
         self._patch: Optional[AlakoroPatch] = None
+        self._worker_thread: Optional[QThread] = None
+        self._worker: Optional[LoadWorker] = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -137,6 +118,11 @@ class DataLoaderDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
 
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 0)
+        self.progress.setVisible(False)
+        layout.addWidget(self.progress)
+
         self.status_label = QLabel("Aguardando seleção... / Waiting for selection...")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.status_label)
@@ -162,14 +148,32 @@ class DataLoaderDialog(QDialog):
 
         modality = self.modality_combo.currentText()
         self.status_label.setText("Carregando... / Loading...")
-        self.repaint()
+        self.progress.setVisible(True)
+        self.load_btn.setEnabled(False)
 
-        patch = load_patch(path, modality=modality)
+        self._worker_thread = QThread()
+        self._worker = LoadWorker(path, modality=modality)
+        self._worker.moveToThread(self._worker_thread)
+
+        self._worker_thread.started.connect(self._worker.run)
+        self._worker.progress.connect(self.status_label.setText)
+        self._worker.finished.connect(self._on_load_finished)
+        self._worker.error.connect(self._on_load_error)
+
+        self._worker.finished.connect(self._worker_thread.quit)
+        self._worker.finished.connect(self._worker.deleteLater)
+        self._worker_thread.finished.connect(self._worker_thread.deleteLater)
+
+        self._worker_thread.start()
+
+    def _on_load_finished(self, patch: Optional[AlakoroPatch]):
+        self.progress.setVisible(False)
+        self.load_btn.setEnabled(True)
         if patch is None:
             QMessageBox.critical(
                 self,
                 "Erro / Error",
-                f"Não foi possível carregar:\n{path}\n\n"
+                f"Não foi possível carregar:\n{self.file_edit.text()}\n\n"
                 "Could not load the selected file.",
             )
             self.status_label.setText("Falha no carregamento / Load failed")
@@ -181,6 +185,11 @@ class DataLoaderDialog(QDialog):
         )
         self.accept()
 
+    def _on_load_error(self, message: str):
+        self.progress.setVisible(False)
+        self.load_btn.setEnabled(True)
+        self.status_label.setText("Erro / Error")
+
     def patch(self) -> Optional[AlakoroPatch]:
         """Retorna o AlakoroPatch carregado após execução do diálogo."""
         return self._patch
@@ -190,5 +199,8 @@ class DataLoaderDialog(QDialog):
         """Método estático de conveniência."""
         dialog = DataLoaderDialog(parent)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            return dialog.patch()
+            patch = dialog.patch()
+            if patch is not None and dialog.file_edit.text():
+                patch.source_path = dialog.file_edit.text()
+            return patch
         return None

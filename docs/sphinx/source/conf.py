@@ -14,8 +14,8 @@ sys.path.insert(0, os.path.abspath('../../..'))
 project = 'Alakoro FiberSense'
 copyright = '2026, Luiz Paulo Colombiano'
 author = 'Luiz Paulo Colombiano'
-release = '2.10.0'
-version = '2.10.0'
+release = '2.11.0'
+version = '2.11.0'
 
 # ─── Extensões / Extensions ───
 extensions = [

@@ -1,4 +1,4 @@
-<h1 align="center">Alakoro FiberSense v2.10.0</h1>
+<h1 align="center">Alakoro FiberSense v2.11.0</h1>
 
 <p align="center">
   <strong>Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo</strong><br/>
@@ -49,9 +49,9 @@ pip install alakoro-fibersense
 
 ---
 
-### ✨ Novidades v2.10.0 / What's New in v2.10.0
+### ✨ Novidades v2.11.0 / What's New in v2.11.0
 
-- ✅ **Interface Gráfica Desktop** (`src/gui`) — PySide6 + PyQtGraph: carregamento, visualização 2D, processadores, pipeline DTS, validação e exportação
+- ✅ **Interface Gráfica Desktop** (`src/gui`) — PySide6 + PyQtGraph: drag-and-drop, undo/redo, heatmap 2D com ROI/colormap, perfis interativos, espectrograma STFT, presets/batch, relatórios HTML/PDF, log persistente e i18n
 - ✅ **Paridade DTS/DAS** — todos os processadores avançados C++20 agora suportam DAS e DTS (`*_d_das` / `*_d_dts`); DSS com fallback básico
 - ✅ **Processadores Térmicos C++20** (`alakoro_core`) — `thermal_gradient_d`, `geothermal_baseline_correction_d`, `thermal_anomaly_detection_d`, `spatial_median_filter_d`
 - ✅ **DTSThermalProcessor** (`src/processing/dts_processor.py`) — pipeline completo de limpeza, correção geotérmica, gradiente dT/dz, detecção de anomalias e velocidade de frente térmica
@@ -151,9 +151,9 @@ patch = read_vendor("/dados/poco.bin", vendor_hint="meu_fabricante")
 
 ### 🖥️ Interface Gráfica Desktop / Desktop GUI
 
-O Alakoro v2.10.0 inclui uma **GUI desktop nativa** construída com **PySide6** (licença LGPL) e **PyQtGraph** para visualização científica de alta performance.
+O Alakoro v2.11.0 inclui uma **GUI desktop nativa** construída com **PySide6** (licença LGPL) e **PyQtGraph** para visualização científica de alta performance.
 
-**Alakoro v2.10.0 includes a native desktop GUI** built with **PySide6** (LGPL license) and **PyQtGraph** for high-performance scientific visualization.
+**Alakoro v2.11.0 includes a native desktop GUI** built with **PySide6** (LGPL license) and **PyQtGraph** for high-performance scientific visualization.
 
 ```bash
 # Instalar com dependências da GUI / Install with GUI dependencies
@@ -165,11 +165,20 @@ alakoro-gui
 
 Funcionalidades / Features:
 - 📂 Carregamento de arquivos com detecção automática de formato (DASCore/Xdas/drivers)
-- 🗺️ Mapa de calor 2D e perfis (time × distance/depth)
+- 🖱️ Drag-and-drop e arquivos recentes
+- ↩️ Undo/redo de processamentos
+- 🗺️ Mapa de calor 2D com ROI, colormap e escala configuráveis
+- 📈 Perfis interativos (seleção de tempos, média ± desvio)
+- 📊 Espectrograma STFT por canal
 - 🔧 Painel de processadores: Butterworth, detrend/demean/taper, median/SVD denoising, STA/LTA, PSD
 - 🌡️ Painel térmico DTS: gradiente, baseline geotérmico, anomalias, pipeline completo
-- 🤖 Validação de assinaturas e inferência ML
-- 💾 Exportação para NetCDF, NumPy, PNG, CSV
+- 🤖 Validação de assinaturas, relatório detalhado, máscara de anomalias e inferência ML
+- 🎓 Wizard de treinamento de modelos (Random Forest/SVM)
+- 🧱 Editor visual de pipelines e presets JSON
+- 🔄 Batch processing em pastas
+- 💾 Exportação para NetCDF, NumPy, PNG, CSV, Avro, Protobuf
+- 📊 Exportação de figuras configuráveis e relatórios HTML/PDF
+- 📝 Log persistente em `~/.alakoro/alakoro.log`
 
 > A GUI roda em thread separada para não travar a interface durante processamentos C++20.
 

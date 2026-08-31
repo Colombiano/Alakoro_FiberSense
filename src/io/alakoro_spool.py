@@ -29,10 +29,11 @@ class AlakoroPatch:
     """
 
     def __init__(self, patch: Patch, well_id: Optional[str] = None,
-                 modality: str = "das"):
+                 modality: str = "das", source_path: Optional[str] = None):
         self._patch = patch
         self.well_id = well_id
         self.modality = modality.lower()
+        self.source_path = source_path
 
     # ─── Propriedades de acesso ───
 
@@ -67,33 +68,33 @@ class AlakoroPatch:
         """Reduz a amostragem ao longo de uma dimensão."""
         # DASCore espera kwargs nomeados, e.g. time=factor
         new_patch = self._patch.decimate(**{dimension: factor})
-        return AlakoroPatch(new_patch, self.well_id, self.modality)
+        return AlakoroPatch(new_patch, self.well_id, self.modality, self.source_path)
 
     def detrend(self, dimension: str = "time", type_: str = "linear") -> "AlakoroPatch":
         """Remove tendência linear ou constante."""
         new_patch = self._patch.detrend(dim=dimension, type=type_)
-        return AlakoroPatch(new_patch, self.well_id, self.modality)
+        return AlakoroPatch(new_patch, self.well_id, self.modality, self.source_path)
 
     def pass_filter(self, corner_hz: tuple, dimension: str = "time") -> "AlakoroPatch":
         """Filtro passa-banda (tupla com freq baixa e alta)."""
         new_patch = self._patch.pass_filter(**{dimension: (corner_hz[0], corner_hz[1])})
-        return AlakoroPatch(new_patch, self.well_id, self.modality)
+        return AlakoroPatch(new_patch, self.well_id, self.modality, self.source_path)
 
     def taper(self, dimension: str = "time", type_: str = "cosine",
               alpha: float = 0.0) -> "AlakoroPatch":
         """Aplica janela de taper."""
         new_patch = self._patch.taper(**{dimension: alpha})
-        return AlakoroPatch(new_patch, self.well_id, self.modality)
+        return AlakoroPatch(new_patch, self.well_id, self.modality, self.source_path)
 
     def select(self, **kwargs) -> "AlakoroPatch":
         """Seleciona sub-região do patch."""
         new_patch = self._patch.select(**kwargs)
-        return AlakoroPatch(new_patch, self.well_id, self.modality)
+        return AlakoroPatch(new_patch, self.well_id, self.modality, self.source_path)
 
     def convert_units(self, units: str, dimension: Optional[str] = None) -> "AlakoroPatch":
         """Converte unidades dos dados ou de uma coordenada."""
         new_patch = self._patch.convert_units_to(units, dimension=dimension)
-        return AlakoroPatch(new_patch, self.well_id, self.modality)
+        return AlakoroPatch(new_patch, self.well_id, self.modality, self.source_path)
 
     # ─── Escape hatches ───
 

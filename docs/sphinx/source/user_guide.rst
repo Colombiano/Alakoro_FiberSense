@@ -122,7 +122,7 @@ As 15 Assinaturas Canônicas / The 15 Canonical Signatures
 Processar com DTS / Process with DTS
 -------------------------------------
 
-O Alakoro v2.10.0 introduz processadores térmicos C++20 e um pipeline
+O Alakoro v2.11.0 introduz processadores térmicos C++20 e um pipeline
 completo para dados DTS:
 
 .. code-block:: python
@@ -170,10 +170,16 @@ O Alakoro oferece uma GUI desktop opcional construída com PySide6 e PyQtGraph:
 A interface permite:
 
 * Carregar arquivos DFOS com detecção automática de formato.
-* Visualizar mapas de calor 2D e perfis.
+* Drag-and-drop e menu de arquivos recentes.
+* Undo/redo de processamentos.
+* Visualizar mapas de calor 2D, perfis interativos e espectrogramas STFT.
+* ROI no heatmap, controle de colormap e escala de amplitude.
 * Aplicar processadores (Butterworth, denoising, STA/LTA, etc.).
+* Montar pipelines visuais, salvar presets JSON e aplicar em lote (batch).
 * Rodar pipeline térmico para DTS.
-* Validar assinaturas e exportar resultados.
+* Validar assinaturas, gerar relatórios HTML/PDF e aplicar máscaras de anomalias.
+* Treinar modelos simples (Random Forest/SVM) via wizard.
+* Exportar resultados e figuras configuráveis.
 
 .. code-block:: python
 
@@ -189,6 +195,18 @@ Veja o notebook demonstrativo / See the demo notebook:
 
 .. image:: ../../images/gui_profile_view.png
    :alt: Aba de perfis / Profiles tab
+   :width: 90%
+
+.. image:: ../../images/gui_spectrogram_view.png
+   :alt: Aba de espectrograma / Spectrogram tab
+   :width: 90%
+
+.. image:: ../../images/gui_ml_panel.png
+   :alt: Painel ML/Validate / ML/Validate panel
+   :width: 90%
+
+.. image:: ../../images/gui_presets_panel.png
+   :alt: Painel de presets / Presets panel
    :width: 90%
 
 Executar Testes / Run Tests

@@ -1,5 +1,51 @@
 # Changelog — Alakoro FiberSense
 
+## v2.11.0 (2026-08-30) — Evolução da GUI Desktop
+
+### Adições
+
+#### 1. Experiência do usuário
+- Cursor sincronizado entre heatmap e perfis com coordenadas na status bar.
+- Drag-and-drop de arquivos na janela principal.
+- Menu de arquivos recentes com persistência via `QSettings`.
+- Undo/redo de processamentos com pilha de estados limitada.
+- Barra de progresso percentual nos workers.
+
+#### 2. Visualização científica
+- Aba de espectrograma STFT configurável (`SpectrogramView`).
+- ROI retangular no heatmap.
+- Controle de colormap (`RdBu_r`, `seismic`, `viridis`, etc.) e escala (auto, fixa, percentil 1-99).
+- Perfis interativos com checkboxes, adição de tempos e visualização de média ± desvio.
+- Downsampling automático para dados grandes.
+
+#### 3. Pipelines e produtividade
+- Editor visual de pipelines (`PipelineEditor`) e painel de presets JSON.
+- Batch processing para aplicar presets em múltiplos arquivos.
+
+#### 4. ML e validação
+- Relatório detalhado de validação com exportação HTML.
+- Máscara de anomalias sobre o heatmap com threshold ajustável.
+- Wizard de treinamento simplificado (Random Forest / SVM).
+
+#### 5. Robustez
+- Carregamento de arquivos em thread separada (`LoadWorker`).
+- Cache de processamentos baseado em hash dos dados e parâmetros.
+
+#### 6. Exportação e relatórios
+- Diálogo de exportação de figura configurável (tamanho, DPI, colormap).
+- Geração de relatórios automatizados HTML/PDF.
+- Opções Avro/Protobuf no diálogo de salvamento (stub para futura implementação).
+
+#### 7. Qualidade
+- Log persistente em `~/.alakoro/alakoro.log` com janela de visualização.
+- Suporte a internacionalização via `QTranslator`.
+- Testes de GUI com `pytest-qt` (`tests/test_gui.py`).
+
+### Testes
+- Total: 169 testes passando, 0 skipped.
+
+---
+
 ## v2.10.0 (2026-08-30) — Paridade DTS/DAS e Processadores Térmicos C++20
 
 ### Adições
