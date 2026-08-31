@@ -11,6 +11,7 @@ import os
 
 import numpy as np
 import pytest
+from PySide6.QtWidgets import QWidget
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -96,3 +97,98 @@ def test_preset_panel_emits_pipeline(qtbot):
 
     assert len(received) == 1
     assert received[0][0]["action"] == "demean"
+
+
+# ─── Serializacao / Kafka GUI ───
+
+def test_serialization_panel_constructs(qtbot):
+    from src.gui.serialization_panel import SerializationPanel
+
+    panel = SerializationPanel()
+    qtbot.addWidget(panel)
+
+    assert panel.tabs.count() == 3
+    assert panel.export_btn is not None
+    assert panel.import_btn is not None
+    assert panel.producer_btn is not None
+
+
+def test_serialization_panel_set_patch_enables_buttons(qtbot, sample_patch):
+    from src.gui.serialization_panel import SerializationPanel
+
+    panel = SerializationPanel()
+    qtbot.addWidget(panel)
+
+    assert not panel.export_btn.isEnabled()
+    panel.set_patch(sample_patch)
+    assert panel.export_btn.isEnabled()
+    assert panel.producer_btn.isEnabled()
+
+
+def test_serialization_panel_export_import_avro(qtbot, sample_patch, tmp_path):
+    from src.gui.serialization_panel import SerializationPanel
+
+    panel = SerializationPanel()
+    qtbot.addWidget(panel)
+    panel.set_patch(sample_patch)
+
+    path = tmp_path / "test.avro"
+    panel.export_format.setCurrentText("Avro")
+    # Simula escolha do arquivo sem QFileDialog
+    panel._export_patch_to(str(path))
+
+    received = []
+    panel.import_patch_requested.connect(lambda p: received.append(p))
+    panel._import_file_from(str(path))
+
+    assert len(received) == 1
+    assert received[0].shape == sample_patch.shape
+    assert received[0].modality == sample_patch.modality
+
+
+def test_serialization_panel_export_import_protobuf(qtbot, sample_patch, tmp_path):
+    from src.gui.serialization_panel import SerializationPanel
+
+    panel = SerializationPanel()
+    qtbot.addWidget(panel)
+    panel.set_patch(sample_patch)
+
+    path = tmp_path / "test.pb"
+    panel.export_format.setCurrentText("Protobuf")
+    panel._export_patch_to(str(path))
+
+    received = []
+    panel.import_patch_requested.connect(lambda p: received.append(p))
+    panel._import_file_from(str(path))
+
+    assert len(received) == 1
+    assert received[0].shape == sample_patch.shape
+
+
+def test_kafka_worker_emits_patch(qtbot):
+    from src.gui.workers.kafka_worker import KafkaConsumerWorker
+
+    worker = KafkaConsumerWorker("localhost:9092")
+    qtbot.addWidget(QWidget())  # ancorador para sinais
+
+    received = []
+    worker.patch_received.connect(lambda p: received.append(p))
+
+    # Simula patch recebido sem iniciar thread
+    import dascore as dc
+    from dascore.core.attrs import PatchAttrs
+
+    n_t, n_c = 6, 4
+    data = np.random.randn(n_t, n_c).astype(np.float64)
+    patch = dc.Patch(
+        data=data,
+        coords={
+            "time": (np.arange(n_t) * 1e9).astype("timedelta64[ns]"),
+            "distance": np.arange(n_c),
+        },
+        dims=("time", "distance"),
+        attrs=PatchAttrs(data_category="das", data_units="1/s"),
+    )
+    worker.patch_received.emit(AlakoroPatch(patch))
+
+    assert len(received) == 1

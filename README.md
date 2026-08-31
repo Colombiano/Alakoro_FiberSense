@@ -65,7 +65,7 @@ pip install alakoro-fibersense
 - ✅ **Integração Nativa com Xdas** — conversão direta `AlakoroPatch ↔ xdas.DataArray` e `AlakoroSpool ↔ xdas.DataCollection`; leitura/escrita NetCDF; pipeline híbrido Xdas + C++20
 - ✅ **Escape Hatches** — NumPy, pandas, xarray, ObsPy
 - ✅ **ProdML/WITSML** — leitura/escrita básica de arquivos Energistics
-- ✅ **Streaming** — monitoramento de diretório e stubs Kafka/MQTT
+- ✅ **Streaming** — monitoramento de diretório, Kafka + Avro com handshake PRODML e MQTT (basico)
 - ✅ **15 Assinaturas Canônicas** (M15) — 6 originais + 9 novas
 - ✅ **LF-DAS / eXDTS** (M1) — temperatura de alta taxa (~2s refresh)
 - ✅ **Ontologia** (`src/ontology`) — modelo RDF/OWL + bridge com assinaturas
@@ -203,6 +203,31 @@ patch_back = xdas_to_alakoro(xda)
 
 ---
 
+### 🗜️ Serialização e Streaming / Serialization & Streaming
+
+```python
+# Avro (Python/fastavro) — ideal para Kafka e data lakes
+payload = patch.to_avro_bytes(metadata={"sampling_rate_hz": 1000.0})
+restored = AlakoroPatch.from_avro_bytes(payload)
+
+# Protobuf (C++20) — alta performance, opcional no build
+# pip install -e . --config-settings=cmake.define.ALAKORO_WITH_PROTOBUF=ON
+payload = patch.to_protobuf_bytes()
+restored = AlakoroPatch.from_protobuf_bytes(payload, modality="das")
+
+# Kafka + Avro + handshake PRODML
+from src.io.streaming import KafkaStreamDriver
+
+driver = KafkaStreamDriver("localhost:9092")
+with driver:
+    driver.connect(profile={"well_id": "W-01", "gauge_length_m": 10.0})
+    driver.produce(patch)
+```
+
+> 📖 Veja [docs/api/serialization.md](docs/api/serialization.md) e [docs/integration/kafka_avro.md](docs/integration/kafka_avro.md).
+
+---
+
 ### 📦 Instalação por Plataforma / Install by Platform
 
 #### 🟢 Modo Leigo / Easy Mode
@@ -280,7 +305,8 @@ Alakoro FiberSense v2.9.0
 │   │   │   ├── registry.py  # Descoberta por entry point + fallback
 │   │   │   └── optional/    # Drivers opcionais embarcados (ex: example_vendor)
 │   │   ├── prodml.py / witsml.py             # Formatos Energistics
-│   │   └── streaming.py     # Streaming de diretórios / stubs Kafka/MQTT
+│   │   ├── avro_format.py   # Serializacao Avro (fastavro)
+│   │   ├── streaming.py     # Streaming de diretorios, Kafka + Avro + MQTT
 │   └── ml/                  # Machine Learning (CNN, U-Net, regressor, trainer)
 │
 ├── 🧪 tests/                # 154+ testes pytest

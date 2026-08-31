@@ -163,3 +163,65 @@ def test_dts_and_dss_modalities():
 
     assert dts.modality == "DTS"
     assert dss.modality == "DSS"
+
+
+def _protobuf_available():
+    """Verifica se a extensao foi compilada com Protobuf."""
+    try:
+        from alakoro_core import DASData
+
+        data = DASData(n_times=2, n_channels=2)
+        data.to_protobuf_bytes()
+        return True
+    except Exception:
+        return False
+
+
+def test_protobuf_roundtrip():
+    """to_protobuf_bytes / from_protobuf_bytes devem preservar dados e metadados."""
+    from alakoro_core import DASData, DTSData, DSSData
+
+    if not _protobuf_available():
+        pytest.skip("Protobuf not available (build with -DALAKORO_WITH_PROTOBUF=ON)")
+
+    for ctor in [DASData, DTSData, DSSData]:
+        data = ctor(n_times=10, n_channels=5)
+        arr = np.array(data, copy=False)
+        arr[:] = np.random.randn(10, 5)
+
+        data.metadata.sampling_rate_hz = 1000.0
+        data.metadata.spatial_resolution_m = 1.25
+        data.metadata.gauge_length_m = 10.0
+        data.metadata.units = "strain_rate"
+        data.metadata.start_time = "2026-08-31T12:00:00Z"
+
+        payload = data.to_protobuf_bytes()
+        assert isinstance(payload, bytes)
+        assert len(payload) > 0
+
+        restored = ctor.from_protobuf_bytes(payload)
+        assert restored.shape == data.shape
+        assert restored.modality == data.modality
+
+        r_arr = np.array(restored, copy=False)
+        assert np.allclose(r_arr, arr)
+
+        assert restored.metadata.sampling_rate_hz == 1000.0
+        assert restored.metadata.spatial_resolution_m == 1.25
+        assert restored.metadata.gauge_length_m == 10.0
+        assert restored.metadata.units == "strain_rate"
+        assert restored.metadata.start_time == "2026-08-31T12:00:00Z"
+
+
+def test_protobuf_modality_mismatch_raises():
+    """Desserializar DAS bytes como DTS deve levantar erro."""
+    from alakoro_core import DASData, DTSData
+
+    if not _protobuf_available():
+        pytest.skip("Protobuf not available")
+
+    das = DASData(n_times=3, n_channels=2)
+    payload = das.to_protobuf_bytes()
+
+    with pytest.raises(RuntimeError):
+        DTSData.from_protobuf_bytes(payload)

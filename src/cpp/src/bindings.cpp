@@ -108,7 +108,23 @@ void bind_sensing_data(py::module& m, const char* class_name) {
              [](DataT& d, const AcquisitionMetadata& meta) { d.metadata() = meta; },
              py::return_value_policy::reference_internal,
              "Acquisition metadata")
-        .def("to_jsonld", &serialization::to_jsonld<T, M>, "Serialize to JSON-LD string");
+        .def("to_jsonld", &serialization::to_jsonld<T, M>, "Serialize to JSON-LD string")
+        .def("to_protobuf_bytes",
+             [](const DataT& d) -> py::bytes {
+                 return py::bytes(serialization::to_protobuf<T, M>(d));
+             },
+             "Serialize to Protobuf bytes")
+        .def_static("from_protobuf_bytes",
+             [](const py::bytes& b) {
+                 std::string s = b;
+#ifdef ALAKORO_WITH_PROTOBUF
+                 return protobuf::from_protobuf<T, M>(s);
+#else
+                 (void)s;
+                 throw std::runtime_error("Protobuf not available");
+#endif
+             },
+             py::arg("data"), "Deserialize from Protobuf bytes");
 }
 
 void bind_metadata(py::module& m) {
@@ -566,11 +582,16 @@ PYBIND11_MODULE(_alakoro_core, m) {
           py::arg("data"), py::arg("window_size"),
           "Apply spatial median filter along depth (double, DTS)");
 
-    // Serialização stubs
+    // Serializacao: metodos por modalidade estao nas classes SensingData.
+    // Estes helpers globais permanecem para compatibilidade, orientando o usuario.
     m.def("serialize_avro", []() {
-        throw std::runtime_error("Avro serialization not implemented in Phase 1");
-    }, "Avro serialization (stub)");
+        throw std::runtime_error(
+            "Avro serialization is provided by the Python layer (fastavro). "
+            "Use AlakoroPatch.to_avro_bytes() or src.io.avro_format.serialize_avro().");
+    }, "Avro serialization entry point (Python implementation)");
     m.def("serialize_protobuf", []() {
-        throw std::runtime_error("Protobuf serialization not implemented in Phase 1");
-    }, "Protobuf serialization (stub)");
+        throw std::runtime_error(
+            "Use DASData/DTSData/DSSData.to_protobuf_bytes() and from_protobuf_bytes(). "
+            "Build with -DALAKORO_WITH_PROTOBUF=ON.");
+    }, "Protobuf serialization entry point (per-modality methods)");
 }

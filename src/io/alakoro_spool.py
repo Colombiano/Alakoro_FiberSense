@@ -101,6 +101,29 @@ class AlakoroPatch:
     def to_numpy(self) -> np.ndarray:
         return self.data
 
+    @classmethod
+    def from_array(
+        cls,
+        data: np.ndarray,
+        modality: str = "das",
+        dt_s: float = 1.0,
+        dx_m: float = 1.0,
+        well_id: Optional[str] = None,
+        source_path: Optional[str] = None,
+        units: str = "1/s",
+    ) -> "AlakoroPatch":
+        """Cria AlakoroPatch a partir de array NumPy 2D."""
+        from .dasdae import DASDAEAdapter
+
+        dc_patch = DASDAEAdapter.array_to_patch(
+            data.astype(np.float64),
+            modality=modality,
+            dt_s=dt_s,
+            dx_m=dx_m,
+            units=units,
+        )
+        return cls(dc_patch, well_id=well_id, modality=modality, source_path=source_path)
+
     def to_dataframe(self):
         """Converte para pandas DataFrame (time x distance)."""
         import pandas as pd
@@ -142,6 +165,103 @@ class AlakoroPatch:
             trace.stats.station = f"D{dist:.1f}"
             stream.append(trace)
         return stream
+
+    # ─── Serializacao Avro ───
+
+    def to_avro_bytes(self, metadata: Optional[dict] = None) -> bytes:
+        """Serializa patch para bytes Avro (fastavro)."""
+        from .avro_format import serialize_avro
+
+        return serialize_avro(self, modality=self.modality, metadata=metadata)
+
+    @classmethod
+    def from_avro_bytes(cls, data: bytes, well_id: Optional[str] = None) -> "AlakoroPatch":
+        """Desserializa bytes Avro em AlakoroPatch."""
+        from .avro_format import deserialize_avro
+        from dascore import Patch
+        from dascore.core.attrs import PatchAttrs
+
+        record = deserialize_avro(data)
+        arr = record["array"]
+        modality = record["modality"].lower()
+        meta = record["metadata"]
+
+        n_t, n_c = arr.shape
+        dt_s = 1.0 / meta["sampling_rate_hz"] if meta["sampling_rate_hz"] > 0 else 1.0
+        dx_m = meta["spatial_resolution_m"] if meta["spatial_resolution_m"] > 0 else 1.0
+
+        patch = Patch(
+            data=arr,
+            coords={
+                "time": (np.arange(n_t) * dt_s * 1e9).astype("timedelta64[ns]"),
+                "distance": np.arange(n_c) * dx_m,
+            },
+            dims=("time", "distance"),
+            attrs=PatchAttrs(
+                data_category=modality,
+                data_units=meta["units"],
+                time_step=np.timedelta64(int(dt_s * 1e9), "ns"),
+                distance_step=dx_m,
+            ),
+        )
+        return cls(patch, well_id=well_id, modality=modality)
+
+    # ─── Serializacao Protobuf (via C++ core) ───
+
+    def to_protobuf_bytes(self) -> bytes:
+        """Serializa patch para bytes Protobuf via C++ core."""
+        import alakoro_core
+
+        modality = self.modality.upper()
+        cls_name = f"{modality}Data_d"
+        ctor = getattr(alakoro_core, cls_name)
+        data_obj = ctor(self.shape[0], self.shape[1])
+
+        arr = np.asarray(self.data, dtype=np.float64)
+        np_arr = np.array(data_obj, copy=False)
+        np_arr[:] = arr
+
+        data_obj.metadata.sampling_rate_hz = float(self.attrs.get("sampling_rate_hz", 0.0) or 0.0)
+        data_obj.metadata.spatial_resolution_m = float(self.attrs.get("spatial_resolution_m", 0.0) or 0.0)
+        data_obj.metadata.gauge_length_m = float(self.attrs.get("gauge_length_m", 0.0) or 0.0)
+        data_obj.metadata.units = str(self.attrs.get("data_units", "") or "")
+
+        return data_obj.to_protobuf_bytes()
+
+    @classmethod
+    def from_protobuf_bytes(cls, data: bytes, modality: str = "das", well_id: Optional[str] = None) -> "AlakoroPatch":
+        """Desserializa bytes Protobuf em AlakoroPatch via C++ core."""
+        import alakoro_core
+        from dascore import Patch
+        from dascore.core.attrs import PatchAttrs
+
+        modality = modality.upper()
+        cls_name = f"{modality}Data_d"
+        ctor = getattr(alakoro_core, cls_name)
+        data_obj = ctor.from_protobuf_bytes(data)
+
+        arr = np.array(data_obj, copy=False)
+        n_t, n_c = arr.shape
+        meta = data_obj.metadata
+
+        dt_s = 1.0 / meta.sampling_rate_hz if meta.sampling_rate_hz > 0 else 1.0
+        dx_m = meta.spatial_resolution_m if meta.spatial_resolution_m > 0 else 1.0
+
+        patch = Patch(
+            data=arr.copy(),
+            coords={
+                "time": (np.arange(n_t) * dt_s * 1e9).astype("timedelta64[ns]"),
+                "distance": np.arange(n_c) * dx_m,
+            },
+            dims=("time", "distance"),
+            attrs=PatchAttrs(
+                data_category=modality.lower(),
+                data_units=meta.units,
+                time_step=np.timedelta64(int(dt_s * 1e9), "ns"),
+                distance_step=dx_m,
+            ),
+        )
+        return cls(patch, well_id=well_id, modality=modality.lower())
 
     def __repr__(self) -> str:
         return f"AlakoroPatch(shape={self.shape}, modality={self.modality}, well_id={self.well_id})"

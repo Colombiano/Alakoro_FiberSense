@@ -15,6 +15,10 @@
 
 #include "alakoro/core.hpp"
 
+#ifdef ALAKORO_WITH_PROTOBUF
+#include "alakoro/protobuf_serializer.hpp"
+#endif
+
 #include <cmath>
 #include <sstream>
 #include <stdexcept>
@@ -110,25 +114,32 @@ std::string to_jsonld(const SensingData<T, M>& data) {
 /**
  * @brief Stub para serialização Avro.
  *
- * Implementação futura requer Apache Avro C++.
+ * A implementação Avro do Alakoro está em Python (fastavro) para evitar
+ * a dependência pesada do avro-cpp nativo. Use src.io.avro_format no Python.
  */
 template <NumericScalar T, SensingModality M>
 std::vector<std::byte> to_avro(const SensingData<T, M>&) {
     throw std::runtime_error(
-        "Avro serialization not implemented in Phase 1. "
-        "Build with -DALAKORO_WITH_AVRO=ON and Apache Avro C++ installed.");
+        "Avro serialization is provided by the Python layer (fastavro). "
+        "Use src.io.avro_format.serialize_avro() or AlakoroPatch.to_avro_bytes().");
 }
 
 /**
- * @brief Stub para serialização Protobuf.
+ * @brief Serialização Protobuf.
  *
- * Implementação futura requer Google Protocol Buffers.
+ * Quando ALAKORO_WITH_PROTOBUF está definido, delega para o serializer
+ * C++20. Caso contrário, levanta erro orientando a recompilar com a flag.
  */
 template <NumericScalar T, SensingModality M>
-std::vector<std::byte> to_protobuf(const SensingData<T, M>&) {
+std::string to_protobuf(const SensingData<T, M>& data) {
+#ifdef ALAKORO_WITH_PROTOBUF
+    return alakoro::protobuf::to_protobuf<T, M>(data);
+#else
+    (void)data;
     throw std::runtime_error(
-        "Protobuf serialization not implemented in Phase 1. "
+        "Protobuf serialization not available. "
         "Build with -DALAKORO_WITH_PROTOBUF=ON and protobuf installed.");
+#endif
 }
 
 } // namespace serialization

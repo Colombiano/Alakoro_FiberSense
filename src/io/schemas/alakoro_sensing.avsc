@@ -1,0 +1,25 @@
+{
+  "type": "record",
+  "name": "SensingData",
+  "namespace": "alakoro",
+  "doc": "Dados de sensing distribuido (DAS/DTS/DSS) no formato Avro.",
+  "fields": [
+    {
+      "name": "modality",
+      "type": {
+        "type": "enum",
+        "name": "Modality",
+        "symbols": ["DAS", "DTS", "DSS"]
+      }
+    },
+    {"name": "n_times", "type": "long"},
+    {"name": "n_channels", "type": "long"},
+    {"name": "sampling_rate_hz", "type": "double"},
+    {"name": "spatial_resolution_m", "type": "double"},
+    {"name": "gauge_length_m", "type": "double"},
+    {"name": "units", "type": "string"},
+    {"name": "start_time", "type": "string"},
+    {"name": "dtype", "type": "string"},
+    {"name": "data", "type": "bytes"}
+  ]
+}

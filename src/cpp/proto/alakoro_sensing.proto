@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package alakoro.pb;
+
+/**
+ * Modalidade de sensing distribuido suportada pelo Alakoro.
+ */
+enum Modality {
+  DAS = 0;  // Distributed Acoustic Sensing
+  DTS = 1;  // Distributed Temperature Sensing
+  DSS = 2;  // Distributed Strain Sensing
+}
+
+/**
+ * Metadados comuns de aquisicao para DAS/DTS/DSS.
+ */
+message AcquisitionMetadata {
+  double sampling_rate_hz = 1;
+  double spatial_resolution_m = 2;
+  double gauge_length_m = 3;
+  string units = 4;
+  string start_time = 5;
+}
+
+/**
+ * Container generico para dados de sensing.
+ *
+ * Os dados sao armazenados em layout row-major [time][channel].
+ * Apenas um dos campos data_f32 ou data_f64 deve estar preenchido,
+ * de acordo com o dtype da aquisicao.
+ */
+message SensingData {
+  Modality modality = 1;
+  uint64 n_times = 2;
+  uint64 n_channels = 3;
+  AcquisitionMetadata metadata = 4;
+  string dtype = 5;          // "float32" ou "float64"
+  repeated float data_f32 = 6;
+  repeated double data_f64 = 7;
+}

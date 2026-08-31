@@ -39,6 +39,7 @@ from .export_figure_dialog import ExportFigureDialog
 from .i18n import install_translators
 from .log_window import LogWindow, log_message
 from .report_dialog import ReportDialog
+from .serialization_panel import SerializationPanel
 from .processors.filter_panel import FilterPanel
 from .processors.ml_panel import MLPanel
 from .processors.preset_panel import PresetPanel
@@ -83,6 +84,11 @@ class AlakoroMainWindow(QMainWindow):
         self._connect_signals()
         self._load_recent_files()
 
+    def closeEvent(self, event):
+        """Garante que o worker Kafka seja parado ao fechar."""
+        self.serialization_panel.stop_kafka()
+        super().closeEvent(event)
+
         # Habilitar drag-and-drop
         self.setAcceptDrops(True)
 
@@ -112,10 +118,12 @@ class AlakoroMainWindow(QMainWindow):
         self.thermal_panel = ThermalPanel()
         self.ml_panel = MLPanel()
         self.preset_panel = PresetPanel()
+        self.serialization_panel = SerializationPanel()
         self.processor_tabs.addTab(self.filter_panel, "🔧 Filters")
         self.processor_tabs.addTab(self.thermal_panel, "🌡️ Thermal")
         self.processor_tabs.addTab(self.ml_panel, "🤖 ML/Validate")
         self.processor_tabs.addTab(self.preset_panel, "📋 Presets")
+        self.processor_tabs.addTab(self.serialization_panel, "🔌 Serialize/Kafka")
         self.splitter.addWidget(self.processor_tabs)
 
         self.splitter.setSizes([1000, 400])
@@ -149,6 +157,11 @@ class AlakoroMainWindow(QMainWindow):
         exit_action = file_menu.addAction("❌ Sair / Exit")
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)
+
+        # Menu Ferramentas / Tools
+        tools_menu = menubar.addMenu("Ferramentas / Tools")
+        serialize_action = tools_menu.addAction("🔌 Serializacao & Streaming")
+        serialize_action.triggered.connect(self._focus_serialization_panel)
 
         # Menu Ajuda / Help
         help_menu = menubar.addMenu("Ajuda / Help")
@@ -188,6 +201,11 @@ class AlakoroMainWindow(QMainWindow):
         redo_btn.triggered.connect(self._redo)
         self._redo_tool_action = redo_btn
 
+        toolbar.addSeparator()
+
+        serialize_btn = toolbar.addAction("🔌 Serialize")
+        serialize_btn.triggered.connect(self._focus_serialization_panel)
+
         self._update_undo_redo_actions()
 
     def _setup_status_bar(self):
@@ -211,6 +229,11 @@ class AlakoroMainWindow(QMainWindow):
         self.ml_panel.report_requested.connect(self._show_validation_report)
         self.preset_panel.apply_preset_requested.connect(self._run_preset_pipeline)
 
+        # Painel de serializacao/Kafka
+        self.serialization_panel.import_patch_requested.connect(self._set_patch)
+        self.serialization_panel.status_message_requested.connect(self.status.showMessage)
+        self.serialization_panel.log_requested.connect(log_message)
+
         # Cursor sincronizado entre visualizadores
         self.heatmap.cursor_moved.connect(self._on_heatmap_cursor_moved)
         self.heatmap.cursor_clicked.connect(self._on_heatmap_cursor_clicked)
@@ -225,6 +248,12 @@ class AlakoroMainWindow(QMainWindow):
     def _open_log_window(self):
         dialog = LogWindow(self)
         dialog.exec()
+
+    def _focus_serialization_panel(self):
+        """Foca a aba de serializacao/Kafka."""
+        idx = self.processor_tabs.indexOf(self.serialization_panel)
+        if idx >= 0:
+            self.processor_tabs.setCurrentIndex(idx)
 
     def _open_batch_dialog(self):
         dialog = BatchDialog(self)
@@ -264,6 +293,7 @@ class AlakoroMainWindow(QMainWindow):
     def _set_patch(self, patch: AlakoroPatch):
         self._patch = patch
         self._display_data = patch.data
+        self.serialization_panel.set_patch(patch)
         self._history.clear()
         self._history_index = -1
         self._update_undo_redo_actions()

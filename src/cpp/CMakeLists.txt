@@ -38,15 +38,35 @@ endif()
 #   pip install pybind11
 find_package(pybind11 CONFIG REQUIRED)
 
-# ─── Extensão Python principal ───
+# ─── Protobuf (opcional) ───
+if(ALAKORO_WITH_PROTOBUF)
+    find_package(Protobuf REQUIRED)
+endif()
+
+# ─── Fontes da extensão Python principal ───
+set(ALAKORO_CORE_SOURCES src/bindings.cpp)
+
+if(ALAKORO_WITH_PROTOBUF)
+    list(APPEND ALAKORO_CORE_SOURCES proto/alakoro_sensing.pb.cc)
+endif()
+
 pybind11_add_module(
     _alakoro_core
-    src/bindings.cpp
+    ${ALAKORO_CORE_SOURCES}
 )
 
 target_include_directories(_alakoro_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+if(ALAKORO_WITH_PROTOBUF)
+    target_include_directories(_alakoro_core PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/proto
+        ${Protobuf_INCLUDE_DIRS}
+    )
+    target_compile_definitions(_alakoro_core PUBLIC ALAKORO_WITH_PROTOBUF)
+    target_link_libraries(_alakoro_core PUBLIC protobuf::libprotobuf)
+endif()
 
 # O módulo nativo será importado por alakoro_core/__init__.py
 set_target_properties(_alakoro_core PROPERTIES
