@@ -7,11 +7,58 @@
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+"/></a>
-  <a href="https://pypi.org/project/alakoro-fibersense/"><img src="https://img.shields.io/pypi/v/alakoro-fibersense.svg" alt="PyPI"/></a>
-  <a href="https://pypi.org/project/alakoro-fibersense/"><img src="https://img.shields.io/pypi/dm/alakoro-fibersense.svg" alt="Downloads"/></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-blue.svg?logo=python&logoColor=white" alt="Python 3.9+"/></a>
+  <a href="https://pypi.org/project/alakoro-fibersense/"><img src="https://img.shields.io/pypi/v/alakoro-fibersense.svg?logo=pypi&logoColor=white" alt="PyPI"/></a>
+  <a href="https://pypi.org/project/alakoro-fibersense/"><img src="https://img.shields.io/pypi/dm/alakoro-fibersense.svg?logo=pypi&logoColor=white" alt="Downloads"/></a>
   <img src="https://github.com/Colombiano/Alakoro_FiberSense/actions/workflows/tests.yml/badge.svg" alt="Tests"/>
-  <img src="https://img.shields.io/docker/pulls/colombiano/alakoro-fibersense" alt="Docker"/>
+  <img src="https://img.shields.io/docker/pulls/colombiano/alakoro-fibersense?logo=docker&logoColor=white" alt="Docker"/>
+</p>
+
+<p align="center">
+  <strong>Core / GUI</strong><br/>
+  <a href="https://doc.qt.io/qtforpython-6/"><img src="https://img.shields.io/badge/PySide6-%3E%3D6.5.0-41CD52?logo=qt&logoColor=white" alt="PySide6 >=6.5.0"/></a>
+  <a href="https://www.pyqtgraph.org/"><img src="https://img.shields.io/badge/PyQtGraph-%3E%3D0.13.0-FF6B6B?logo=pyqtgraph" alt="PyQtGraph >=0.13.0"/></a>
+  <a href="https://www.qt.io/"><img src="https://img.shields.io/badge/Qt6-LGPL-41CD52?logo=qt&logoColor=white" alt="Qt6"/></a>
+</p>
+
+<p align="center">
+  <strong>Processamento Numérico / Numerical Stack</strong><br/>
+  <a href="https://numpy.org/"><img src="https://img.shields.io/badge/NumPy-%3E%3D1.21.0-013243?logo=numpy&logoColor=white" alt="NumPy >=1.21.0"/></a>
+  <a href="https://scipy.org/"><img src="https://img.shields.io/badge/SciPy-%3E%3D1.7.0-8CAAE6?logo=scipy&logoColor=white" alt="SciPy >=1.7.0"/></a>
+  <a href="https://pandas.pydata.org/"><img src="https://img.shields.io/badge/pandas-%3E%3D1.3.0-150458?logo=pandas&logoColor=white" alt="pandas >=1.3.0"/></a>
+  <a href="https://xarray.dev/"><img src="https://img.shields.io/badge/xarray-%3E%3D0.19.0-1E4A8C?logo=xarray" alt="xarray >=0.19.0"/></a>
+  <a href="https://matplotlib.org/"><img src="https://img.shields.io/badge/Matplotlib-%3E%3D3.4.0-11557c?logo=matplotlib&logoColor=white" alt="Matplotlib >=3.4.0"/></a>
+</p>
+
+<p align="center">
+  <strong>DFOS / Geofísica / Geophysics</strong><br/>
+  <a href="https://dascore.org/"><img src="https://img.shields.io/badge/DASCore-%3E%3D0.1.20-2E86AB?logo=dascore" alt="DASCore >=0.1.20"/></a>
+  <a href="https://github.com/xdas-dev/xdas"><img src="https://img.shields.io/badge/Xdas-%3E%3D0.2.0-5D4E8C?logo=xdas" alt="Xdas >=0.2.0"/></a>
+  <a href="https://www.obspy.org/"><img src="https://img.shields.io/badge/ObsPy-%3E%3D1.3.0-2E5C8A?logo=obspy" alt="ObsPy >=1.3.0"/></a>
+  <a href="https://www.h5py.org/"><img src="https://img.shields.io/badge/h5py-%3E%3D3.7.0-4B8BBE?logo=hdf5" alt="h5py >=3.7.0"/></a>
+</p>
+
+<p align="center">
+  <strong>Machine Learning</strong><br/>
+  <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-%3E%3D2.0.0-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch >=2.0.0"/></a>
+  <a href="https://pytorch.org/vision/stable/index.html"><img src="https://img.shields.io/badge/TorchVision-%3E%3D0.15.0-EE4C2C?logo=pytorch&logoColor=white" alt="TorchVision >=0.15.0"/></a>
+  <a href="https://scikit-learn.org/"><img src="https://img.shields.io/badge/scikit--learn-%3E%3D1.0.0-F7931E?logo=scikit-learn&logoColor=white" alt="scikit-learn >=1.0.0"/></a>
+</p>
+
+<p align="center">
+  <strong>Serialização / Streaming / Serialization</strong><br/>
+  <a href="https://avro.apache.org/"><img src="https://img.shields.io/badge/Avro-fastavro%20%3E%3D1.9.0-D94A38?logo=apache" alt="Avro fastavro >=1.9.0"/></a>
+  <a href="https://protobuf.dev/"><img src="https://img.shields.io/badge/Protobuf-%3E%3D4.24.0-4B8BBE?logo=protobuf" alt="Protobuf >=4.24.0"/></a>
+  <a href="https://kafka.apache.org/"><img src="https://img.shields.io/badge/Kafka-kafka--python%20%3E%3D2.0.0-231F20?logo=apache-kafka&logoColor=white" alt="Kafka kafka-python >=2.0.0"/></a>
+  <a href="https://www.w3.org/RDF/"><img src="https://img.shields.io/badge/RDFLib-%3E%3D7.0.0-2E5C8A?logo=w3c" alt="RDFLib >=7.0.0"/></a>
+</p>
+
+<p align="center">
+  <strong>Build / Test / CI</strong><br/>
+  <a href="https://isocpp.org/"><img src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B&logoColor=white" alt="C++20"/></a>
+  <a href="https://pybind11.readthedocs.io/"><img src="https://img.shields.io/badge/pybind11-%3E%3D2.12.0-2C4A7C?logo=python&logoColor=white" alt="pybind11 >=2.12.0"/></a>
+  <a href="https://scikit-build-core.readthedocs.io/"><img src="https://img.shields.io/badge/scikit--build--core-%3E%3D0.9.0-2E86AB?logo=python" alt="scikit-build-core >=0.9.0"/></a>
+  <a href="https://pytest.org/"><img src="https://img.shields.io/badge/pytest-%3E%3D7.0.0-0A9EDC?logo=pytest&logoColor=white" alt="pytest >=7.0.0"/></a>
 </p>
 
 ---
