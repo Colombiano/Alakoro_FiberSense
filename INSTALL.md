@@ -1,6 +1,6 @@
 # 📦 Guia de Instalação / Installation Guide
 
-**Alakoro FiberSense v2.2.1** — Escolha seu modo / Choose your mode:
+**Alakoro FiberSense v2.11.0** — Escolha seu modo / Choose your mode:
 
 ---
 
@@ -9,23 +9,51 @@
 > **Para quem não quer saber de código.**
 > **For those who don't want to deal with code.**
 
+### 1. Baixe o ZIP / Download the ZIP
+
+Clique no link abaixo para baixar a versão mais recente da branch `main`:
+
+**[⬇️ Download ZIP](https://github.com/Colombiano/Alakoro_FiberSense/archive/main.zip)**
+
+Ou use o link direto:
+```
+https://github.com/Colombiano/Alakoro_FiberSense/archive/main.zip
+```
+
+> Para um commit específico, substitua `main.zip` pelo hash do commit, por exemplo:
+> `https://github.com/Colombiano/Alakoro_FiberSense/archive/dcbc4ba.zip`
+
 ### Windows
-1. Baixe o ZIP do projeto / Download the project ZIP
-2. Extraia em qualquer pasta / Extract to any folder
-3. **Clique duplo** em `install/INSTALL_WINDOWS.bat` / **Double-click** `install/INSTALL_WINDOWS.bat`
-4. Pronto! Um atalho `Alakoro_FiberSense.bat` será criado / Done! A shortcut will be created
+1. Extraia o ZIP em qualquer pasta / Extract the ZIP to any folder
+2. **Clique duplo** em `install/INSTALL_WINDOWS.bat` / **Double-click** `install/INSTALL_WINDOWS.bat`
+3. Pronto! Um atalho `Alakoro_FiberSense.bat` será criado / Done! A shortcut will be created
 
 ### macOS / Linux
-1. Baixe e extraia o ZIP / Download and extract the ZIP
+1. Extraia o ZIP / Extract the ZIP
 2. Abra o Terminal na pasta / Open Terminal in the folder
 3. Execute: `bash install/INSTALL_UNIX.sh`
 4. Pronto! Use `./Alakoro_FiberSense.sh` / Done! Use `./Alakoro_FiberSense.sh`
 
 ### Interface Gráfica (todos os sistemas) / GUI (all systems)
+
+A GUI pode ser instalada e lançada de duas formas:
+
+#### Opção A — Instalador gráfico / Graphical installer
 ```bash
 python install/INSTALL_GUI.py
 ```
 Ou clique duplo no arquivo / Or double-click the file.
+
+#### Opção B — pip + comando `alakoro-gui` (recomendada) / pip + `alakoro-gui` command (recommended)
+```bash
+pip install alakoro-fibersense[gui]
+alakoro-gui
+```
+
+> Em servidores sem display / On headless servers:
+> ```bash
+> QT_QPA_PLATFORM=offscreen alakoro-gui
+> ```
 
 ---
 
@@ -42,6 +70,22 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
+Para instalar com suporte à GUI:
+```bash
+pip install -e ".[gui]"
+```
+
+### Via pip / Via pip
+```bash
+pip install alakoro-fibersense
+```
+
+Com interface gráfica:
+```bash
+pip install alakoro-fibersense[gui]
+alakoro-gui
+```
+
 ### Via Docker
 ```bash
 # Pull da imagem oficial / Pull official image
@@ -53,11 +97,6 @@ docker run -it --rm colombiano/alakoro-fibersense:latest
 # Ou build local / Or local build
 docker build -t alakoro-fibersense .
 docker run -it --rm alakoro-fibersense
-```
-
-### Via pip (em breve) / Via pip (coming soon)
-```bash
-pip install alakoro-fibersense
 ```
 
 ---
@@ -75,9 +114,15 @@ acq = AcquisitionConfig(sampling_rate_hz=1000, trace_interval_s=2.0, duration_s=
 gen = SignatureGenerator(well, acq)
 jt = gen.generate_joule_thomson(interface_depth=1500.0)
 
-print(f"✅ Alakoro FiberSense v2.2.1 pronto! / ready!")
+print(f"✅ Alakoro FiberSense v2.11.0 pronto! / ready!")
 print(f"   Assinatura gerada: {jt['signature_type'].pt}")
 print(f"   DTS shape: {jt['dts'].shape}")
+print(f"   DAS shape: {jt['das'].shape}")
+```
+
+Para testar a GUI:
+```bash
+alakoro-gui
 ```
 
 ---
@@ -89,6 +134,7 @@ print(f"   DTS shape: {jt['dts'].shape}")
 | "Python não encontrado" / "Python not found" | Instale Python 3.9+ e marque "Add to PATH" / Install Python 3.9+ and check "Add to PATH" |
 | "Permission denied" no macOS/Linux | Execute: `chmod +x install/INSTALL_UNIX.sh` |
 | Erro no tkinter (GUI) | Windows: já vem com Python. macOS: `brew install python-tk`. Linux: `sudo apt install python3-tk` |
+| Dependências da GUI falham | Use: `pip install alakoro-fibersense[gui]` |
 | Dependências falham | Atualize pip: `pip install --upgrade pip` |
 
 ---
@@ -96,5 +142,4 @@ print(f"   DTS shape: {jt['dts'].shape}")
 ## 📞 Suporte / Support
 
 - 🐛 Issues: [github.com/Colombiano/Alakoro_FiberSense/issues](https://github.com/Colombiano/Alakoro_FiberSense/issues)
-- 📧 Email: veja Issues no GitHub
-- 📖 Documentação: README.md
+- 📖 Documentação: [README.md](README.md) e [docs/sphinx/](docs/sphinx/)
