@@ -12,6 +12,10 @@ Para facilitar o uso, fornecemos aliases sem sufixo de tipo:
 
 from ._alakoro_core import (
     AcquisitionMetadata,
+    InferenceResult,
+    InferenceMetadata,
+    CanonicalInferenceEngine,
+    infer_events_d,
     DASData_f,
     DASData_d,
     DTSData_f,
@@ -142,6 +146,10 @@ spatial_median_filter = spatial_median_filter_d
 
 __all__ = [
     "AcquisitionMetadata",
+    "InferenceResult",
+    "InferenceMetadata",
+    "CanonicalInferenceEngine",
+    "infer_events_d",
     "DASData",
     "DTSData",
     "DSSData",

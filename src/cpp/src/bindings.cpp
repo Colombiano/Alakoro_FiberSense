@@ -14,6 +14,7 @@
 #include "alakoro/event_detection.hpp"
 #include "alakoro/filters.hpp"
 #include "alakoro/fft.hpp"
+#include "alakoro/inference_engine.hpp"
 #include "alakoro/processors.hpp"
 #include "alakoro/serialization.hpp"
 #include "alakoro/thermal.hpp"
@@ -25,6 +26,8 @@
 #include <pybind11/stl.h>
 
 #include <cstddef>
+#include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 
@@ -594,4 +597,103 @@ PYBIND11_MODULE(_alakoro_core, m) {
             "Use DASData/DTSData/DSSData.to_protobuf_bytes() and from_protobuf_bytes(). "
             "Build with -DALAKORO_WITH_PROTOBUF=ON.");
     }, "Protobuf serialization entry point (per-modality methods)");
+
+    // =============================================================================
+    // InferenceEngine — motor de inferência com regras canônicas C++20
+    // =============================================================================
+    using namespace alakoro::inference;
+
+    py::class_<InferenceResult>(m, "InferenceResult")
+        .def_readonly("event_type", &InferenceResult::event_type)
+        .def_readonly("event_label_pt", &InferenceResult::event_label_pt)
+        .def_readonly("event_label_en", &InferenceResult::event_label_en)
+        .def_readonly("confidence", &InferenceResult::confidence)
+        .def_readonly("depth_md", &InferenceResult::depth_md)
+        .def_readonly("severity", &InferenceResult::severity)
+        .def_readonly("recommendation", &InferenceResult::recommendation)
+        .def("__repr__", [](const InferenceResult& r) {
+            std::ostringstream oss;
+            oss << "InferenceResult(" << r.event_type
+                << ", confidence=" << r.confidence
+                << ", depth_md=" << r.depth_md
+                << ", severity=" << r.severity << ")";
+            return oss.str();
+        });
+
+    py::class_<InferenceMetadata>(m, "InferenceMetadata")
+        .def(py::init<>())
+        .def_readwrite("sampling_rate_hz", &InferenceMetadata::sampling_rate_hz)
+        .def_readwrite("depth_step_m", &InferenceMetadata::depth_step_m)
+        .def_readwrite("surface_temp_c", &InferenceMetadata::surface_temp_c)
+        .def_readwrite("geo_gradient_cpm", &InferenceMetadata::geo_gradient_cpm);
+
+    py::class_<CanonicalInferenceEngine>(m, "CanonicalInferenceEngine")
+        .def(py::init<>())
+        .def("infer",
+             [](const CanonicalInferenceEngine& engine,
+                py::array_t<double> dts_array,
+                std::optional<py::array_t<double>> das_array,
+                const InferenceMetadata& meta) {
+                 auto dts_buf = dts_array.request();
+                 if (dts_buf.ndim != 2) {
+                     throw std::invalid_argument("dts must be a 2D array (time, channel)");
+                 }
+                 const std::size_t n_times = static_cast<std::size_t>(dts_buf.shape[0]);
+                 const std::size_t n_channels = static_cast<std::size_t>(dts_buf.shape[1]);
+                 const double* dts_ptr = static_cast<const double*>(dts_buf.ptr);
+                 std::span<const double> dts_span(dts_ptr, n_times * n_channels);
+
+                 std::span<const double> das_span;
+                 std::vector<double> das_storage;
+                 if (das_array.has_value()) {
+                     auto das_buf = das_array->request();
+                     if (das_buf.size > 0) {
+                         if (das_buf.ndim != 2) {
+                             throw std::invalid_argument("das must be a 2D array (time, channel)");
+                         }
+                         if (static_cast<std::size_t>(das_buf.shape[0]) != n_times ||
+                             static_cast<std::size_t>(das_buf.shape[1]) != n_channels) {
+                             throw std::invalid_argument("dts and das must have the same shape");
+                         }
+                         das_span = std::span<const double>(static_cast<const double*>(das_buf.ptr),
+                                                            n_times * n_channels);
+                     }
+                 }
+                 return engine.infer(dts_span, das_span, n_times, n_channels, meta);
+             },
+             py::arg("dts"), py::arg("das") = py::none(), py::arg("metadata"),
+             "Run all canonical inference rules on DTS (and optional DAS) data.");
+
+    m.def("infer_events_d",
+          [](py::array_t<double> dts_array,
+             std::optional<py::array_t<double>> das_array,
+             const InferenceMetadata& meta) {
+              CanonicalInferenceEngine engine;
+              auto dts_buf = dts_array.request();
+              if (dts_buf.ndim != 2) {
+                  throw std::invalid_argument("dts must be a 2D array (time, channel)");
+              }
+              const std::size_t n_times = static_cast<std::size_t>(dts_buf.shape[0]);
+              const std::size_t n_channels = static_cast<std::size_t>(dts_buf.shape[1]);
+              std::span<const double> dts_span(static_cast<const double*>(dts_buf.ptr),
+                                               n_times * n_channels);
+              std::span<const double> das_span;
+              if (das_array.has_value()) {
+                  auto das_buf = das_array->request();
+                  if (das_buf.size > 0) {
+                      if (das_buf.ndim != 2) {
+                          throw std::invalid_argument("das must be a 2D array (time, channel)");
+                      }
+                      if (static_cast<std::size_t>(das_buf.shape[0]) != n_times ||
+                          static_cast<std::size_t>(das_buf.shape[1]) != n_channels) {
+                          throw std::invalid_argument("dts and das must have the same shape");
+                      }
+                      das_span = std::span<const double>(static_cast<const double*>(das_buf.ptr),
+                                                         n_times * n_channels);
+                  }
+              }
+              return engine.infer(dts_span, das_span, n_times, n_channels, meta);
+          },
+          py::arg("dts"), py::arg("das") = py::none(), py::arg("metadata"),
+          "Convenience function: run CanonicalInferenceEngine.infer()");
 }

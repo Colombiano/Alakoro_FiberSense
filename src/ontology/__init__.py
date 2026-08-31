@@ -14,6 +14,7 @@ from .petroleum import Well, Wellbore, Completion, FiberOpticCable
 from .sensing import Interrogator, DASMeasurement, DTSMeasurement, DSSMeasurement
 from .events import Event, JouleThomsonEvent, LeakEvent, FlowEvent, WarmBackEvent
 from .bridge import SignatureOntologyBridge
+from .inference_engine import InferenceEngine, infer_events
 
 __all__ = [
     "ALAKORO",
@@ -33,4 +34,6 @@ __all__ = [
     "FlowEvent",
     "WarmBackEvent",
     "SignatureOntologyBridge",
+    "InferenceEngine",
+    "infer_events",
 ]
