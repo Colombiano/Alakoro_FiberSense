@@ -19,7 +19,13 @@ def _has_protobuf_core() -> bool:
     """Verifica se a extensao C++ foi compilada com suporte a Protobuf."""
     try:
         import alakoro_core  # noqa: F401
-        return hasattr(alakoro_core, "DASData_d")
+        cls = getattr(alakoro_core, "DASData_d", None)
+        if cls is None or not hasattr(cls, "to_protobuf_bytes"):
+            return False
+        # Teste de fogo: tenta serializar um objeto dummy.
+        # O metodo pode existir como stub quando Protobuf esta desligado.
+        cls(1, 1).to_protobuf_bytes()
+        return True
     except Exception:  # pragma: no cover
         return False
 

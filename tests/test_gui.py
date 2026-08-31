@@ -147,6 +147,11 @@ def test_serialization_panel_export_import_avro(qtbot, sample_patch, tmp_path):
 
 
 def test_serialization_panel_export_import_protobuf(qtbot, sample_patch, tmp_path):
+    from src.io.protobuf_format import _has_protobuf_core
+
+    if not _has_protobuf_core():
+        pytest.skip("Extensao Protobuf C++ nao disponivel neste build")
+
     from src.gui.serialization_panel import SerializationPanel
 
     panel = SerializationPanel()

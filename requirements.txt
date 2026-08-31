@@ -19,6 +19,11 @@ fastavro>=1.9.0
 protobuf>=4.24.0
 kafka-python>=2.0.0
 
+# Interface grafica (necessaria para src.gui e testes pytest-qt)
+PySide6>=6.5.0
+PyQtGraph>=0.13.0
+qdarkstyle>=3.0.0
+
 # Build da extensao C++20 (necessario para pip install -e .)
 scikit-build-core>=0.9.0
 pybind11>=2.12.0

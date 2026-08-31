@@ -937,10 +937,12 @@ struct GlvBellowRuptureRule {
         std::vector<std::size_t> peaks;
 
         // Evidência DAS: picos de energia espaçados regularmente.
+        // Usamos percentil alto para filtrar picos de ruído e manter apenas
+        // as válvulas de GLV, que são eventos localizados e energéticos.
         if (!das.empty()) {
             auto energy = detail::das_energy_profile(das, n_times, n_channels);
-            double threshold = detail::percentile(energy, 75.0);
-            peaks = detail::find_peaks(energy, threshold, 10);
+            double threshold = detail::percentile(energy, 90.0);
+            peaks = detail::find_peaks(energy, threshold, 30);
         }
 
         // Fallback DTS: múltiplos picos térmicos espaçados regularmente.
@@ -948,7 +950,7 @@ struct GlvBellowRuptureRule {
             auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
             auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
             double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 2.0);
-            peaks = detail::find_peaks(anomaly, threshold, 10);
+            peaks = detail::find_peaks(anomaly, threshold, 30);
         }
 
         if (peaks.size() >= 3) {

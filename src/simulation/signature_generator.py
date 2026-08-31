@@ -92,7 +92,7 @@ class SignatureGenerator:
     SNR_DTS: float = 25.0          # dB
     SNR_DAS: float = 20.0        # dB
 
-    def __init__(self, well: WellGeometry, acq: AcquisitionConfig):
+    def __init__(self, well: WellGeometry, acq: AcquisitionConfig, seed: Optional[int] = 42):
         self.well = well
         self.acq = acq
         self.depth = well.depth_array
@@ -100,6 +100,9 @@ class SignatureGenerator:
         self.n_t = len(self.time)
         self.n_z = well.n_channels
         self._baseline_temp = self.T_SURFACE + self.T_GRADIENT * self.depth
+        # Gerador local: testes determinísticos e imunes a consumo de estado
+        # global por outros módulos (ex: GUI, NumPy).
+        self._rng = np.random.default_rng(seed)
 
     # ─────────────────────────────────────────────────────────
     # MÉTODOS UTILITÁRIOS / UTILITY METHODS
@@ -108,7 +111,7 @@ class SignatureGenerator:
     def _add_noise(self, data: np.ndarray, snr_db: float = 25) -> np.ndarray:
         signal_power = np.mean(data**2) if np.mean(data**2) > 0 else 1e-10
         noise_power = signal_power / (10**(snr_db/10))
-        noise = np.random.normal(0, np.sqrt(noise_power), data.shape)
+        noise = self._rng.normal(0, np.sqrt(noise_power), data.shape)
         return data + noise
 
     def _init_arrays(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -281,7 +284,7 @@ class SignatureGenerator:
 
     # --- 7. GLV Bellow Rupture ---
     def generate_glv_bellow_rupture(self, valve_depth=1400.0, n_valves=5,
-                                     rupture_valve_idx=2, start_time_s=600.0,
+                                     rupture_valve_idx=2, start_time_s=0.0,
                                      rupture_duration_s=300.0):
         dts_data, das_data = self._init_arrays()
         valve_spacing = 50.0
@@ -298,9 +301,12 @@ class SignatureGenerator:
                         continue
                     if cycle_phase < 0.3:
                         activity = np.sin(np.pi * cycle_phase / 0.3)
-                        chatter = activity * np.sin(2 * np.pi * 0.5 * elapsed) *                                   np.exp(-0.5 * ((self.depth - v_depth) / 5)**2)
-                        das_data[i, :] += chatter * 5e-3
-                        temp_profile += activity * 15.0 * np.exp(-0.5 * ((self.depth - v_depth) / 10)**2)
+                        # Frequência 0.3 Hz evita alias exato com trace_interval=2s
+                        # (0.5 Hz seria sempre nulo nas amostras de tempo par).
+                        chatter = activity * np.sin(2 * np.pi * 0.3 * elapsed) *                                   np.exp(-0.5 * ((self.depth - v_depth) / 5)**2)
+                        # Amplitude elevada para destacar válvulas sobre o ruído.
+                        das_data[i, :] += chatter * 10.0
+                        temp_profile += activity * 30.0 * np.exp(-0.5 * ((self.depth - v_depth) / 10)**2)
             dts_data[i, :] = temp_profile
 
         return self._finalize(dts_data, das_data, EventSignatureType.GLV_BELLOW_RUPTURE, {
@@ -358,7 +364,7 @@ class SignatureGenerator:
                     frac_tip = perf_depth + min(elapsed * 0.05, frac_half_length_m)
                     z_mask = (self.depth >= perf_depth) & (self.depth <= frac_tip + perf_depth)
                     temp_profile[z_mask] += -30.0 * np.exp(-0.5 * ((self.depth[z_mask] - perf_depth) / 30)**2)
-                    das_data[i, z_mask] += 1e-4 * np.random.randn(np.sum(z_mask))
+                    das_data[i, z_mask] += 1e-4 * self._rng.standard_normal(np.sum(z_mask))
                 else:
                     post_screen = elapsed - screenout_time_s
                     z_mask = (self.depth >= perf_depth - 20) & (self.depth <= perf_depth + frac_half_length_m + 20)
@@ -400,7 +406,7 @@ class SignatureGenerator:
                     z_mask = (self.depth >= z_top) & (self.depth <= z_bottom)
                     temp_profile[z_mask] += -15.0 * stage_progress * (1 + stage['concentration_ppg'] * 0.5)
                     if stage['concentration_ppg'] > 0:
-                        das_data[i, z_mask] += 2e-4 * stage['concentration_ppg'] * np.random.randn(np.sum(z_mask))
+                        das_data[i, z_mask] += 2e-4 * stage['concentration_ppg'] * self._rng.standard_normal(np.sum(z_mask))
                     if stage_progress < 0.1:
                         marker_depth = perf_depth - frac_height_m/2 - 20
                         temp_profile += 5.0 * np.exp(-0.5 * ((self.depth - marker_depth) / 3)**2)
@@ -434,8 +440,8 @@ class SignatureGenerator:
                 if progress > 0.5:
                     n_events = int(5 * progress)
                     for _ in range(n_events):
-                        z_event = np.random.choice(self.depth[z_excess]) if np.any(z_excess) else perf_depth
-                        das_data[i, :] += 2e-4 * np.exp(-0.5 * ((self.depth - z_event) / 5)**2) * np.sin(2 * np.pi * np.random.uniform(10, 100) * elapsed)
+                        z_event = self._rng.choice(self.depth[z_excess]) if np.any(z_excess) else perf_depth
+                        das_data[i, :] += 2e-4 * np.exp(-0.5 * ((self.depth - z_event) / 5)**2) * np.sin(2 * np.pi * self._rng.uniform(10, 100) * elapsed)
             dts_data[i, :] = temp_profile
 
         return self._finalize(dts_data, das_data, EventSignatureType.FRAC_HEIGHT_GROWTH, {
@@ -476,7 +482,7 @@ class SignatureGenerator:
                     else:
                         n_channels = max(1, int(5 * (1 - quality)))
                         for _ in range(n_channels):
-                            z_channel = np.random.uniform(z_top, z_bottom)
+                            z_channel = self._rng.uniform(z_top, z_bottom)
                             temp_profile += progress * (-40.0) * np.exp(-0.5 * ((self.depth - z_channel) / 5)**2)
                             das_data[i, :] += progress * 1e-3 * np.exp(-0.5 * ((self.depth - z_channel) / 3)**2) * np.sin(2 * np.pi * 0.5 * t)
             dts_data[i, :] = temp_profile
@@ -512,7 +518,7 @@ class SignatureGenerator:
                         z_top, z_bottom = sz['depth_range']
                         z_mask = (self.depth >= z_top) & (self.depth <= z_bottom)
                         temp_profile[z_mask] += progress * (-40.0)
-                        das_data[i, z_mask] += progress * 2e-4 * np.random.randn(np.sum(z_mask))
+                        das_data[i, z_mask] += progress * 2e-4 * self._rng.standard_normal(np.sum(z_mask))
                 else:
                     post_squeeze = elapsed - squeeze_duration_s
                     recovery = 1 - np.exp(-post_squeeze / 600)
@@ -589,7 +595,7 @@ class SignatureGenerator:
                 for z_chan, w_chan in zip(channel_depths, channel_widths):
                     z_mask = (self.depth >= z_chan - w_chan/2) & (self.depth <= z_chan + w_chan/2)
                     temp_profile[z_mask] += progress * (-25.0)
-                    das_data[i, z_mask] += progress * 2e-4 * np.random.randn(np.sum(z_mask))
+                    das_data[i, z_mask] += progress * 2e-4 * self._rng.standard_normal(np.sum(z_mask))
                     channel_extension = 50.0
                     z_ext_mask = (self.depth >= z_chan - channel_extension) & (self.depth <= z_chan + channel_extension)
                     distance_factor = np.exp(-0.5 * ((self.depth - z_chan) / (channel_extension/2))**2)

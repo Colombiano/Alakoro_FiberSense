@@ -241,6 +241,14 @@ class SerializationPanel(QWidget):
         except Exception:  # pragma: no cover
             return False
 
+    def _export_available(self, fmt: str) -> bool:
+        """Verifica se um formato de exportacao esta realmente disponivel."""
+        if fmt == "Avro":
+            return self._avro_available()
+        if fmt == "Protobuf":
+            return self._protobuf_available()
+        return False
+
     # ─── Exportar ───
 
     def _export_patch(self):
