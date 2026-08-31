@@ -1,9 +1,28 @@
+# ───────────────────────────────────────────────────────────────
 # Python
+# ───────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyd
 .Python
+*.egg
+*.egg-info/
+.installed.cfg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Ambientes virtuais / Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# Distribuição / Packaging
 build/
 develop-eggs/
 dist/
@@ -16,25 +35,126 @@ parts/
 sdist/
 var/
 wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Jupyter
-.ipynb_checkpoints
+# ───────────────────────────────────────────────────────────────
+# Testes, cobertura e qualidade / Tests, coverage and linting
+# ───────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.dmypy.json
+.dmypy/
+.pyre/
+.ruff_cache/
+.hypothesis/
+test-results/
 
-# IDEs
+# ───────────────────────────────────────────────────────────────
+# IDEs e editores / IDEs and editors
+# ───────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+*.sublime-project
+*.sublime-workspace
 
-# OS
+# ───────────────────────────────────────────────────────────────
+# Sistemas operacionais / Operating systems
+# ───────────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Data
+# ───────────────────────────────────────────────────────────────
+# Jupyter / Notebooks
+# ───────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ───────────────────────────────────────────────────────────────
+# Dados e formatos DFOS / Data and DFOS formats
+# ───────────────────────────────────────────────────────────────
+# Ignora arquivos de dados comuns para não poluir o repositório.
+# Descomente se quiser versionar dados de exemplo.
 *.h5
 *.hdf5
 *.npz
+*.npy
 *.pkl
+*.pickle
+*.nc
+*.netcdf
+*.tdms
+*.segy
+*.sgy
+*.dasdae
+*.miniseed
+*.mseed
+*.exd
+*.febus
+*.optodas
+*.raw
+*.wav
+
+# ───────────────────────────────────────────────────────────────
+# Build C++ / C++ build artifacts
+# ───────────────────────────────────────────────────────────────
+cmake-build-*/
+build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.dylib
+*.exe
+*.out
+*.app
+
+# ───────────────────────────────────────────────────────────────
+# Documentação / Documentation
+# ───────────────────────────────────────────────────────────────
+docs/sphinx/build/
+docs/_build/
+docs/build/
+*.mo
+
+# ───────────────────────────────────────────────────────────────
+# Logs e temporários / Logs and temporary files
+# ───────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# ───────────────────────────────────────────────────────────────
+# Configurações locais / Local settings
+# ───────────────────────────────────────────────────────────────
+.env
+.env.local
+secrets/
+*.key
+*.pem
+
+# ───────────────────────────────────────────────────────────────
+# Alakoro FiberSense específico
+# ───────────────────────────────────────────────────────────────
+# Diretórios gerados pela GUI/CLI
+~/.alakoro/
