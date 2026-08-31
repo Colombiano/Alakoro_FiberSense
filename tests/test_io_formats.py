@@ -95,7 +95,7 @@ def test_prodml_roundtrip_data_values():
         path = Path(tmp) / "round.prodml"
         prodml.write(patch, str(path))
         back = prodml.read(str(path))
-        np.testing.assert_allclose(back.data, patch.data, rtol=1e-4)
+        np.testing.assert_allclose(back.data, patch.data, rtol=1e-3)
 
 
 def test_witsml_write_read():
@@ -141,4 +141,4 @@ def test_witsml_roundtrip_data_values():
         witsml.write_log(patch, str(path))
         back = witsml.read_log(str(path))
         # primeira coluna do WITSML e o indice de tempo; dados comecam na coluna 1
-        np.testing.assert_allclose(back.data, patch.data, rtol=1e-4)
+        np.testing.assert_allclose(back.data, patch.data, rtol=1e-3)

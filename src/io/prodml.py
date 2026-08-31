@@ -234,6 +234,9 @@ def read(path: str | Path) -> AlakoroPatch:
 
     patch_out = AlakoroPatch(patch, well_id=well_id or None, modality=modality)
     patch_out.source_path = str(path)
+    # Preserva wellbore_id como atributo extra quando disponivel
+    if wellbore_id:
+        patch_out.wellbore_id = wellbore_id
     return patch_out
 
 

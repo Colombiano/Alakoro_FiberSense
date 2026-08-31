@@ -28,6 +28,17 @@ from .escape_hatches import (
 )
 from .prodml import read as read_prodml, write as write_prodml
 from .witsml import read_log as read_witsml_log, write_log as write_witsml_log
+from .energistics_bridge import (
+    SensingAcquisition,
+    WellReference,
+    WellboreReference,
+    ChannelInfo,
+    from_alakoro_patch,
+    cross_reference,
+    from_witsml_log,
+    to_prodml,
+    to_witsml_log,
+)
 from .streaming import StreamingSpool, DirectoryWatcher
 from .xdas_adapter import (
     alakoro_to_xdas,
@@ -73,6 +84,15 @@ __all__ = [
     "write_prodml",
     "read_witsml_log",
     "write_witsml_log",
+    "SensingAcquisition",
+    "WellReference",
+    "WellboreReference",
+    "ChannelInfo",
+    "from_alakoro_patch",
+    "cross_reference",
+    "from_witsml_log",
+    "to_prodml",
+    "to_witsml_log",
     "StreamingSpool",
     "DirectoryWatcher",
 ]

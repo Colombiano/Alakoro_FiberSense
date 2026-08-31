@@ -99,6 +99,78 @@ print(wellbore.uid, wellbore.well_uid)
 
 ---
 
+## Ponte Semantica Energistics (ProdML ↔ WITSML)
+
+O modulo `src.io.energistics_bridge` oferece um mapeamento semantico profundo
+entre ProdML e WITSML, permitindo enriquecer dados de aquisicao com metadados
+ de poco/wellbore e converter entre os formatos mantendo a semantica.
+
+### Modelo semantico comum: `SensingAcquisition`
+
+```python
+from src.io.energistics_bridge import (
+    SensingAcquisition,
+    WellReference,
+    WellboreReference,
+    ChannelInfo,
+)
+
+acquisition = SensingAcquisition(
+    data=patch.data,
+    modality="das",
+    units="1/s",
+    sampling_rate_hz=1000.0,
+    spatial_resolution_m=1.0,
+    gauge_length_m=10.0,
+    well=WellReference(uid="W-01", name="Well-01", country="Brasil"),
+    wellbore=WellboreReference(uid="WB-01", name="WB-01", well_uid="W-01"),
+    channels=[
+        ChannelInfo(mnemonic="CH0", unit="1/s", index=0),
+        ChannelInfo(mnemonic="CH1", unit="1/s", index=1),
+    ],
+)
+```
+
+### Cross-reference ProdML + WITSML
+
+```python
+from src.io import energistics_bridge as bridge
+
+# Le ProdML e enriquece com well/wellbore WITSML
+acquisition = bridge.cross_reference(
+    "acquisition.prodml",
+    witsml_well_path="well.witsml",
+    witsml_wellbore_path="wellbore.witsml",
+)
+
+print(acquisition.well.name)
+print(acquisition.wellbore.md_max)
+```
+
+A funcao valida consistencia entre os identificadores (UUID/nome) e levanta
+`ValueError` em caso de inconsistencia.
+
+### Converter entre formatos
+
+```python
+# ProdML -> WITSML Log
+bridge.to_witsml_log(acquisition, "output.witsml", log_name="DASLog")
+
+# WITSML Log -> ProdML
+bridge.to_prodml(acquisition, "output.prodml")
+```
+
+### Enriquecer WITSML com metadados ProdML
+
+```python
+acquisition = bridge.from_witsml_log(
+    "log.witsml",
+    prodml_path="acquisition.prodml",
+)
+```
+
+---
+
 ## Limitacoes
 
 - A implementacao e pragmatica e nao valida contra schemas XSD oficiais.
