@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════
-# Alakoro FiberSense — CI: Release Automático (GitHub + PyPI + Docker)
+# Alakoro FiberSense — CI: Release Automatico (GitHub + PyPI + Docker)
 # CI: Automated Release (GitHub + PyPI + Docker)
 # ═══════════════════════════════════════════════════════════════════
 
@@ -12,10 +12,13 @@ on:
 
 permissions:
   contents: write
-  id-token: write  # Necessário para trusted publishing no PyPI
+  id-token: write  # Necessario para trusted publishing no PyPI
+
+env:
+  QT_QPA_PLATFORM: offscreen
 
 jobs:
-  # ─── Testes pré-release / Pre-release tests ───
+  # ─── Testes pre-release / Pre-release tests ───
   test:
     name: 🧪 Testar antes do release / Test before release
     runs-on: ubuntu-latest
@@ -24,9 +27,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: |
+      - name: 🔧 Instalar dependencias de sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build protobuf-compiler libprotobuf-dev
+      - name: 📦 Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pytest tests/ -v
+      - name: 🔨 Build e instalacao
+        run: |
+          pip install -e . --no-build-isolation \
+            --config-settings=cmake.define.ALAKORO_WITH_PROTOBUF=ON
+      - name: ✅ Validar importacao
+        run: |
+          python -c "import alakoro_core; print('alakoro_core OK')"
+          python -c "from src.gui.main_window import AlakoroMainWindow; print('GUI OK')"
+      - name: 🧪 Executar testes
+        run: pytest tests/ -v --tb=short --color=yes
 
   # ─── Build do pacote Python / Python package build ───
   build:
@@ -38,14 +57,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: |
-          pip install build twine
-          python -m build
+      - name: 🔧 Instalar dependencias de sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build protobuf-compiler libprotobuf-dev
+      - name: 📦 Instalar build backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install build scikit-build-core pybind11 ninja
+      - name: 🔨 Build do pacote
+        run: |
+          python -m build \
+            --config-setting=cmake.define.ALAKORO_WITH_PROTOBUF=ON
       - name: ⬆️  Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
 
   # ─── Publicar no PyPI / Publish to PyPI ───
   publish-pypi:
@@ -90,9 +120,9 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
           body: |
-            🎸 **Alakoro FiberSense v${{ github.ref_name }}** — Release Oficial!
+            🎸 **Alakoro FiberSense ${{ github.ref_name }}** — Release Oficial!
 
-            ### 🚀 Instalação Rápida / Quick Install
+            ### 🚀 Instalacao Rapida / Quick Install
 
             #### 🟢 Modo Leigo / Easy Mode
             ```bash
@@ -101,17 +131,17 @@ jobs:
 
             #### 🔵 Modo Geek / Geek Mode
             ```bash
-git clone https://github.com/Colombiano/Alakoro_FiberSense.git
-cd Alakoro_FiberSense
-pip install -e .
-```
+            git clone https://github.com/Colombiano/Alakoro_FiberSense.git
+            cd Alakoro_FiberSense
+            pip install -e . --config-settings=cmake.define.ALAKORO_WITH_PROTOBUF=ON
+            ```
 
             #### 🐳 Docker
             ```bash
             docker pull colombiano/alakoro-fibersense:${{ github.ref_name }}
             ```
 
-            ### 📋 O que há de novo / What's New
+            ### 📋 O que ha de novo / What's New
             Veja [CHANGELOG.md](CHANGELOG.md) para detalhes completos.
             See [CHANGELOG.md](CHANGELOG.md) for full details.
 
@@ -120,7 +150,7 @@ pip install -e .
             pytest tests/ -v
             ```
 
-            ### 📄 Licença / License
+            ### 📄 Licenca / License
             MIT License — Luiz Paulo Colombiano, 2026
           generate_release_notes: true
 

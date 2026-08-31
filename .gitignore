@@ -127,6 +127,16 @@ compile_commands.json
 *.out
 *.app
 
+# scikit-build-core artifacts dentro de src/cpp (editable builds)
+src/cpp/.cmake/
+src/cpp/.ninja_deps
+src/cpp/.ninja_log
+src/cpp/.skbuild-info.json
+src/cpp/CMakeInit.txt
+src/cpp/build.ninja
+src/cpp/editable_rebuild.lock
+src/cpp/_alakoro_core*.so
+
 # ───────────────────────────────────────────────────────────────
 # Documentação / Documentation
 # ───────────────────────────────────────────────────────────────

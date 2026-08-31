@@ -92,18 +92,15 @@ alakoro-gui = "src.__init__:main_gui"
 [project.entry-points."alakoro.driver"]
 example_vendor = "src.io.drivers.optional.example_vendor:ExampleVendorDriver"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["src*", "alakoro_core*"]
-exclude = ["tests*", "install*", "docs*"]
-
-[tool.setuptools.package-data]
-"src.events" = ["*.json"]
-
 [tool.scikit-build]
 cmake.source-dir = "src/cpp"
 cmake.build-type = "Release"
 wheel.packages = ["alakoro_core", "src"]
+# Excluir fontes C++ do wheel (apenas a extensao compilada e necessaria)
+wheel.exclude = ["src/cpp/**"]
+# Incluir dados do pacote (schemas Avro, eventos JSON)
+wheel.force-include."src/events/fibersense_event_schema_v1.1.0.json" = "src/events/fibersense_event_schema_v1.1.0.json"
+wheel.force-include."src/io/schemas/alakoro_sensing.avsc" = "src/io/schemas/alakoro_sensing.avsc"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

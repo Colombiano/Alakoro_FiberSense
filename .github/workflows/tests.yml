@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════
-# Alakoro FiberSense — CI: Testes e Validação
+# Alakoro FiberSense — CI: Testes e Validacao
 # CI: Tests and Validation
 # ═══════════════════════════════════════════════════════════════════
 
@@ -16,12 +16,16 @@ jobs:
     name: 🧪 Testar em Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.9', '3.10', '3.11', '3.12']
 
+    env:
+      QT_QPA_PLATFORM: offscreen
+
     steps:
       # ─── Checkout ───
-      - name: 📥 Checkout do código
+      - name: 📥 Checkout do codigo
         uses: actions/checkout@v4
 
       # ─── Setup Python ───
@@ -31,37 +35,53 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       # ─── Cache pip ───
-      - name: 💾 Cache de dependências
+      - name: 💾 Cache de dependencias
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-py${{ matrix.python-version }}-pip-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-py${{ matrix.python-version }}-pip-
+            ${{ runner.os }}-pip-
 
-      # ─── Compiladores C++20 ───
-      - name: 🔧 Instalar compiladores C++
+      # ─── Dependencias do sistema ───
+      - name: 🔧 Instalar dependencias de sistema
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            protobuf-compiler \
+            libprotobuf-dev
 
-      # ─── Instalar dependências ───
-      - name: 📦 Instalar dependências
+      # ─── Instalar dependencias Python ───
+      - name: 📦 Instalar dependencias Python
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install scikit-build-core ninja
 
-      # ─── Instalar pacote com extensão C++ ───
-      - name: 🔨 Build e instalação (inclui C++20)
+      # ─── Instalar pacote com extensao C++ e Protobuf ───
+      - name: 🔨 Build e instalacao editable (inclui C++20 + Protobuf)
         run: |
-          pip install -e . --no-build-isolation
+          pip install -e . --no-build-isolation \
+            --config-settings=cmake.define.ALAKORO_WITH_PROTOBUF=ON
+
+      # ─── Validar importacao ───
+      - name: ✅ Validar importacao dos modulos
+        run: |
+          python -c "import alakoro_core; print('alakoro_core OK')"
+          python -c "from src.io.alakoro_spool import AlakoroPatch; print('AlakoroPatch OK')"
+          python -c "from src.gui.main_window import AlakoroMainWindow; print('GUI OK')"
 
       # ─── Executar testes ───
       - name: 🧪 Executar pytest
         run: |
           pytest tests/ -v --tb=short --color=yes
 
-      # ─── Cobertura de código ───
+      # ─── Cobertura de codigo ───
       - name: 📊 Gerar cobertura
+        if: matrix.python-version == '3.11'
         run: |
           pip install pytest-cov
           pytest tests/ --cov=src --cov-report=xml --cov-report=term
@@ -73,19 +93,26 @@ jobs:
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
-    name: 🔍 Lint e Formatação
+    name: 🔍 Lint e Formatacao
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install flake8 black
+      - name: 💾 Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-lint-pip-${{ hashFiles('pyproject.toml') }}
+      - name: 📦 Instalar ferramentas de lint
+        run: pip install flake8 black
       - name: 🔍 Verificar estilo (flake8)
         run: flake8 src/ tests/ --max-line-length=120 --ignore=E501,W503
-      - name: 🎨 Verificar formatação (black)
+      - name: 🎨 Verificar formatacao (black)
         run: black --check src/ tests/
 
   build:
@@ -94,7 +121,7 @@ jobs:
     needs: test
     steps:
       # ─── Checkout ───
-      - name: 📥 Checkout do código
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
       # ─── Setup Python ───
@@ -103,18 +130,31 @@ jobs:
         with:
           python-version: '3.11'
 
-      # ─── Instalar build ───
-      - name: 📦 Instalar build
+      # ─── Dependencias do sistema ───
+      - name: 🔧 Instalar dependencias de sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            protobuf-compiler \
+            libprotobuf-dev
+
+      # ─── Instalar build backend ───
+      - name: 📦 Instalar build backend
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install build scikit-build-core pybind11 ninja
 
       # ─── Build do pacote ───
       - name: 🔨 Executar python -m build
-        run: python -m build
+        run: |
+          python -m build \
+            --config-setting=cmake.define.ALAKORO_WITH_PROTOBUF=ON
 
       # ─── Upload artifact ───
-      - name: ⬆️  Upload do artefato de distribuição
+      - name: ⬆️  Upload do artefato de distribuicao
         uses: actions/upload-artifact@v4
         with:
           name: dist
