@@ -19,6 +19,13 @@ Conceitos alinhados:
     <log>           DASAcquisition          data + modality + units
     logCurveInfo    DASMetadata             channels[] {mnemonic, unit}
 
+Aviso de propriedade intelectual:
+- ProdML e WITSML sao padroes abertos mantidos pela Energistics.
+- Esta implementacao e independente e nao e endossada pela Energistics.
+- Nenhum schema XSD, documentacao ou codigo oficial da Energistics e
+  redistribuido neste repositorio; apenas namespaces publicos e estruturas
+  XML descritas nos schemas abertos sao utilizados.
+
 Referencias:
 - ProdML v2.2: http://www.energistics.org/energyml/data/prodmlv2
 - WITSML v1.4.1.1: http://www.witsml.org/schemas/141

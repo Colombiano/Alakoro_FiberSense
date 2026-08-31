@@ -6,6 +6,13 @@ Suporta namespaces comuns do ProdML v2.x e extrai/preserva metadados
 relevantes para DFOS (sampling rate, resolucao espacial, gauge length,
 well/wellbore, start time, unidades).
 
+Aviso de propriedade intelectual:
+- ProdML e um padrao aberto mantido pela Energistics.
+- Esta implementacao e independente e nao e endossada pela Energistics.
+- Nenhum schema XSD, documentacao ou codigo oficial da Energistics e
+  redistribuido neste repositorio; apenas namespaces publicos e estruturas
+  XML descritas nos schemas abertos sao utilizados.
+
 Referencias:
 - Energistics ProdML v2.2: http://www.energistics.org/energyml/data/prodmlv2
 - DASAcquisition, FiberOpticalDASAcquisition

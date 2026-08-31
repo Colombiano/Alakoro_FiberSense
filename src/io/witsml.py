@@ -10,6 +10,13 @@ Suporta:
 - Escrita de Log com mnemonicos, unidades e logCurveInfo
 - Conversao entre WITSML Log e AlakoroPatch
 
+Aviso de propriedade intelectual:
+- WITSML e um padrao aberto mantido pela Energistics.
+- Esta implementacao e independente e nao e endossada pela Energistics.
+- Nenhum schema XSD, documentacao ou codigo oficial da Energistics e
+  redistribuido neste repositorio; apenas namespaces publicos e estruturas
+  XML descritas nos schemas abertos sao utilizados.
+
 Referencias:
 - WITSML v1.4.1.1: http://www.witsml.org/schemas/141
 - WITSML v1.3.1.1: http://www.witsml.org/schemas/131

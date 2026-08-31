@@ -171,6 +171,19 @@ acquisition = bridge.from_witsml_log(
 
 ---
 
+## Propriedade Intelectual / Intellectual Property
+
+- **ProdML** e **WITSML** sao padroes abertos mantidos pela **Energistics**.
+- As implementacoes do Alakoro (`src/io/prodml.py`, `src/io/witsml.py`,
+  `src/io/energistics_bridge.py`) sao **implementacoes independentes** e
+  **nao sao endossadas pela Energistics**.
+- Nenhum schema XSD, documentacao ou codigo oficial da Energistics e
+  redistribuido neste repositorio. Apenas os **namespaces publicos** e as
+  **estruturas XML descritas nos schemas abertos** sao utilizados.
+- O codigo do Alakoro permanece sob **licenca MIT**, mas isso nao se aplica
+  aos proprios padroes Energistics, que permanecem sob suas proprias
+  politicas de uso.
+
 ## Limitacoes
 
 - A implementacao e pragmatica e nao valida contra schemas XSD oficiais.
