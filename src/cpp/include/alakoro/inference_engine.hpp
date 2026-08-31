@@ -347,6 +347,173 @@ inline std::vector<double> remove_edge_baseline(const std::vector<double>& profi
 }
 
 /**
+ * @brief Ajusta um polinômio de grau N por mínimos quadrados e retorna
+ *        o perfil com baseline subtraído.
+ *
+ * Usamos o método dos mínimos quadrados lineares via sistema normal.
+ * Grau 2 ou 3 é suficiente para capturar tendências geotérmicas não-lineares
+ * sem absorver anomalias localizadas de interesse.
+ */
+inline std::vector<double> remove_polynomial_baseline(const std::vector<double>& profile,
+                                                       std::size_t degree = 2) {
+    if (profile.size() < degree + 2) return profile;
+    const std::size_t n = profile.size();
+    const std::size_t m = degree + 1;
+
+    // Monta A^T A e A^T b para o sistema normal.
+    std::vector<std::vector<double>> ata(m, std::vector<double>(m, 0.0));
+    std::vector<double> atb(m, 0.0);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        double x = static_cast<double>(i) / static_cast<double>(n - 1); // normalizado [0,1]
+        double power = 1.0;
+        std::vector<double> row(m, 1.0);
+        for (std::size_t j = 1; j < m; ++j) {
+            power *= x;
+            row[j] = power;
+        }
+        for (std::size_t j = 0; j < m; ++j) {
+            atb[j] += row[j] * profile[i];
+            for (std::size_t k = 0; k < m; ++k) {
+                ata[j][k] += row[j] * row[k];
+            }
+        }
+    }
+
+    // Resolução por eliminação de Gauss simples (sistema pequeno: grau <= 3).
+    std::vector<double> coeffs(m, 0.0);
+    std::vector<std::vector<double>> aug(m, std::vector<double>(m + 1));
+    for (std::size_t i = 0; i < m; ++i) {
+        for (std::size_t j = 0; j < m; ++j) aug[i][j] = ata[i][j];
+        aug[i][m] = atb[i];
+    }
+
+    for (std::size_t col = 0; col < m; ++col) {
+        // Pivoteamento parcial.
+        std::size_t pivot = col;
+        for (std::size_t row = col + 1; row < m; ++row) {
+            if (std::abs(aug[row][col]) > std::abs(aug[pivot][col])) pivot = row;
+        }
+        std::swap(aug[col], aug[pivot]);
+        if (std::abs(aug[col][col]) < 1e-12) continue;
+        for (std::size_t row = col + 1; row < m; ++row) {
+            double factor = aug[row][col] / aug[col][col];
+            for (std::size_t j = col; j <= m; ++j) {
+                aug[row][j] -= factor * aug[col][j];
+            }
+        }
+    }
+
+    for (int i = static_cast<int>(m) - 1; i >= 0; --i) {
+        double sum = aug[i][m];
+        for (std::size_t j = i + 1; j < m; ++j) {
+            sum -= aug[i][j] * coeffs[j];
+        }
+        coeffs[i] = (std::abs(aug[i][i]) > 1e-12) ? sum / aug[i][i] : 0.0;
+    }
+
+    // Subtrai o polinômio ajustado.
+    std::vector<double> anomaly(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        double x = static_cast<double>(i) / static_cast<double>(n - 1);
+        double baseline = 0.0;
+        double power = 1.0;
+        for (std::size_t j = 0; j < m; ++j) {
+            baseline += coeffs[j] * power;
+            power *= x;
+        }
+        anomaly[i] = profile[i] - baseline;
+    }
+    return anomaly;
+}
+
+/**
+ * @brief Subtrai baseline de mediana móvel.
+ *
+ * A mediana é robusta a outliers, preservando anomalias localizadas.
+ * A janela é simétrica; nas bordas, usa a mediana disponível.
+ */
+inline std::vector<double> remove_median_baseline(const std::vector<double>& profile,
+                                                   std::size_t window = 51) {
+    if (profile.size() < window) return profile;
+    std::vector<double> baseline(profile.size());
+    std::size_t half = window / 2;
+    std::vector<double> window_vals;
+    window_vals.reserve(window);
+
+    for (std::size_t i = 0; i < profile.size(); ++i) {
+        window_vals.clear();
+        std::size_t start = (i > half) ? i - half : 0;
+        std::size_t end = std::min(i + half + 1, profile.size());
+        for (std::size_t j = start; j < end; ++j) {
+            window_vals.push_back(profile[j]);
+        }
+        std::nth_element(window_vals.begin(),
+                         window_vals.begin() + window_vals.size() / 2,
+                         window_vals.end());
+        baseline[i] = window_vals[window_vals.size() / 2];
+    }
+
+    std::vector<double> anomaly(profile.size());
+    for (std::size_t i = 0; i < profile.size(); ++i) {
+        anomaly[i] = profile[i] - baseline[i];
+    }
+    return anomaly;
+}
+
+/**
+ * @brief Calcula o p-ésimo percentil de um vetor (0 <= p <= 100).
+ *
+ * Usa std::nth_element para eficiência O(N) em média.
+ */
+inline double percentile(const std::vector<double>& v, double p) {
+    if (v.empty()) return 0.0;
+    if (p <= 0.0) return *std::min_element(v.begin(), v.end());
+    if (p >= 100.0) return *std::max_element(v.begin(), v.end());
+    std::vector<double> copy(v);
+    std::size_t idx = static_cast<std::size_t>(p / 100.0 * static_cast<double>(copy.size() - 1));
+    std::nth_element(copy.begin(), copy.begin() + idx, copy.end());
+    return copy[idx];
+}
+
+/**
+ * @brief Mediana absoluta dos desvios (MAD), estimativa robusta de dispersão.
+ */
+inline double mad(const std::vector<double>& v) {
+    if (v.empty()) return 0.0;
+    double med = percentile(v, 50.0);
+    std::vector<double> abs_dev;
+    abs_dev.reserve(v.size());
+    for (double x : v) abs_dev.push_back(std::abs(x - med));
+    return percentile(abs_dev, 50.0);
+}
+
+/**
+ * @brief Amplitude interquartil (IQR).
+ */
+inline double iqr(const std::vector<double>& v) {
+    return percentile(v, 75.0) - percentile(v, 25.0);
+}
+
+/**
+ * @brief Threshold adaptativo robusto.
+ *
+ * Usa MAD ou IQR para definir um threshold que não depende de hipóteses
+ * gaussianas. O fator k controla a sensibilidade (padrão 2.0).
+ */
+enum class AdaptiveMethod { Mad, Iqr };
+
+inline double adaptive_threshold(const std::vector<double>& v,
+                                  AdaptiveMethod method = AdaptiveMethod::Mad,
+                                  double k = 2.0) {
+    if (method == AdaptiveMethod::Iqr) {
+        return k * iqr(v);
+    }
+    // MAD: fator de escala 1.4826 para consistência com desvio padrão gaussiano.
+    return k * 1.4826 * mad(v);
+}
+
+/**
  * @brief Encontra índices de picos locais com amplitude mínima.
  */
 inline std::vector<std::size_t> find_peaks(const std::vector<double>& signal,
@@ -487,9 +654,11 @@ struct JouleThomsonRule {
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        // Baseline pelas bordas é mais robusto ao dipolo localizado.
-        auto anomaly = detail::remove_edge_baseline(mean_profile);
+        // Baseline polinomial grau 2: mais robusto que reta geotérmica pura.
+        auto anomaly = detail::remove_polynomial_baseline(mean_profile, 2);
         if (anomaly.size() < 20) co_return;
+
+        double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 1.5);
 
         // Janela deslizante: encontra o ponto de maior contraste entre
         // região anterior (espera-se fria) e posterior (espera-se quente).
@@ -512,9 +681,9 @@ struct JouleThomsonRule {
             }
         }
 
-        if (best_score > 1.0) {
+        if (best_score > threshold) {
             double depth = detail::channel_to_depth(best_idx, meta.depth_step_m);
-            double conf = std::min(best_score / 10.0, 1.0);
+            double conf = std::min(best_score / (5.0 * threshold), 1.0);
             co_yield make_result<CanonicalEvent::JouleThomson>(
                 conf, depth, conf > 0.7 ? "High" : (conf > 0.4 ? "Medium" : "Low"));
         }
@@ -543,18 +712,13 @@ struct SlopeVelocityRule {
             dts.subspan(mid_t * n_channels, (n_times - mid_t) * n_channels),
             n_times - mid_t, n_channels);
 
-        auto anom1 = detail::remove_geobaseline(first_half, meta.depth_step_m,
-                                                 meta.surface_temp_c, meta.geo_gradient_cpm);
-        auto anom2 = detail::remove_geobaseline(second_half, meta.depth_step_m,
-                                                 meta.surface_temp_c, meta.geo_gradient_cpm);
+        auto anom1 = detail::remove_polynomial_baseline(std::move(first_half), 2);
+        auto anom2 = detail::remove_polynomial_baseline(std::move(second_half), 2);
 
-        std::size_t p1 = 0, p2 = 0;
-        double m1 = -std::numeric_limits<double>::infinity();
-        double m2 = -std::numeric_limits<double>::infinity();
-        for (std::size_t i = 0; i < n_channels; ++i) {
-            if (anom1[i] < m1) { m1 = anom1[i]; p1 = i; }
-            if (anom2[i] < m2) { m2 = anom2[i]; p2 = i; }
-        }
+        // Encontra o frente móvel pela máxima diferença de posição entre
+        // o vale mais forte da primeira metade e o vale mais forte da segunda.
+        std::size_t p1 = std::distance(anom1.begin(), std::min_element(anom1.begin(), anom1.end()));
+        std::size_t p2 = std::distance(anom2.begin(), std::min_element(anom2.begin(), anom2.end()));
 
         double dz = std::abs(static_cast<double>(p2) - static_cast<double>(p1)) * meta.depth_step_m;
         double dt = (n_times > 1) ? static_cast<double>(n_times) / meta.sampling_rate_hz : 0.0;
@@ -562,11 +726,13 @@ struct SlopeVelocityRule {
         double conf = std::min(dz / 100.0, 1.0);
         double depth = detail::channel_to_depth((p1 + p2) / 2, meta.depth_step_m);
 
-        if (conf > 0.25) {
+        double threshold = detail::adaptive_threshold(anom2, detail::AdaptiveMethod::Mad, 1.5);
+        double min2 = *std::min_element(anom2.begin(), anom2.end());
+        if (conf > 0.15 && std::abs(min2) > threshold) {
             auto res = make_result<CanonicalEvent::SlopeVelocity>(
                 conf, depth, conf > 0.7 ? "High" : "Medium");
             res.recommendation += " Velocidade estimada: " + std::to_string(velocity) + " m/s.";
-            co_yield res;
+            co_yield std::move(res);
         }
         co_return;
     }
@@ -585,11 +751,10 @@ struct WarmBackRule {
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        auto anomaly = detail::remove_geobaseline(mean_profile, meta.depth_step_m,
-                                                   meta.surface_temp_c, meta.geo_gradient_cpm);
-        double sigma = detail::std_dev(anomaly);
+        auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+        double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 1.5);
         // Warm-back: múltiplos vales de resfriamento.
-        auto valleys = detail::find_valleys(anomaly, std::max(1.5 * sigma, 0.5), 20);
+        auto valleys = detail::find_valleys(anomaly, threshold, 20);
 
         if (valleys.size() >= 2) {
             double mean_depth = 0.0;
@@ -636,12 +801,11 @@ struct ValveChatterRule {
 
         // Evidência DTS: pico térmico localizado.
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        auto anomaly = detail::remove_geobaseline(mean_profile, meta.depth_step_m,
-                                                   meta.surface_temp_c, meta.geo_gradient_cpm);
-        double sigma = detail::std_dev(anomaly);
-        auto thermal_peaks = detail::find_peaks(anomaly, std::max(1.5 * sigma, 0.5), 5);
+        auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+        double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 1.5);
+        auto thermal_peaks = detail::find_peaks(anomaly, threshold, 5);
         for (std::size_t p : thermal_peaks) {
-            double conf = std::min(std::abs(anomaly[p]) / 5.0, 1.0);
+            double conf = std::min(std::abs(anomaly[p]) / std::max(threshold, 0.1), 1.0);
             if (conf > best_conf) {
                 best_conf = conf;
                 best_idx = p;
@@ -661,27 +825,58 @@ struct ValveChatterRule {
  * @brief Regra 5: Slugging Cycle.
  *
  * Heurística: alta variância espacial de energia DAS em intervalo profundo.
+ * Como o DAS sintético pode ser fraco, também usamos oscilação térmica (DTS)
+ * como evidência secundária.
  */
 struct SluggingCycleRule {
-    static ResultGenerator apply(std::span<const double>,
+    static ResultGenerator apply(std::span<const double> dts,
                                  std::span<const double> das,
                                  std::size_t n_times,
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
-        if (das.empty() || n_times < 4 || n_channels == 0) co_return;
-        auto energy = detail::das_energy_profile(das, n_times, n_channels);
-        double mean_e = std::accumulate(energy.begin(), energy.end(), 0.0) / energy.size();
-        double var = 0.0;
-        for (double e : energy) var += (e - mean_e) * (e - mean_e);
-        var /= static_cast<double>(energy.size());
-        double coeff_var = (mean_e > 1e-12) ? std::sqrt(var) / mean_e : 0.0;
+        if (n_channels == 0 || n_times < 4) co_return;
 
-        if (coeff_var > 0.5) {
-            std::size_t max_idx = std::distance(energy.begin(),
-                                                std::max_element(energy.begin(), energy.end()));
-            double conf = std::min(coeff_var, 1.0);
+        double best_conf = 0.0;
+        std::size_t best_idx = 0;
+
+        // Evidência DAS: coeficiente de variação da energia.
+        if (!das.empty()) {
+            auto energy = detail::das_energy_profile(das, n_times, n_channels);
+            double mean_e = std::accumulate(energy.begin(), energy.end(), 0.0) / energy.size();
+            double var = 0.0;
+            for (double e : energy) var += (e - mean_e) * (e - mean_e);
+            var /= static_cast<double>(energy.size());
+            double coeff_var = (mean_e > 1e-12) ? std::sqrt(var) / mean_e : 0.0;
+            if (coeff_var > best_conf) {
+                best_conf = coeff_var;
+                best_idx = std::distance(energy.begin(),
+                                         std::max_element(energy.begin(), energy.end()));
+            }
+        }
+
+        // Evidência DTS: desvio padrão temporal por canal (oscilação de temperatura).
+        for (std::size_t c = 0; c < n_channels; ++c) {
+            double sum = 0.0;
+            double sum_sq = 0.0;
+            for (std::size_t t = 0; t < n_times; ++t) {
+                double v = dts[t * n_channels + c];
+                sum += v;
+                sum_sq += v * v;
+            }
+            double mean_c = sum / static_cast<double>(n_times);
+            double var_c = sum_sq / static_cast<double>(n_times) - mean_c * mean_c;
+            double std_c = std::sqrt(std::max(var_c, 0.0));
+            if (std_c > best_conf) {
+                best_conf = std_c;
+                best_idx = c;
+            }
+        }
+
+        // Normaliza pela escala de temperatura típica do poço (~10 °C).
+        double conf = std::min(best_conf / 10.0, 1.0);
+        if (conf > 0.3) {
             co_yield make_result<CanonicalEvent::SluggingCycle>(
-                conf, detail::channel_to_depth(max_idx, meta.depth_step_m),
+                conf, detail::channel_to_depth(best_idx, meta.depth_step_m),
                 conf > 0.7 ? "High" : "Medium");
         }
         co_return;
@@ -707,23 +902,19 @@ struct LeakPathRule {
         auto second = detail::temporal_mean(
             dts.subspan(mid_t * n_channels, (n_times - mid_t) * n_channels),
             n_times - mid_t, n_channels);
-        auto diff = detail::remove_geobaseline(second, meta.depth_step_m,
-                                                meta.surface_temp_c, meta.geo_gradient_cpm);
-        auto base = detail::remove_geobaseline(first, meta.depth_step_m,
-                                               meta.surface_temp_c, meta.geo_gradient_cpm);
+        auto second_anom = detail::remove_polynomial_baseline(std::move(second), 2);
+        auto first_anom = detail::remove_polynomial_baseline(std::move(first), 2);
         for (std::size_t i = 0; i < n_channels; ++i) {
-            diff[i] -= base[i];
+            second_anom[i] -= first_anom[i];
         }
-        double sigma = detail::std_dev(diff);
-        auto peaks = detail::find_peaks(diff, std::max(1.5 * sigma, 0.5), 10);
-
-        for (std::size_t p : peaks) {
-            double conf = std::min(diff[p] / 5.0, 1.0);
-            if (conf > 0.3) {
-                co_yield make_result<CanonicalEvent::LeakPath>(
-                    conf, detail::channel_to_depth(p, meta.depth_step_m),
-                    conf > 0.7 ? "High" : "Medium");
-            }
+        double threshold = detail::adaptive_threshold(second_anom, detail::AdaptiveMethod::Mad, 2.0);
+        auto max_it = std::max_element(second_anom.begin(), second_anom.end());
+        if (*max_it > threshold) {
+            std::size_t p = std::distance(second_anom.begin(), max_it);
+            double conf = std::min(*max_it / std::max(threshold, 0.1), 1.0);
+            co_yield make_result<CanonicalEvent::LeakPath>(
+                conf, detail::channel_to_depth(p, meta.depth_step_m),
+                conf > 0.7 ? "High" : "Medium");
         }
         co_return;
     }
@@ -736,15 +927,29 @@ struct LeakPathRule {
  * com um deles apresentando queda relativa de energia.
  */
 struct GlvBellowRuptureRule {
-    static ResultGenerator apply(std::span<const double>,
+    static ResultGenerator apply(std::span<const double> dts,
                                  std::span<const double> das,
                                  std::size_t n_times,
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
-        if (das.empty() || n_times == 0 || n_channels == 0) co_return;
-        auto energy = detail::das_energy_profile(das, n_times, n_channels);
-        double max_e = *std::max_element(energy.begin(), energy.end());
-        auto peaks = detail::find_peaks(energy, max_e * 0.2, 10);
+        if (n_times == 0 || n_channels == 0) co_return;
+
+        std::vector<std::size_t> peaks;
+
+        // Evidência DAS: picos de energia espaçados regularmente.
+        if (!das.empty()) {
+            auto energy = detail::das_energy_profile(das, n_times, n_channels);
+            double threshold = detail::percentile(energy, 75.0);
+            peaks = detail::find_peaks(energy, threshold, 10);
+        }
+
+        // Fallback DTS: múltiplos picos térmicos espaçados regularmente.
+        if (peaks.size() < 3) {
+            auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
+            auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+            double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 2.0);
+            peaks = detail::find_peaks(anomaly, threshold, 10);
+        }
 
         if (peaks.size() >= 3) {
             // Procura gap onde uma válvula deveria existir.
@@ -783,10 +988,8 @@ struct PerforationEffectivenessRule {
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        auto anomaly = detail::remove_geobaseline(mean_profile, meta.depth_step_m,
-                                                   meta.surface_temp_c, meta.geo_gradient_cpm);
-        double sigma = detail::std_dev(anomaly);
-        double threshold = std::max(2.5 * sigma, 2.0);
+        auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+        double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 2.0);
         std::vector<std::size_t> negative_zones;
         for (std::size_t i = 0; i < anomaly.size(); ++i) {
             if (std::abs(anomaly[i]) > threshold) negative_zones.push_back(i);
@@ -820,16 +1023,15 @@ struct FracScreenoutRule {
         auto second = detail::temporal_mean(
             dts.subspan(mid_t * n_channels, (n_times - mid_t) * n_channels),
             n_times - mid_t, n_channels);
-        auto anom1 = detail::remove_geobaseline(first, meta.depth_step_m,
-                                                 meta.surface_temp_c, meta.geo_gradient_cpm);
-        auto anom2 = detail::remove_geobaseline(second, meta.depth_step_m,
-                                                 meta.surface_temp_c, meta.geo_gradient_cpm);
+        auto anom1 = detail::remove_polynomial_baseline(std::move(first), 2);
+        auto anom2 = detail::remove_polynomial_baseline(std::move(second), 2);
 
+        double threshold = detail::adaptive_threshold(anom2, detail::AdaptiveMethod::Mad, 1.5);
         double min1 = *std::min_element(anom1.begin(), anom1.end());
         double max2 = *std::max_element(anom2.begin(), anom2.end());
-        if (min1 < -1.0 && max2 > 0.5) {
+        if (min1 < -threshold && max2 > threshold) {
             std::size_t p = std::distance(anom2.begin(), std::max_element(anom2.begin(), anom2.end()));
-            double conf = std::min((std::abs(min1) + max2) / 8.0, 1.0);
+            double conf = std::min((std::abs(min1) + max2) / std::max(4.0 * threshold, 0.1), 1.0);
             co_yield make_result<CanonicalEvent::FracScreenout>(
                 conf, detail::channel_to_depth(p, meta.depth_step_m),
                 conf > 0.7 ? "High" : "Medium");
@@ -851,10 +1053,9 @@ struct FracProppantDistributionRule {
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        auto anomaly = detail::remove_geobaseline(mean_profile, meta.depth_step_m,
-                                                   meta.surface_temp_c, meta.geo_gradient_cpm);
-        double sigma = detail::std_dev(anomaly);
-        auto peaks = detail::find_peaks(anomaly, std::max(1.5 * sigma, 0.5), 8);
+        auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+        double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 1.5);
+        auto peaks = detail::find_peaks(anomaly, threshold, 8);
         if (peaks.size() >= 2) {
             double mean_depth = 0.0;
             for (std::size_t p : peaks) mean_depth += detail::channel_to_depth(p, meta.depth_step_m);
@@ -879,10 +1080,8 @@ struct FracHeightGrowthRule {
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        auto anomaly = detail::remove_geobaseline(mean_profile, meta.depth_step_m,
-                                                   meta.surface_temp_c, meta.geo_gradient_cpm);
-        double sigma = detail::std_dev(anomaly);
-        double threshold = std::max(2.0 * sigma, 2.0);
+        auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+        double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 2.0);
         std::size_t first = n_channels, last = 0;
         for (std::size_t i = 0; i < anomaly.size(); ++i) {
             if (std::abs(anomaly[i]) > threshold) {
@@ -913,11 +1112,12 @@ struct CementBondEvaluationRule {
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        auto anomaly = detail::remove_geobaseline(mean_profile, meta.depth_step_m,
-                                                   meta.surface_temp_c, meta.geo_gradient_cpm);
-        double sigma = detail::std_dev(anomaly);
-        double conf = std::min(sigma / 10.0, 1.0);
-        if (conf > 0.25) {
+        // Mediana movel preserva melhor as anomalias localizadas do que
+        // polinomio global para este evento.
+        auto anomaly = detail::remove_median_baseline(mean_profile, 51);
+        double dispersion = detail::std_dev(anomaly);
+        double conf = std::min(dispersion / 3.0, 1.0);
+        if (conf > 0.12) {
             co_yield make_result<CanonicalEvent::CementBondEvaluation>(
                 conf, static_cast<double>(n_channels) * meta.depth_step_m * 0.5,
                 conf > 0.7 ? "High" : "Medium");
@@ -943,15 +1143,14 @@ struct ReCementingAssessmentRule {
         auto second = detail::temporal_mean(
             dts.subspan(mid_t * n_channels, (n_times - mid_t) * n_channels),
             n_times - mid_t, n_channels);
-        auto anom1 = detail::remove_geobaseline(first, meta.depth_step_m,
-                                                 meta.surface_temp_c, meta.geo_gradient_cpm);
-        auto anom2 = detail::remove_geobaseline(second, meta.depth_step_m,
-                                                 meta.surface_temp_c, meta.geo_gradient_cpm);
+        auto anom1 = detail::remove_polynomial_baseline(std::move(first), 2);
+        auto anom2 = detail::remove_polynomial_baseline(std::move(second), 2);
+        double threshold = detail::adaptive_threshold(anom2, detail::AdaptiveMethod::Mad, 1.5);
         double min1 = *std::min_element(anom1.begin(), anom1.end());
         double mean2 = std::accumulate(anom2.begin(), anom2.end(), 0.0) / anom2.size();
-        if (min1 < -5.0 && std::abs(mean2) < 5.0) {
+        if (min1 < -threshold && std::abs(mean2) < threshold) {
             std::size_t p = std::distance(anom1.begin(), std::min_element(anom1.begin(), anom1.end()));
-            double conf = std::min(std::abs(min1) / 50.0, 1.0);
+            double conf = std::min(std::abs(min1) / std::max(4.0 * threshold, 0.1), 1.0);
             co_yield make_result<CanonicalEvent::ReCementingAssessment>(
                 conf, detail::channel_to_depth(p, meta.depth_step_m),
                 conf > 0.7 ? "High" : "Medium");
@@ -972,11 +1171,10 @@ struct CrossflowZonalRule {
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        auto anomaly = detail::remove_geobaseline(mean_profile, meta.depth_step_m,
-                                                   meta.surface_temp_c, meta.geo_gradient_cpm);
-        double sigma = detail::std_dev(anomaly);
-        auto pos_peaks = detail::find_peaks(anomaly, std::max(1.5 * sigma, 0.5), 15);
-        auto neg_valleys = detail::find_valleys(anomaly, std::max(1.5 * sigma, 0.5), 15);
+        auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+        double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 1.5);
+        auto pos_peaks = detail::find_peaks(anomaly, threshold, 15);
+        auto neg_valleys = detail::find_valleys(anomaly, threshold, 15);
         if (pos_peaks.size() >= 2 && neg_valleys.size() >= 2) {
             double mean_depth = 0.0;
             for (std::size_t p : pos_peaks) mean_depth += detail::channel_to_depth(p, meta.depth_step_m);
@@ -1002,11 +1200,10 @@ struct CementChannelingRule {
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
         auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
-        auto anomaly = detail::remove_geobaseline(mean_profile, meta.depth_step_m,
-                                                   meta.surface_temp_c, meta.geo_gradient_cpm);
-        double sigma = detail::std_dev(anomaly);
+        auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+        double threshold = detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 1.5);
         // Canalização aparece como múltiplos vales (resfriamento) estreitos.
-        auto valleys = detail::find_valleys(anomaly, std::max(1.5 * sigma, 0.5), 5);
+        auto valleys = detail::find_valleys(anomaly, threshold, 5);
         if (valleys.size() >= 3) {
             double mean_depth = 0.0;
             for (std::size_t p : valleys) mean_depth += detail::channel_to_depth(p, meta.depth_step_m);
@@ -1030,10 +1227,11 @@ struct CementChannelingRule {
  */
 inline std::vector<InferenceResult> collect_results(ResultGenerator gen) {
     std::vector<InferenceResult> results;
+    results.reserve(4); // estimativa inicial; evita realocações para regras típicas
     while (!gen.done()) {
         gen.resume();
         if (!gen.done()) {
-            results.push_back(gen.value());
+            results.push_back(std::move(gen.value()));
         }
     }
     return results;
@@ -1110,7 +1308,8 @@ private:
             }
         }();
         auto partial = collect_results(std::move(gen));
-        out.insert(out.end(), std::make_move_iterator(partial.begin()),
+        out.insert(out.end(),
+                   std::make_move_iterator(partial.begin()),
                    std::make_move_iterator(partial.end()));
     }
 };
