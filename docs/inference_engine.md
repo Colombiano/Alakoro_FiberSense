@@ -1,0 +1,1133 @@
+# InferenceEngine do Alakoro FiberSense
+
+> Motor de inferência canônica para análise de fibras ópticas distribuídas
+> (DTS/DAS/DSS) em poços de petróleo e gás.
+
+---
+
+## 1. O que é
+
+O **InferenceEngine** do Alakoro FiberSense é o motor de inferência canônica
+responsável por analisar dados de sensores de fibra óptica distribuída —
+principalmente **DTS** (Distributed Temperature Sensing), com suporte opcional a
+**DAS** (Distributed Acoustic Sensing) — e detectar eventos operacionais típicos
+de poços de petróleo.
+
+Ele transforma matrizes de aquisição `(n_times, n_channels)` em uma lista
+estruturada de hipóteses: cada hipótese contém o tipo de evento, a profundidade
+estimada, um escore de confiança, a severidade e uma recomendação operacional.
+
+Exemplos de eventos reconhecidos:
+
+- **Joule-Thomson**: dipolo térmico gerado pela expansão de gás/líquido em
+  interfaces de fluxo.
+- **Gas-Lift Valve (GLV) Bellow Rupture**: ruptura do fole de uma válvula de
+  gás-lift, indicada pela ausência/perda de assinatura acústica em profundidade
+  esperada.
+- **Cement Bond Evaluation**: variação espacial de temperatura correlacionada à
+  qualidade de cimentação.
+- **Fracture Screen-out**, **Frac Height Growth**, **Proppant Distribution**,
+  entre outros.
+
+O motor é implementado em **C++20** (`src/cpp/include/alakoro/inference_engine.hpp`)
+e exposto ao Python via **pybind11**. Uma camada de wrapper Python
+(`src/ontology/inference_engine.py`) converte os resultados brutos do C++ em
+instâncias da ontologia Alakoro (`Event`, `JouleThomsonEvent`, `LeakEvent` etc.).
+
+---
+
+## 2. Arquitetura geral
+
+### 2.1 Entrada
+
+A engine recebe:
+
+| Fonte | Tipo | Obrigatoriedade | Descrição |
+|-------|------|-----------------|-----------|
+| `dts` | `std::span<const double>` / `np.ndarray` 2D | obrigatório | Matriz de temperatura com shape `(n_times, n_channels)`. |
+| `das` | `std::span<const double>` / `np.ndarray` 2D | opcional | Matriz acústica com o mesmo shape de `dts`. |
+| `metadata` | `InferenceMetadata` | obrigatório | Parâmetros de aquisição e contexto geotérmico. |
+
+A struct `InferenceMetadata` desacopla a engine do `AcquisitionMetadata` do núcleo,
+facilitando testes unitários:
+
+```cpp
+struct InferenceMetadata {
+    double sampling_rate_hz = 0.0;  // taxa de amostragem no tempo
+    double depth_step_m = 1.0;      // espaçamento entre canais
+    double surface_temp_c = 20.0;   // temperatura superficial
+    double geo_gradient_cpm = 0.03; // gradiente geotérmico (°C/m)
+};
+```
+
+### 2.2 Saída
+
+Cada regra pode emitir zero ou mais `InferenceResult`:
+
+```cpp
+struct InferenceResult {
+    std::string event_type;      // código canônico, ex: "joule_thomson"
+    std::string event_label_pt;  // rótulo em português
+    std::string event_label_en;  // rótulo em inglês
+    double confidence = 0.0;     // [0.0, 1.0]
+    double depth_md = 0.0;       // profundidade estimada (m)
+    std::string severity;        // "Low", "Medium" ou "High"
+    std::string recommendation;  // ação operacional sugerida
+};
+```
+
+### 2.3 Pipeline de processamento
+
+```
+┌─────────────────┐
+│  DTS (obrig.)   │
+│  DAS (opc.)     │
+│  InferenceMetadata
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  Pré-processamento │  temporal_mean, remove_polynomial_baseline,
+│                   │  remove_median_baseline, adaptive_threshold
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  Regras canônicas │  cada evento = uma struct com `apply(...)`
+│                   │  cada apply retorna ResultGenerator (co_yield)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  Agregação      │  fold expression executa todas as regras
+│                   │  collect_results consome os generators
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  Binding Python │  pybind11 expõe CanonicalInferenceEngine
+│                   │  wrapper converte InferenceResult → Event
+└─────────────────┘
+```
+
+O pipeline é **síncrono do ponto de vista do Python**: o C++ consome internamente
+os generators corrotinados e devolve um `std::vector<InferenceResult>` já
+materializado.
+
+---
+
+## 3. Implementação C++20
+
+### 3.1 Localização
+
+- **Cabeçalho principal**: `src/cpp/include/alakoro/inference_engine.hpp`
+- **Bindings pybind11**: `src/cpp/src/bindings.cpp`
+- **Wrapper Python**: `src/ontology/inference_engine.py`
+- **Testes**: `tests/test_inference_engine.py`
+
+### 3.2 Enum `CanonicalEvent`
+
+O enum forte evita conversões implícitas e serve como "tag" para especialização
+de templates:
+
+```cpp
+enum class CanonicalEvent : std::uint8_t {
+    JouleThomson,
+    SlopeVelocity,
+    WarmBack,
+    ValveChatter,
+    SluggingCycle,
+    LeakPath,
+    GlvBellowRupture,
+    PerforationEffectiveness,
+    FracScreenout,
+    FracProppantDistribution,
+    FracHeightGrowth,
+    CementBondEvaluation,
+    ReCementingAssessment,
+    CrossflowZonal,
+    CementChanneling,
+};
+```
+
+São **15 eventos canônicos**. Cada valor do enum é ligado a um nome, rótulos e
+recomendação por meio de `EventTraits`.
+
+### 3.3 `EventTraits<E>` — metaprogramação com `constexpr`
+
+A especialização de templates permite associar strings a cada evento em **tempo
+de compilação**:
+
+```cpp
+template <CanonicalEvent E>
+struct EventTraits {
+    static constexpr std::string_view code = "unknown";
+    static constexpr std::string_view label_pt = "Desconhecido";
+    static constexpr std::string_view label_en = "Unknown";
+    static constexpr std::string_view recommendation = "Investigar manualmente.";
+};
+```
+
+Uma macro reduz a repetição e garante consistência:
+
+```cpp
+#define ALAKORO_EVENT_TRAITS(EVENT, CODE, PT, EN, RECO) \
+    template <>                                         \
+    struct EventTraits<CanonicalEvent::EVENT> {         \
+        static constexpr std::string_view code = CODE;  \
+        static constexpr std::string_view label_pt = PT;\
+        static constexpr std::string_view label_en = EN;\
+        static constexpr std::string_view recommendation = RECO; \
+    }
+```
+
+Exemplo de uso:
+
+```cpp
+ALAKORO_EVENT_TRAITS(JouleThomson,
+    "joule_thomson",
+    "Dipolo Térmico Joule-Thomson",
+    "Joule-Thomson Thermal Dipole",
+    "Verificar passagem de gas/líquido na interface e validar PVT local.");
+```
+
+A função `make_result<E>` usa esses traits para preencher automaticamente os
+campos textuais do resultado:
+
+```cpp
+template <CanonicalEvent E>
+InferenceResult make_result(double confidence, double depth_md,
+                            std::string_view severity) {
+    return InferenceResult{
+        std::string(EventTraits<E>::code),
+        std::string(EventTraits<E>::label_pt),
+        std::string(EventTraits<E>::label_en),
+        confidence, depth_md,
+        std::string(severity),
+        std::string(EventTraits<E>::recommendation)
+    };
+}
+```
+
+### 3.4 `ResultGenerator` — corrotinas C++20
+
+Cada regra é uma corrotina que produz `InferenceResult` via `co_yield`. Isso
+permite pausar a execução após cada resultado, sem expor essa complexidade ao
+código chamador.
+
+A implementação é um generator mínimo, sem dependências externas:
+
+```cpp
+struct ResultGenerator {
+    struct promise_type {
+        InferenceResult current_value;
+
+        ResultGenerator get_return_object() {
+            return ResultGenerator{
+                std::coroutine_handle<promise_type>::from_promise(*this)};
+        }
+        std::suspend_always initial_suspend() noexcept { return {}; }
+        std::suspend_always final_suspend() noexcept { return {}; }
+        void unhandled_exception() { std::terminate(); }
+        void return_void() noexcept {}
+
+        std::suspend_always yield_value(InferenceResult value) noexcept {
+            current_value = std::move(value);
+            return {};
+        }
+    };
+
+    using handle_type = std::coroutine_handle<promise_type>;
+    explicit ResultGenerator(handle_type h) : handle_(h) {}
+
+    // move-only: coroutine_handle é recurso único
+    ResultGenerator(const ResultGenerator&) = delete;
+    ResultGenerator& operator=(const ResultGenerator&) = delete;
+    ResultGenerator(ResultGenerator&& other) noexcept : handle_(other.handle_) {
+        other.handle_ = nullptr;
+    }
+    ~ResultGenerator() { if (handle_) handle_.destroy(); }
+
+    bool done() const noexcept { return handle_.done(); }
+    void resume() { if (handle_) handle_.resume(); }
+    const InferenceResult& value() const noexcept {
+        return handle_.promise().current_value;
+    }
+
+private:
+    handle_type handle_;
+};
+```
+
+Uma regra tipica tem a seguinte assinatura:
+
+```cpp
+struct JouleThomsonRule {
+    static ResultGenerator apply(std::span<const double> dts,
+                                 std::span<const double> das,
+                                 std::size_t n_times,
+                                 std::size_t n_channels,
+                                 const InferenceMetadata& meta) {
+        // ... heurística ...
+        co_yield make_result<CanonicalEvent::JouleThomson>(conf, depth, severity);
+        co_return;
+    }
+};
+```
+
+### 3.5 Regras como structs estáticas
+
+Todas as 15 regras seguem o mesmo padrão: uma `struct` com método estático
+`apply` que retorna `ResultGenerator`. Esse padrão é verificado pelo concept
+`InferenceRule`:
+
+```cpp
+template <typename R>
+concept InferenceRule = requires(std::span<const double> dts,
+                                  std::span<const double> das,
+                                  std::size_t n_times,
+                                  std::size_t n_channels,
+                                  const InferenceMetadata& meta) {
+    { R::apply(dts, das, n_times, n_channels, meta) } -> std::same_as<ResultGenerator>;
+};
+```
+
+### 3.6 `InferenceEngine<Events...>` — template variádico
+
+A engine é parametrizada por uma lista de `CanonicalEvent`. Internamente, ela usa
+`if constexpr` para mapear cada evento à sua regra e uma **fold expression** para
+executar todas:
+
+```cpp
+template <CanonicalEvent... Events>
+class InferenceEngine {
+public:
+    static_assert(sizeof...(Events) > 0,
+                  "InferenceEngine precisa de pelo menos um evento.");
+
+    std::vector<InferenceResult> infer(std::span<const double> dts,
+                                       std::span<const double> das,
+                                       std::size_t n_times,
+                                       std::size_t n_channels,
+                                       const InferenceMetadata& meta) const {
+        std::vector<InferenceResult> all;
+        all.reserve(sizeof...(Events));
+        (execute_rule<Events>(dts, das, n_times, n_channels, meta, all), ...);
+        return all;
+    }
+
+private:
+    template <CanonicalEvent E>
+    void execute_rule(std::span<const double> dts,
+                      std::span<const double> das,
+                      std::size_t n_times,
+                      std::size_t n_channels,
+                      const InferenceMetadata& meta,
+                      std::vector<InferenceResult>& out) const {
+        ResultGenerator gen = [&]() {
+            if constexpr (E == CanonicalEvent::JouleThomson) {
+                return JouleThomsonRule::apply(...);
+            } else if constexpr (E == CanonicalEvent::SlopeVelocity) {
+                return SlopeVelocityRule::apply(...);
+            }
+            // ... todos os 15 eventos ...
+        }();
+        auto partial = collect_results(std::move(gen));
+        out.insert(out.end(),
+                   std::make_move_iterator(partial.begin()),
+                   std::make_move_iterator(partial.end()));
+    }
+};
+```
+
+A fold expression:
+
+```cpp
+(execute_rule<Events>(...), ...);
+```
+
+expande, em tempo de compilação, para uma chamada sequencial de
+`execute_rule<CanonicalEvent::X>(...)` para cada evento da lista.
+
+### 3.7 `CanonicalInferenceEngine`
+
+Alias que materializa a engine com todos os 15 eventos:
+
+```cpp
+using CanonicalInferenceEngine = InferenceEngine<
+    CanonicalEvent::JouleThomson,
+    CanonicalEvent::SlopeVelocity,
+    CanonicalEvent::WarmBack,
+    CanonicalEvent::ValveChatter,
+    CanonicalEvent::SluggingCycle,
+    CanonicalEvent::LeakPath,
+    CanonicalEvent::GlvBellowRupture,
+    CanonicalEvent::PerforationEffectiveness,
+    CanonicalEvent::FracScreenout,
+    CanonicalEvent::FracProppantDistribution,
+    CanonicalEvent::FracHeightGrowth,
+    CanonicalEvent::CementBondEvaluation,
+    CanonicalEvent::ReCementingAssessment,
+    CanonicalEvent::CrossflowZonal,
+    CanonicalEvent::CementChanneling
+>;
+```
+
+### 3.8 `collect_results`
+
+Função utilitária que consome um `ResultGenerator` e produz um `std::vector`.
+Ela é a ponte entre a API corrotinada interna e a API síncrona exposta ao Python:
+
+```cpp
+inline std::vector<InferenceResult> collect_results(ResultGenerator gen) {
+    std::vector<InferenceResult> results;
+    results.reserve(4);
+    while (!gen.done()) {
+        gen.resume();
+        if (!gen.done()) {
+            results.push_back(std::move(gen.value()));
+        }
+    }
+    return results;
+}
+```
+
+---
+
+## 4. Helpers numéricos
+
+Todos os helpers residem no namespace `alakoro::inference::detail`.
+
+### 4.1 `temporal_mean`
+
+Calcula o perfil médio ao longo do tempo para cada canal.
+A matriz de entrada está em layout **row-major** com índice linear
+`data[t * n_channels + c]`:
+
+```cpp
+inline std::vector<double> temporal_mean(std::span<const double> data,
+                                          std::size_t n_times,
+                                          std::size_t n_channels) {
+    std::vector<double> mean(n_channels, 0.0);
+    if (n_times == 0 || n_channels == 0) return mean;
+    for (std::size_t c = 0; c < n_channels; ++c) {
+        double sum = 0.0;
+        for (std::size_t t = 0; t < n_times; ++t) {
+            sum += data[t * n_channels + c];
+        }
+        mean[c] = sum / static_cast<double>(n_times);
+    }
+    return mean;
+}
+```
+
+### 4.2 `remove_polynomial_baseline`
+
+Ajusta um polinômio de grau `N` por mínimos quadrados e subtrai do perfil. O
+sistema normal `A^T A x = A^T b` é resolvido por eliminação de Gauss com
+pivoteamento parcial. O grau padrão é 2, suficiente para capturar tendências
+geotérmicas não-lineares sem absorver anomalias localizadas:
+
+```cpp
+inline std::vector<double> remove_polynomial_baseline(const std::vector<double>& profile,
+                                                       std::size_t degree = 2) {
+    if (profile.size() < degree + 2) return profile;
+    const std::size_t n = profile.size();
+    const std::size_t m = degree + 1;
+
+    // Monta A^T A e A^T b
+    std::vector<std::vector<double>> ata(m, std::vector<double>(m, 0.0));
+    std::vector<double> atb(m, 0.0);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        double x = static_cast<double>(i) / static_cast<double>(n - 1);
+        double power = 1.0;
+        std::vector<double> row(m, 1.0);
+        for (std::size_t j = 1; j < m; ++j) {
+            power *= x;
+            row[j] = power;
+        }
+        for (std::size_t j = 0; j < m; ++j) {
+            atb[j] += row[j] * profile[i];
+            for (std::size_t k = 0; k < m; ++k) {
+                ata[j][k] += row[j] * row[k];
+            }
+        }
+    }
+    // ... eliminação de Gauss e subtração do polinômio ...
+}
+```
+
+### 4.3 `remove_median_baseline`
+
+Subtrai uma baseline de mediana móvel. A mediana é robusta a outliers, preservando
+anomalias localizadas:
+
+```cpp
+inline std::vector<double> remove_median_baseline(const std::vector<double>& profile,
+                                                   std::size_t window = 51) {
+    if (profile.size() < window) return profile;
+    std::vector<double> baseline(profile.size());
+    std::size_t half = window / 2;
+    std::vector<double> window_vals;
+    window_vals.reserve(window);
+
+    for (std::size_t i = 0; i < profile.size(); ++i) {
+        window_vals.clear();
+        std::size_t start = (i > half) ? i - half : 0;
+        std::size_t end = std::min(i + half + 1, profile.size());
+        for (std::size_t j = start; j < end; ++j) {
+            window_vals.push_back(profile[j]);
+        }
+        std::nth_element(window_vals.begin(),
+                         window_vals.begin() + window_vals.size() / 2,
+                         window_vals.end());
+        baseline[i] = window_vals[window_vals.size() / 2];
+    }
+
+    std::vector<double> anomaly(profile.size());
+    for (std::size_t i = 0; i < profile.size(); ++i) {
+        anomaly[i] = profile[i] - baseline[i];
+    }
+    return anomaly;
+}
+```
+
+### 4.4 `adaptive_threshold` (MAD / IQR)
+
+Define um threshold robusto baseado em:
+
+- **MAD** (*Median Absolute Deviation*), com fator de escala `1.4826` para
+  consistência com desvio padrão gaussiano.
+- **IQR** (*Interquartile Range*), diferença entre percentis 75 e 25.
+
+```cpp
+enum class AdaptiveMethod { Mad, Iqr };
+
+inline double adaptive_threshold(const std::vector<double>& v,
+                                  AdaptiveMethod method = AdaptiveMethod::Mad,
+                                  double k = 2.0) {
+    if (method == AdaptiveMethod::Iqr) {
+        return k * iqr(v);
+    }
+    return k * 1.4826 * mad(v);
+}
+```
+
+A função `percentile` usa `std::nth_element`, portanto tem complexidade média
+`O(N)`:
+
+```cpp
+inline double percentile(const std::vector<double>& v, double p) {
+    if (v.empty()) return 0.0;
+    if (p <= 0.0) return *std::min_element(v.begin(), v.end());
+    if (p >= 100.0) return *std::max_element(v.begin(), v.end());
+    std::vector<double> copy(v);
+    std::size_t idx = static_cast<std::size_t>(
+        p / 100.0 * static_cast<double>(copy.size() - 1));
+    std::nth_element(copy.begin(), copy.begin() + idx, copy.end());
+    return copy[idx];
+}
+```
+
+### 4.5 `find_peaks` / `find_valleys`
+
+Detectam máximos e mínimos locais com amplitude mínima e distância mínima entre
+eles:
+
+```cpp
+inline std::vector<std::size_t> find_peaks(const std::vector<double>& signal,
+                                            double min_height,
+                                            std::size_t min_distance = 1) {
+    std::vector<std::size_t> peaks;
+    if (signal.size() < 3) return peaks;
+    for (std::size_t i = 1; i + 1 < signal.size(); ++i) {
+        if (signal[i] > signal[i - 1] && signal[i] > signal[i + 1] &&
+            std::abs(signal[i]) >= min_height) {
+            peaks.push_back(i);
+        }
+    }
+    if (min_distance > 1 && !peaks.empty()) {
+        std::vector<std::size_t> filtered{peaks.front()};
+        for (std::size_t i = 1; i < peaks.size(); ++i) {
+            if (peaks[i] - filtered.back() >= min_distance) {
+                filtered.push_back(peaks[i]);
+            }
+        }
+        peaks = std::move(filtered);
+    }
+    return peaks;
+}
+```
+
+`find_valleys` é análogo, invertendo a comparação.
+
+### 4.6 `das_energy_profile`
+
+Calcula a energia quadrática média do DAS ao longo do tempo para cada canal:
+
+```cpp
+inline std::vector<double> das_energy_profile(std::span<const double> data,
+                                               std::size_t n_times,
+                                               std::size_t n_channels) {
+    std::vector<double> energy(n_channels, 0.0);
+    if (n_times == 0 || n_channels == 0) return energy;
+    for (std::size_t c = 0; c < n_channels; ++c) {
+        double sum_sq = 0.0;
+        for (std::size_t t = 0; t < n_times; ++t) {
+            double v = data[t * n_channels + c];
+            sum_sq += v * v;
+        }
+        energy[c] = sum_sq / static_cast<double>(n_times);
+    }
+    return energy;
+}
+```
+
+---
+
+## 5. Exemplos de regras
+
+A seguir, três regras representativas são detalhadas passo a passo.
+
+### 5.1 `JouleThomsonRule` — Dipolo Térmico Joule-Thomson
+
+**Fenômeno físico**: quando um fluido atravessa uma restrição (interface de
+fases, estrangulamento), a expansão Joule-Thomson produz resfriamento seguido de
+aquecimento, formando um dipolo térmico no perfil de temperatura.
+
+**Heurística implementada**:
+
+1. Calcula o perfil médio temporal (`temporal_mean`).
+2. Remove baseline polinomial de grau 2 (`remove_polynomial_baseline`).
+3. Calcula um threshold adaptativo com MAD e fator `k = 1.5`.
+4. Percorre o perfil de anomalia com uma janela deslizante de tamanho
+   `anomaly.size() / 20` (mínimo 5 amostras).
+5. Para cada posição `i`, computa a média da janela anterior (`before`) e da
+   janela posterior (`after`). O escore é `after - before`.
+6. Se o melhor escore superar o threshold, emite um resultado na profundidade do
+   ponto de maior contraste.
+
+```cpp
+struct JouleThomsonRule {
+    static ResultGenerator apply(std::span<const double> dts,
+                                 std::span<const double>,
+                                 std::size_t n_times,
+                                 std::size_t n_channels,
+                                 const InferenceMetadata& meta) {
+        auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
+        auto anomaly = detail::remove_polynomial_baseline(mean_profile, 2);
+        if (anomaly.size() < 20) co_return;
+
+        double threshold = detail::adaptive_threshold(
+            anomaly, detail::AdaptiveMethod::Mad, 1.5);
+
+        std::size_t window = anomaly.size() / 20;
+        if (window < 5) window = 5;
+
+        double best_score = 0.0;
+        std::size_t best_idx = 0;
+        for (std::size_t i = window; i + window < anomaly.size(); ++i) {
+            double before = std::accumulate(anomaly.begin() + i - window,
+                                            anomaly.begin() + i, 0.0) /
+                            static_cast<double>(window);
+            double after = std::accumulate(anomaly.begin() + i,
+                                           anomaly.begin() + i + window, 0.0) /
+                           static_cast<double>(window);
+            double score = after - before;
+            if (score > best_score) {
+                best_score = score;
+                best_idx = i;
+            }
+        }
+
+        if (best_score > threshold) {
+            double depth = detail::channel_to_depth(best_idx, meta.depth_step_m);
+            double conf = std::min(best_score / (5.0 * threshold), 1.0);
+            co_yield make_result<CanonicalEvent::JouleThomson>(
+                conf, depth,
+                conf > 0.7 ? "High" : (conf > 0.4 ? "Medium" : "Low"));
+        }
+        co_return;
+    }
+};
+```
+
+**Parâmetros implícitos**:
+
+- Grau do polinômio de baseline: 2.
+- Fator de sensibilidade do threshold: 1.5 × MAD.
+- Tamanho da janela deslizante: 5% do perfil.
+- Normalização de confiança: divide o escore por `5 × threshold`.
+
+### 5.2 `GlvBellowRuptureRule` — Fole Furado de Válvula de Gás Lift
+
+**Fenômeno físico**: válvulas de gás-lift instaladas em mandris ao longo do poço
+aparecem como picos acústicos espaçados regularmente. Quando o fole de uma válvula
+se rompe, a válvula para de operar e seu pico desaparece, criando um "gap" na
+sequência regular.
+
+**Heurística implementada**:
+
+1. Se houver DAS, calcula o perfil de energia (`das_energy_profile`) e filtra
+   picos acima do percentil 90 (`percentile(energy, 90.0)`), com distância
+   mínima de 30 canais.
+2. Se o DAS for insuficiente (< 3 picos), usa o DTS como fallback: remove
+   baseline polinomial e busca picos térmicos com threshold MAD × 2.0.
+3. Calcula os espaçamentos entre picos consecutivos.
+4. Identifica um gap maior que `1.5 × mediana` dos espaçamentos.
+5. Estima a profundidade de ruptura como a profundidade do pico anterior mais a
+   mediana do espaçamento.
+
+```cpp
+struct GlvBellowRuptureRule {
+    static ResultGenerator apply(std::span<const double> dts,
+                                 std::span<const double> das,
+                                 std::size_t n_times,
+                                 std::size_t n_channels,
+                                 const InferenceMetadata& meta) {
+        if (n_times == 0 || n_channels == 0) co_return;
+
+        std::vector<std::size_t> peaks;
+
+        if (!das.empty()) {
+            auto energy = detail::das_energy_profile(das, n_times, n_channels);
+            double threshold = detail::percentile(energy, 90.0);
+            peaks = detail::find_peaks(energy, threshold, 30);
+        }
+
+        if (peaks.size() < 3) {
+            auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
+            auto anomaly = detail::remove_polynomial_baseline(
+                std::move(mean_profile), 2);
+            double threshold = detail::adaptive_threshold(
+                anomaly, detail::AdaptiveMethod::Mad, 2.0);
+            peaks = detail::find_peaks(anomaly, threshold, 30);
+        }
+
+        if (peaks.size() >= 3) {
+            std::vector<double> spacings;
+            for (std::size_t i = 1; i < peaks.size(); ++i) {
+                spacings.push_back(
+                    static_cast<double>(peaks[i] - peaks[i - 1]) * meta.depth_step_m);
+            }
+            double median_spacing = spacings[spacings.size() / 2];
+            double rupture_depth = 0.0;
+            for (std::size_t i = 1; i < peaks.size(); ++i) {
+                if (spacings[i - 1] > 1.5 * median_spacing) {
+                    rupture_depth = detail::channel_to_depth(peaks[i - 1], meta.depth_step_m) +
+                                    median_spacing;
+                    break;
+                }
+            }
+            double conf = std::min(static_cast<double>(peaks.size()) / 8.0, 1.0);
+            if (rupture_depth > 0.0) {
+                co_yield make_result<CanonicalEvent::GlvBellowRupture>(
+                    conf, rupture_depth,
+                    conf > 0.6 ? "High" : "Medium");
+            }
+        }
+        co_return;
+    }
+};
+```
+
+**Parâmetros implícitos**:
+
+- Threshold DAS: percentil 90.
+- Threshold DTS fallback: 2.0 × MAD.
+- Distância mínima entre picos: 30 canais.
+- Razão de gap anômalo: 1.5 × mediana dos espaçamentos.
+- Confiança: saturada em 1.0 para 8 ou mais picos.
+
+### 5.3 `CementBondEvaluationRule` — Avaliação de Cimentação
+
+**Fenômeno físico**: zonas com bom cimento apresentam condutividade térmica
+mais uniforme, enquanto canais ou deslocamentos criam variações espaciais
+acentuadas no perfil de temperatura.
+
+**Heurística implementada**:
+
+1. Calcula o perfil médio temporal.
+2. Remove baseline por mediana móvel com janela 51 (mais adequada que polinômio
+   global para preservar anomalias localizadas).
+3. Calcula o desvio padrão amostral do perfil de anomalia.
+4. Se a dispersão for suficiente (`conf > 0.12`), emite um resultado na
+   profundidade média do poço.
+
+```cpp
+struct CementBondEvaluationRule {
+    static ResultGenerator apply(std::span<const double> dts,
+                                 std::span<const double>,
+                                 std::size_t n_times,
+                                 std::size_t n_channels,
+                                 const InferenceMetadata& meta) {
+        auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
+        auto anomaly = detail::remove_median_baseline(mean_profile, 51);
+        double dispersion = detail::std_dev(anomaly);
+        double conf = std::min(dispersion / 3.0, 1.0);
+        if (conf > 0.12) {
+            co_yield make_result<CanonicalEvent::CementBondEvaluation>(
+                conf,
+                static_cast<double>(n_channels) * meta.depth_step_m * 0.5,
+                conf > 0.7 ? "High" : "Medium");
+        }
+        co_return;
+    }
+};
+```
+
+**Parâmetros implícitos**:
+
+- Janela da mediana móvel: 51 amostras.
+- Normalização de confiança: divide o desvio padrão por 3 °C.
+- Threshold de emissão: confiança > 0.12.
+
+---
+
+## 6. Integração Python
+
+### 6.1 Bindings pybind11
+
+O arquivo `src/cpp/src/bindings.cpp` expõe as seguintes entidades do módulo
+`_alakoro_core`:
+
+- `InferenceResult` (read-only fields).
+- `InferenceMetadata`.
+- `CanonicalInferenceEngine` com método `infer(dts, das=None, metadata)`.
+- Função helper `infer_events_d(dts, das=None, metadata)`.
+
+Trecho do binding da engine:
+
+```cpp
+using namespace alakoro::inference;
+
+py::class_<InferenceResult>(m, "InferenceResult")
+    .def_readonly("event_type", &InferenceResult::event_type)
+    .def_readonly("event_label_pt", &InferenceResult::event_label_pt)
+    .def_readonly("event_label_en", &InferenceResult::event_label_en)
+    .def_readonly("confidence", &InferenceResult::confidence)
+    .def_readonly("depth_md", &InferenceResult::depth_md)
+    .def_readonly("severity", &InferenceResult::severity)
+    .def_readonly("recommendation", &InferenceResult::recommendation)
+    .def("__repr__", [](const InferenceResult& r) { /* ... */ });
+
+py::class_<InferenceMetadata>(m, "InferenceMetadata")
+    .def(py::init<>())
+    .def_readwrite("sampling_rate_hz", &InferenceMetadata::sampling_rate_hz)
+    .def_readwrite("depth_step_m", &InferenceMetadata::depth_step_m)
+    .def_readwrite("surface_temp_c", &InferenceMetadata::surface_temp_c)
+    .def_readwrite("geo_gradient_cpm", &InferenceMetadata::geo_gradient_cpm);
+
+py::class_<CanonicalInferenceEngine>(m, "CanonicalInferenceEngine")
+    .def(py::init<>())
+    .def("infer",
+         [](const CanonicalInferenceEngine& engine,
+            py::array_t<double> dts_array,
+            std::optional<py::array_t<double>> das_array,
+            const InferenceMetadata& meta) {
+             auto dts_buf = dts_array.request();
+             if (dts_buf.ndim != 2) {
+                 throw std::invalid_argument("dts must be a 2D array (time, channel)");
+             }
+             const std::size_t n_times = static_cast<std::size_t>(dts_buf.shape[0]);
+             const std::size_t n_channels = static_cast<std::size_t>(dts_buf.shape[1]);
+             const double* dts_ptr = static_cast<const double*>(dts_buf.ptr);
+             std::span<const double> dts_span(dts_ptr, n_times * n_channels);
+
+             std::span<const double> das_span;
+             if (das_array.has_value()) {
+                 auto das_buf = das_array->request();
+                 if (das_buf.size > 0) {
+                     if (das_buf.ndim != 2) {
+                         throw std::invalid_argument("das must be a 2D array (time, channel)");
+                     }
+                     if (static_cast<std::size_t>(das_buf.shape[0]) != n_times ||
+                         static_cast<std::size_t>(das_buf.shape[1]) != n_channels) {
+                         throw std::invalid_argument("dts and das must have the same shape");
+                     }
+                     das_span = std::span<const double>(
+                         static_cast<const double*>(das_buf.ptr),
+                         n_times * n_channels);
+                 }
+             }
+             return engine.infer(dts_span, das_span, n_times, n_channels, meta);
+         },
+         py::arg("dts"), py::arg("das") = py::none(), py::arg("metadata"),
+         "Run all canonical inference rules on DTS (and optional DAS) data.");
+```
+
+### 6.2 Wrapper Python
+
+A classe `InferenceEngine` em `src/ontology/inference_engine.py` converte os
+resultados C++ em objetos da ontologia Alakoro. Ela faz a ponte com o
+`SignatureGenerator` através do método `infer_from_signature`.
+
+```python
+from alakoro_core import (
+    InferenceMetadata as CppInferenceMetadata,
+    CanonicalInferenceEngine,
+)
+from .events import (
+    Event,
+    JouleThomsonEvent,
+    LeakEvent,
+    FlowEvent,
+    WarmBackEvent,
+)
+
+_EVENT_CLASS_MAP = {
+    "joule_thomson": JouleThomsonEvent,
+    "slope_velocity": FlowEvent,
+    "warm_back": WarmBackEvent,
+    "valve_chatter": Event,
+    "slugging_cycle": Event,
+    "leak_path": LeakEvent,
+    "glv_bellow_rupture": Event,
+    "perforation_effectiveness": Event,
+    "frac_screenout": Event,
+    "frac_proppant_distribution": Event,
+    "frac_height_growth": Event,
+    "cement_bond_evaluation": Event,
+    "re_cementing_assessment": Event,
+    "crossflow_zonal": Event,
+    "cement_channeling": Event,
+}
+```
+
+A conversão preserva campos específicos das subclasses:
+
+```python
+def _result_to_event(result, timestamp=None):
+    event_cls = _EVENT_CLASS_MAP.get(result.event_type, Event)
+    kwargs = {
+        "event_type": result.event_type,
+        "name": result.event_label_pt or result.event_label_en,
+        "timestamp": timestamp or datetime.now(timezone.utc),
+        "depth_md": result.depth_md,
+        "confidence": result.confidence,
+        "severity": _map_severity(result.severity),
+        "recommendation": result.recommendation,
+    }
+
+    if event_cls is JouleThomsonEvent:
+        kwargs["interface_depth"] = result.depth_md
+    elif event_cls is LeakEvent:
+        kwargs["leak_depth"] = result.depth_md
+    elif event_cls is FlowEvent:
+        kwargs["flow_rate_ms"] = result.confidence
+    elif event_cls is WarmBackEvent:
+        kwargs["injection_depths"] = [result.depth_md]
+
+    return event_cls(**kwargs)
+```
+
+---
+
+## 7. Como usar
+
+### 7.1 Diretamente pelo módulo C++ exposto
+
+```python
+import numpy as np
+from alakoro_core import CanonicalInferenceEngine, InferenceMetadata
+
+n_times = 120
+n_channels = 3000
+
+# DTS sintético: linha de base geotérmica + dipolo em 1500 m
+depths = np.arange(n_channels) * 1.0
+temps = 20.0 + 0.03 * depths
+dipole = -5.0 * np.exp(-0.5 * ((depths - 1500.0) / 50.0) ** 2)
+dipole += 4.0 * np.exp(-0.5 * ((depths - 1550.0) / 40.0) ** 2)
+dts = temps + dipole + np.random.normal(0, 0.1, (n_times, n_channels))
+
+meta = InferenceMetadata()
+meta.sampling_rate_hz = 1000.0
+meta.depth_step_m = 1.0
+meta.surface_temp_c = 20.0
+meta.geo_gradient_cpm = 0.03
+
+engine = CanonicalInferenceEngine()
+results = engine.infer(dts, None, meta)
+
+for r in results:
+    print(r.event_type, r.depth_md, r.confidence, r.severity)
+```
+
+### 7.2 Pelo wrapper Python + SignatureGenerator
+
+```python
+from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
+from src.ontology import InferenceEngine
+
+well = WellGeometry(depth_top=0, depth_bottom=3000, n_channels=3000)
+acq = AcquisitionConfig(sampling_rate_hz=1000, trace_interval_s=2.0, duration_s=120)
+gen = SignatureGenerator(well, acq)
+
+signature = gen.generate_joule_thomson(interface_depth=1500.0)
+
+engine = InferenceEngine()
+events = engine.infer_from_signature(signature)
+
+for e in events:
+    print(e.event_type, e.depth_md, e.confidence, e.severity, e.recommendation)
+```
+
+### 7.3 Função helper de alto nível
+
+```python
+from src.ontology import infer_events
+
+events = infer_events(dts, das, sampling_rate_hz=1000.0, depth_step_m=1.0)
+```
+
+---
+
+## 8. Decisões de design
+
+### 8.1 Por que C++20?
+
+A escolha do C++20 responde a três necessidades do projeto:
+
+1. **Performance**: fibras ópticas distribuídas geram matrizes grandes
+   (`n_times × n_channels` pode facilmente chegar a milhões de elementos).
+   C++ oferece controle de memória, acesso contíguo via `std::span` e ausência
+   de overhead de runtime dinâmico.
+2. **Tipagem forte**: o enum `CanonicalEvent` e as especializações de
+   `EventTraits` garantem, em tempo de compilação, que cada evento tenha nome,
+   rótulos e recomendação associados. Erros de mapeamento são detectados pelo
+   compilador.
+3. **Metaprogramação**: `if constexpr`, templates variádicos e fold expressions
+   permitem construir uma engine extensível sem precisar de herança polimórfica
+   nem de listas de regras em runtime.
+
+### 8.2 Por que corrotinas (`co_yield`)?
+
+Cada regra retorna um `ResultGenerator`. Internamente, isso permite:
+
+- **Lazy evaluation**: uma regra pode emitir um resultado e pausar, sem
+  materializar todos os resultados intermediários de uma só vez.
+- **Controle de fluxo**: o código de cada regra fica sequencial e legível,
+  apesar de haver suspensão interna entre `co_yield`.
+- **Encapsulamento**: o Python não vê corrotinas; o C++ consome os generators em
+  `collect_results` e entrega um `std::vector<InferenceResult>` simples.
+
+### 8.3 Por que MAD/IQR em vez de desvio padrão?
+
+Poços reais apresentam:
+
+- Picos esporádicos de ruído.
+- Eventos localizados que distorcem a média.
+- Baselines não estacionárias.
+
+**MAD** e **IQR** são estimadores robustos de dispersão porque não dependem da
+média amostral. O MAD, com fator `1.4826`, ainda aproxima o desvio padrão para
+dados gaussianos, mas tolera outliers sem inflacionar o threshold.
+
+Isso reduz falsos positivos em regiões com poucos eventos fortes e evita que
+um único outlier eleve o threshold global, mascarando anomalias menores.
+
+---
+
+## 9. Extensão futura: adicionando um novo evento
+
+Para adicionar um novo evento canônico, siga os quatro passos abaixo.
+
+### Passo 1 — Adicionar o valor ao enum
+
+Em `src/cpp/include/alakoro/inference_engine.hpp`, insira o novo evento no
+`enum class CanonicalEvent`:
+
+```cpp
+enum class CanonicalEvent : std::uint8_t {
+    // ... eventos existentes ...
+    NewEvent,
+};
+```
+
+### Passo 2 — Definir os traits
+
+Adicione uma especialização de `EventTraits` usando a macro:
+
+```cpp
+ALAKORO_EVENT_TRAITS(NewEvent,
+    "new_event",
+    "Novo Evento",
+    "New Event",
+    "Recomendação operacional para o novo evento.");
+```
+
+### Passo 3 — Implementar a regra
+
+Crie uma `struct` com `apply` retornando `ResultGenerator`:
+
+```cpp
+struct NewEventRule {
+    static ResultGenerator apply(std::span<const double> dts,
+                                 std::span<const double> das,
+                                 std::size_t n_times,
+                                 std::size_t n_channels,
+                                 const InferenceMetadata& meta) {
+        // heurística ...
+        co_yield make_result<CanonicalEvent::NewEvent>(conf, depth, severity);
+        co_return;
+    }
+};
+```
+
+### Passo 4 — Registrar na engine
+
+No `execute_rule` de `InferenceEngine`, adicione um novo ramo `if constexpr`:
+
+```cpp
+} else if constexpr (E == CanonicalEvent::NewEvent) {
+    return NewEventRule::apply(dts, das, n_times, n_channels, meta);
+}
+```
+
+E inclua o evento no alias `CanonicalInferenceEngine`:
+
+```cpp
+using CanonicalInferenceEngine = InferenceEngine<
+    // ... eventos existentes ...
+    CanonicalEvent::NewEvent
+>;
+```
+
+### Passo 5 — Atualizar o wrapper Python (opcional)
+
+Se o novo evento tiver uma classe específica na ontologia, mapeie-o em
+`src/ontology/inference_engine.py`:
+
+```python
+from .events import NewEvent
+
+_EVENT_CLASS_MAP = {
+    # ... eventos existentes ...
+    "new_event": NewEvent,
+}
+```
+
+E, se necessário, adicione campos específicos em `_result_to_event`:
+
+```python
+elif event_cls is NewEvent:
+    kwargs["new_field"] = result.depth_md
+```
+
+Recompile o módulo C++ (`pip install -e .` ou `python setup.py build_ext
+--inplace`) e adicione um teste em `tests/test_inference_engine.py`:
+
+```python
+class TestNewEventInference:
+    def test_detect_new_event(self, generator):
+        events = _infer(generator, generator.generate_new_event())
+        codes = [e.event_type for e in events]
+        assert "new_event" in codes
+```
+
+---
+
+## Referências
+
+- `src/cpp/include/alakoro/inference_engine.hpp`
+- `src/cpp/src/bindings.cpp`
+- `src/ontology/inference_engine.py`
+- `tests/test_inference_engine.py`
