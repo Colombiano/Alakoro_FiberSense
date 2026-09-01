@@ -1,6 +1,6 @@
-# Coroutines (Corrotinas) em C++20
+# Coroutines (Corrotinas) em C++20 / C++20 Coroutines
 
-## Foco no Alakoro FiberSense
+## 🇧🇷 PT — Foco no Alakoro FiberSense
 
 Este documento explica, de forma profunda e didática, como as **corrotinas do C++20** são usadas no núcleo C++ do Alakoro FiberSense para implementar o motor de inferência de eventos em fibras ópticas de sensoreamento (DTS/DAS).
 
@@ -10,9 +10,19 @@ Todas as amostras de código são extraídas do arquivo real do projeto:
 src/cpp/include/alakoro/inference_engine.hpp
 ```
 
+## 🇺🇸 EN — Focus on Alakoro FiberSense
+
+This document explains, in a deep and didactic way, how **C++20 coroutines** are used in the Alakoro FiberSense C++ core to implement the event inference engine for distributed fiber optic sensing (DTS/DAS).
+
+All code samples are extracted from the project's real file:
+
+```text
+src/cpp/include/alakoro/inference_engine.hpp
+```
+
 ---
 
-## 1. O que são corrotinas?
+## 1. 🇧🇷 PT — O que são corrotinas?
 
 Uma **corrotina** é uma função capaz de **suspender** sua execução em um ponto qualquer, **preservar seu estado local** (variáveis, registradores, ponto de execução) e **retomar** mais tarde exatamente de onde parou.
 
@@ -26,9 +36,23 @@ Em C++20, uma função se torna corrotina automaticamente se usa qualquer uma de
 
 > **Importante:** quando uma corrotina é suspensa, o compilador aloca (tipicamente no heap) uma estrutura chamada **frame de corrotina**, que guarda as variáveis locais, temporários e o ponto de retorno. O chamador recebe um *handle* que permite retomar a corrotina.
 
+## 1. 🇺🇸 EN — What are coroutines?
+
+A **coroutine** is a function that can **suspend** its execution at any point, **preserve its local state** (variables, registers, execution point), and **resume** later exactly from where it stopped.
+
+Think of a normal function as a phone call: when you hang up, everything is lost. A coroutine is like a text-message conversation: you can pause mid-sentence and continue later without losing context.
+
+In C++20, a function becomes a coroutine automatically if it uses any of these keywords:
+
+- `co_await` — suspends execution waiting for an operation.
+- `co_yield` — suspends and yields a value to the caller.
+- `co_return` — ends the coroutine and returns a final value.
+
+> **Important:** when a coroutine is suspended, the compiler allocates (typically on the heap) a structure called the **coroutine frame**, which holds local variables, temporaries, and the return point. The caller receives a *handle* that allows it to resume the coroutine.
+
 ---
 
-## 2. Comparação com iteradores/generators em Python
+## 2. 🇧🇷 PT — Comparação com iteradores/generators em Python
 
 Se você conhece Python, a ideia é muito parecida com `yield`:
 
@@ -69,9 +93,50 @@ ResultGenerator minha_regra(...) {
 
 A maior vantagem do C++20 é o **controle total**: você decide quando suspender, como armazenar o valor produzido, como destruir o frame e como expor a API ao chamador.
 
+## 2. 🇺🇸 EN — Comparison with Python iterators/generators
+
+If you know Python, the idea is very similar to `yield`:
+
+```python
+# Python: simple generator
+def counter(maximum):
+    n = 0
+    while n < maximum:
+        yield n          # suspends and yields n
+        n += 1           # resumes here on next iteration
+
+for x in counter(3):
+    print(x)             # 0, 1, 2
+```
+
+In C++20, the manual equivalent would be something like:
+
+```cpp
+// C++20: coroutine with co_yield
+ResultGenerator my_rule(...) {
+    for (std::size_t c = 0; c < n_channels; ++c) {
+        auto res = process_channel(c);
+        co_yield res;          // suspends and yields InferenceResult
+    }
+    co_return;                 // end of coroutine
+}
+```
+
+### Main differences
+
+| Aspect | Python `yield` | C++20 coroutines |
+|---|---|---|
+| Return type | `generator` object | user-defined type (RAII) |
+| State control | interpreter manages | compiler + `promise_type` |
+| Allocation | automatic | heap, but configurable |
+| Lifetime safety | managed by GC | programmer controls via `coroutine_handle` |
+| Customization | limited | total: promise, suspension, exceptions |
+
+The biggest advantage of C++20 is **total control**: you decide when to suspend, how to store the produced value, how to destroy the frame, and how to expose the API to the caller.
+
 ---
 
-## 3. Componentes de uma corrotina em C++20
+## 3. 🇧🇷 PT — Componentes de uma corrotina em C++20
 
 ### 3.1 `co_yield`, `co_return` e `co_await`
 
@@ -108,9 +173,46 @@ O C++20 oferece duas políticas prontas:
 
 No Alakoro usamos `std::suspend_always` tanto no início quanto no fim, o que permite ao chamador consumir o generator no seu próprio ritmo.
 
+## 3. 🇺🇸 EN — Components of a C++20 coroutine
+
+### 3.1 `co_yield`, `co_return`, and `co_await`
+
+- `co_yield value` — suspends the coroutine and makes `value` available to the caller.
+- `co_return` — finalizes the coroutine. May or may not carry a value, depending on `promise_type`.
+- `co_await` — suspends until an *awaitable* is ready. In Alakoro we do not use `co_await` directly in rules, but the coroutine infrastructure uses it internally to implement `co_yield`.
+
+### 3.2 `promise_type`
+
+The `promise_type` is a mandatory nested structure that defines the coroutine's *behavior*. The compiler accesses its methods to:
+
+- create the returned object (`get_return_object`);
+- decide whether to suspend at the start (`initial_suspend`);
+- decide whether to suspend at the end (`final_suspend`);
+- receive values produced by `co_yield` (`yield_value`);
+- handle exceptions (`unhandled_exception`);
+- handle `co_return` (`return_void` or `return_value`).
+
+### 3.3 `std::coroutine_handle`
+
+It is an opaque (and cheap-to-copy) pointer to the coroutine frame. Through it we can:
+
+- `resume()` — resume execution.
+- `done()` — check whether the coroutine has finished.
+- `destroy()` — destroy the frame and free memory.
+- `promise()` — access the associated `promise_type`.
+
+### 3.4 Suspension policies
+
+C++20 provides two ready-made policies:
+
+- `std::suspend_always` — always suspends.
+- `std::suspend_never` — never suspends.
+
+In Alakoro we use `std::suspend_always` both at the start and at the end, allowing the caller to consume the generator at its own pace.
+
 ---
 
-## 4. Implementação real: `ResultGenerator`
+## 4. 🇧🇷 PT — Implementação real: `ResultGenerator`
 
 A classe `ResultGenerator` está definida em `src/cpp/include/alakoro/inference_engine.hpp`, por volta da linha 228.
 
@@ -226,9 +328,125 @@ private:
   
   API mínima para consumir o generator: verifica se terminou, retoma a execução e lê o valor atual.
 
+## 4. 🇺🇸 EN — Real implementation: `ResultGenerator`
+
+The `ResultGenerator` class is defined in `src/cpp/include/alakoro/inference_engine.hpp`, around line 228.
+
+### 4.1 Overview
+
+```cpp
+struct ResultGenerator {
+    struct promise_type {
+        InferenceResult current_value;
+
+        ResultGenerator get_return_object() {
+            return ResultGenerator{std::coroutine_handle<promise_type>::from_promise(*this)};
+        }
+
+        std::suspend_always initial_suspend() noexcept { return {}; }
+        std::suspend_always final_suspend() noexcept { return {}; }
+        void unhandled_exception() { std::terminate(); }
+        void return_void() noexcept {}
+
+        std::suspend_always yield_value(InferenceResult value) noexcept {
+            current_value = std::move(value);
+            return {};
+        }
+    };
+
+    using handle_type = std::coroutine_handle<promise_type>;
+
+    explicit ResultGenerator(handle_type h) : handle_(h) {}
+
+    ResultGenerator(const ResultGenerator&) = delete;
+    ResultGenerator& operator=(const ResultGenerator&) = delete;
+
+    ResultGenerator(ResultGenerator&& other) noexcept : handle_(other.handle_) {
+        other.handle_ = nullptr;
+    }
+
+    ResultGenerator& operator=(ResultGenerator&& other) noexcept {
+        if (this != &other) {
+            if (handle_) handle_.destroy();
+            handle_ = other.handle_;
+            other.handle_ = nullptr;
+        }
+        return *this;
+    }
+
+    ~ResultGenerator() {
+        if (handle_) handle_.destroy();
+    }
+
+    bool done() const noexcept { return handle_.done(); }
+    void resume() { if (handle_) handle_.resume(); }
+
+    const InferenceResult& value() const noexcept {
+        return handle_.promise().current_value;
+    }
+
+private:
+    handle_type handle_;
+};
+```
+
+### 4.2 Method-by-method explanation
+
+#### `promise_type`
+
+- **`InferenceResult current_value;`**
+  
+  Stores the last value produced by `co_yield`. The caller accesses this field via `handle.promise().current_value`.
+
+- **`ResultGenerator get_return_object()`**
+  
+  Called by the compiler as soon as the coroutine frame is created. It builds the `ResultGenerator` seen by the caller, using `std::coroutine_handle<promise_type>::from_promise(*this)` to obtain the handle from the promise.
+
+- **`std::suspend_always initial_suspend() noexcept`**
+  
+  The coroutine suspends immediately after entering the function body. This is typical for generators: the first `resume()` runs the code up to the first `co_yield`.
+
+- **`std::suspend_always final_suspend() noexcept`**
+  
+  The coroutine also suspends upon reaching `co_return` or the end of the body. The caller detects completion via `done()`.
+
+- **`void unhandled_exception()`**
+  
+  If an exception escapes from the coroutine body, this method is called. Here we opt for `std::terminate()` — simple, but strict.
+
+- **`void return_void() noexcept`**
+  
+  Our rules use `co_return;` with no value. Therefore the promise implements `return_void()`.
+
+- **`std::suspend_always yield_value(InferenceResult value) noexcept`**
+  
+  Called for each `co_yield`. We move the value into `current_value` and return `std::suspend_always`, causing the coroutine to stop immediately after producing the result.
+
+#### `ResultGenerator` class
+
+- **`explicit ResultGenerator(handle_type h)`**
+  
+  Constructor that receives the handle created by the promise.
+
+- **Deleted copy constructor**
+  
+  A `coroutine_handle` is a unique resource; copying it would create two owners of the same frame.
+
+- **Move constructor/assignment operator**
+  
+  Transfer ownership of the handle, nulling the source object. In move assignment, we destroy the current frame before taking over the new one.
+
+- **`~ResultGenerator()`**
+  
+  If there is still an active handle, we call `destroy()` to free the coroutine frame. Without this, memory would leak.
+
+- **`done()`, `resume()`, `value()`**
+  
+  Minimal API to consume the generator: check whether it has finished, resume execution, and read the current value.
+
 ---
 
-## 5. Como as regras de inferência usam `co_yield`
+## 5. 🇧🇷 PT — Como as regras de inferência usam `co_yield`
 
 Cada regra é uma função estática que retorna `ResultGenerator`. Veja um exemplo real, extraído de `JouleThomsonRule::apply`:
 
@@ -276,9 +494,57 @@ co_yield std::move(res);
 
 Aqui `co_yield std::move(res)` evita uma cópia do `std::string recommendation`.
 
+## 5. 🇺🇸 EN — How inference rules use `co_yield`
+
+Each rule is a static function returning `ResultGenerator`. Here is a real example, extracted from `JouleThomsonRule::apply`:
+
+```cpp
+static ResultGenerator apply(std::span<const double> dts,
+                             std::span<const double>,
+                             std::size_t n_times,
+                             std::size_t n_channels,
+                             const InferenceMetadata& meta) {
+    // ... mean profile, baseline, anomaly, score calculations ...
+
+    if (best_score > threshold) {
+        double depth = detail::channel_to_depth(best_idx, meta.depth_step_m);
+        double conf = std::min(best_score / (5.0 * threshold), 1.0);
+        co_yield make_result<CanonicalEvent::JouleThomson>(
+            conf, depth, conf > 0.7 ? "High" : (conf > 0.4 ? "Medium" : "Low"));
+    }
+    co_return;
+}
+```
+
+### Why is this advantageous?
+
+Without coroutines, each rule would need to:
+
+1. Allocate a `std::vector<InferenceResult>`;
+2. Fill in all results;
+3. Return the full vector to the caller.
+
+With coroutines:
+
+1. The rule produces **one result at a time** via `co_yield`;
+2. The consumer decides when to continue;
+3. **There is no large intermediate vector** — only the current result lives in the `promise_type`;
+4. The coroutine frame memory is fixed and predictable.
+
+Another example, from `SlopeVelocityRule`, shows that we can move an already-built result:
+
+```cpp
+auto res = make_result<CanonicalEvent::SlopeVelocity>(
+    conf, depth, conf > 0.7 ? "High" : "Medium");
+res.recommendation += " Estimated velocity: " + std::to_string(velocity) + " m/s.";
+co_yield std::move(res);
+```
+
+Here `co_yield std::move(res)` avoids a copy of the `std::string recommendation`.
+
 ---
 
-## 6. Consumindo o generator: `collect_results`
+## 6. 🇧🇷 PT — Consumindo o generator: `collect_results`
 
 A função `collect_results` é a ponte entre a API corrotinada interna e a API síncrona exposta ao Python.
 
@@ -334,9 +600,65 @@ private:
 };
 ```
 
+## 6. 🇺🇸 EN — Consuming the generator: `collect_results`
+
+The `collect_results` function is the bridge between the internal coroutine API and the synchronous API exposed to Python.
+
+```cpp
+inline std::vector<InferenceResult> collect_results(ResultGenerator gen) {
+    std::vector<InferenceResult> results;
+    results.reserve(4); // initial estimate; avoids reallocations for typical rules
+    while (!gen.done()) {
+        gen.resume();
+        if (!gen.done()) {
+            results.push_back(std::move(gen.value()));
+        }
+    }
+    return results;
+}
+```
+
+### Execution flow
+
+1. `InferenceEngine` creates a `ResultGenerator` by calling `Rule::apply(...)`.
+2. It moves the generator into `collect_results`.
+3. While the coroutine has not finished, `resume()` runs the code up to the next `co_yield`.
+4. After each suspension, the value in `gen.value()` is moved into the final vector.
+5. When `co_return` is reached, `done()` becomes `true` and the loop ends.
+
+`InferenceEngine` uses `if constexpr` to select the correct rule at compile time and fold expressions to execute all registered rules:
+
+```cpp
+template <CanonicalEvent... Events>
+class InferenceEngine {
+public:
+    std::vector<InferenceResult> infer(...) const {
+        std::vector<InferenceResult> all;
+        all.reserve(sizeof...(Events));
+        (execute_rule<Events>(dts, das, n_times, n_channels, meta, all), ...);
+        return all;
+    }
+
+private:
+    template <CanonicalEvent E>
+    void execute_rule(..., std::vector<InferenceResult>& out) const {
+        ResultGenerator gen = [&]() {
+            if constexpr (E == CanonicalEvent::JouleThomson) {
+                return JouleThomsonRule::apply(...);
+            }
+            // ... other rules ...
+        }();
+        auto partial = collect_results(std::move(gen));
+        out.insert(out.end(),
+                   std::make_move_iterator(partial.begin()),
+                   std::make_move_iterator(partial.end()));
+    }
+};
+```
+
 ---
 
-## 7. Exposição ao Python via pybind11
+## 7. 🇧🇷 PT — Exposição ao Python via pybind11
 
 O arquivo `src/cpp/src/bindings.cpp` expõe uma API **síncrona** ao Python, escondendo completamente as corrotinas C++.
 
@@ -420,9 +742,93 @@ for r in results:
 
 O generator existe apenas dentro do C++; o Python recebe uma simples `list` de `InferenceResult`.
 
+## 7. 🇺🇸 EN — Exposing to Python via pybind11
+
+The file `src/cpp/src/bindings.cpp` exposes a **synchronous** API to Python, completely hiding the C++ coroutines.
+
+### Result structure
+
+```cpp
+py::class_<InferenceResult>(m, "InferenceResult")
+    .def_readonly("event_type", &InferenceResult::event_type)
+    .def_readonly("event_label_pt", &InferenceResult::event_label_pt)
+    .def_readonly("event_label_en", &InferenceResult::event_label_en)
+    .def_readonly("confidence", &InferenceResult::confidence)
+    .def_readonly("depth_md", &InferenceResult::depth_md)
+    .def_readonly("severity", &InferenceResult::severity)
+    .def_readonly("recommendation", &InferenceResult::recommendation)
+    .def("__repr__", [](const InferenceResult& r) {
+        std::ostringstream oss;
+        oss << "InferenceResult(" << r.event_type
+            << ", confidence=" << r.confidence
+            << ", depth_md=" << r.depth_md
+            << ", severity=" << r.severity << ")";
+        return oss.str();
+    });
+```
+
+### Engine exposed as a Python object
+
+```cpp
+py::class_<CanonicalInferenceEngine>(m, "CanonicalInferenceEngine")
+    .def(py::init<>())
+    .def("infer",
+         [](const CanonicalInferenceEngine& engine,
+            py::array_t<double> dts_array,
+            std::optional<py::array_t<double>> das_array,
+            const InferenceMetadata& meta) {
+             auto dts_buf = dts_array.request();
+             if (dts_buf.ndim != 2) {
+                 throw std::invalid_argument("dts must be a 2D array (time, channel)");
+             }
+             const std::size_t n_times = static_cast<std::size_t>(dts_buf.shape[0]);
+             const std::size_t n_channels = static_cast<std::size_t>(dts_buf.shape[1]);
+             auto dts_span = std::span<const double>(static_cast<const double*>(dts_buf.ptr),
+                                                     n_times * n_channels);
+             // ... optional DAS handling ...
+             return engine.infer(dts_span, das_span, n_times, n_channels, meta);
+         },
+         py::arg("dts"), py::arg("das") = py::none(), py::arg("metadata"),
+         "Run all canonical inference rules on DTS (and optional DAS) data.");
+```
+
+### Synchronous helper function
+
+```cpp
+m.def("infer_events_d",
+      [](py::array_t<double> dts_array,
+         std::optional<py::array_t<double>> das_array,
+         const InferenceMetadata& meta) {
+          CanonicalInferenceEngine engine;
+          // ... convert arrays to span ...
+          return engine.infer(dts_span, das_span, n_times, n_channels, meta);
+      },
+      py::arg("dts"), py::arg("das") = py::none(), py::arg("metadata"),
+      "Convenience function: run CanonicalInferenceEngine.infer()");
+```
+
+For the Python user, the call is trivial:
+
+```python
+import numpy as np
+from alakoro_core import infer_events_d, InferenceMetadata
+
+meta = InferenceMetadata()
+meta.sampling_rate_hz = 10.0
+meta.depth_step_m = 1.0
+meta.surface_temp_c = 25.0
+meta.geo_gradient_cpm = 0.03
+
+results = infer_events_d(dts_array, None, meta)
+for r in results:
+    print(r.event_type, r.confidence, r.depth_md, r.severity)
+```
+
+The generator exists only inside C++; Python receives a simple `list` of `InferenceResult`.
+
 ---
 
-## 8. Diagrama de fluxo: suspender e retomar
+## 8. 🇧🇷 PT — Diagrama de fluxo: suspender e retomar
 
 ```text
 Python
@@ -495,9 +901,82 @@ Estado da corrotina ao longo do tempo:
   └─────────────────────────────────────┘
 ```
 
+## 8. 🇺🇸 EN — Flow diagram: suspend and resume
+
+```text
+Python
+  │
+  ▼
+infer_events_d(dts, metadata)
+  │
+  ▼
+CanonicalInferenceEngine::infer()
+  │
+  ├──► JouleThomsonRule::apply(...) ──► co_yield res ──► suspends
+  │                                      │
+  │                                      ▼
+  │                              frame holds state
+  │                                      │
+  ▼                                      ▼
+collect_results(gen) ◄──────────── resume()
+  │                                      │
+  ▼                                      ▼
+results.push_back(res) ◄──────── value() from promise
+  │
+  ├──► resume() ──► continues rule until co_return
+  │
+  ▼
+gen.done() == true
+  │
+  ▼
+returns vector<InferenceResult>
+  │
+  ▼
+pybind11 converts to list[InferenceResult]
+  │
+  ▼
+Python consumes the list
+```
+
+### Visual step-by-step
+
+```text
+Coroutine state over time:
+
+  ┌─────────────────────────────────────┐
+  │  1. apply() is called               │
+  │     → frame created on heap         │
+  │     → initial_suspend() → PAUSE     │
+  └─────────────────┬───────────────────┘
+                    │ gen.resume()
+  ┌─────────────────▼───────────────────┐
+  │  2. Code runs until co_yield         │
+  │     → yield_value(res) stores       │
+  │       res in current_value          │
+  │     → PAUSE                         │
+  └─────────────────┬───────────────────┘
+                    │ gen.value()
+  ┌─────────────────▼───────────────────┐
+  │  3. Caller reads current_value      │
+  │     → moves into vector             │
+  │     → gen.resume() again            │
+  └─────────────────┬───────────────────┘
+                    │
+  ┌─────────────────▼───────────────────┐
+  │  4. Repeats until co_return          │
+  │     → final_suspend() → PAUSE       │
+  │     → gen.done() == true            │
+  └─────────────────┬───────────────────┘
+                    │
+  ┌─────────────────▼───────────────────┐
+  │  5. collect_results ends             │
+  │     → destructor frees the frame    │
+  └─────────────────────────────────────┘
+```
+
 ---
 
-## 9. Pegadinhas comuns
+## 9. 🇧🇷 PT — Pegadinhas comuns
 
 ### 9.1 Lifetime do handle
 
@@ -554,9 +1033,66 @@ void unhandled_exception() {
 
 Se `initial_suspend()` retornar `std::suspend_never`, a corrotina executa até o primeiro ponto de suspensão antes mesmo do chamador ter uma chance de interagir. Para generators isso geralmente não é desejado, pois perde-se o controle fino sobre o primeiro valor.
 
+## 9. 🇺🇸 EN — Common pitfalls
+
+### 9.1 Handle lifetime
+
+`std::coroutine_handle` is a lightweight pointer. If you copy it carelessly, you can end up with two objects pointing to the same frame. That is why `ResultGenerator` **deletes the copy constructor**.
+
+```cpp
+ResultGenerator(const ResultGenerator&) = delete;
+ResultGenerator& operator=(const ResultGenerator&) = delete;
+```
+
+If `ResultGenerator` is destroyed prematurely — for example, if an exception is thrown before `collect_results` finishes — the destructor calls `handle_.destroy()`, preventing a leak.
+
+### 9.2 Forgetting to call `destroy()`
+
+If you implement your own wrapper class and forget the destructor, the coroutine frame will stay allocated forever. In Alakoro this is covered:
+
+```cpp
+~ResultGenerator() {
+    if (handle_) handle_.destroy();
+}
+```
+
+### 9.3 Move semantics
+
+Whenever possible, pass the generator by **move**:
+
+```cpp
+auto partial = collect_results(std::move(gen));
+```
+
+This transfers ownership of the handle to the consuming function, preserving the unique-ownership invariant.
+
+### 9.4 `co_yield` with heavy objects
+
+Objects such as `InferenceResult` contain several `std::string`s. Use `std::move` to avoid copies:
+
+```cpp
+co_yield std::move(res);  // preferred
+// vs
+co_yield res;             // copies — acceptable if res is small
+```
+
+### 9.5 Exceptions in coroutines
+
+If an exception is not caught inside the coroutine, `unhandled_exception()` is called. In Alakoro we use `std::terminate()`, which ends the process. In production, you may want to store the exception and rethrow it in the caller:
+
+```cpp
+void unhandled_exception() {
+    exception_ = std::current_exception();
+}
+```
+
+### 9.6 `std::suspend_never` vs `std::suspend_always`
+
+If `initial_suspend()` returns `std::suspend_never`, the coroutine runs to the first suspension point before the caller even has a chance to interact. For generators this is usually undesirable, because you lose fine-grained control over the first value.
+
 ---
 
-## 10. Resumo
+## 10. 🇧🇷 PT — Resumo
 
 As corrotinas C++20 permitem ao Alakoro FiberSense:
 
@@ -572,6 +1108,22 @@ Para ver o código completo, consulte:
 - `src/cpp/include/alakoro/inference_engine.hpp` — definição do generator, regras e engine.
 - `src/cpp/src/bindings.cpp` — bindings pybind11 para `CanonicalInferenceEngine` e `infer_events_d`.
 
+## 10. 🇺🇸 EN — Summary
+
+C++20 coroutines allow Alakoro FiberSense to:
+
+- Implement inference rules that produce `InferenceResult` incrementally.
+- Avoid allocating large intermediate vectors.
+- Keep the code sequential and readable, even with pause/resume logic.
+- Hide all asynchronous complexity behind a synchronous, Python-friendly API via pybind11.
+
+`ResultGenerator` is a minimal yet complete implementation: it defines `promise_type`, manages the `coroutine_handle`, forbids copying, implements move semantics, and ensures correct frame destruction.
+
+For the full code, see:
+
+- `src/cpp/include/alakoro/inference_engine.hpp` — generator definition, rules, and engine.
+- `src/cpp/src/bindings.cpp` — pybind11 bindings for `CanonicalInferenceEngine` and `infer_events_d`.
+
 ---
 
-*Documento gerado para o projeto Alakoro FiberSense.*
+*Documento gerado para o projeto Alakoro FiberSense. / Document generated for the Alakoro FiberSense project.*
