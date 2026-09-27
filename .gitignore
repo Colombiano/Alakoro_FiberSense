@@ -168,3 +168,8 @@ secrets/
 # ───────────────────────────────────────────────────────────────
 # Diretórios gerados pela GUI/CLI
 ~/.alakoro/
+
+# Material privado de auditoria técnica — mantido apenas localmente,
+# NÃO versionar (contém extratos de papers e notas internas)
+docs/.audit_work/
+docs/agent_heuristics/
