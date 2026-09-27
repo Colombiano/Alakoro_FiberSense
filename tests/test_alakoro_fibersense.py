@@ -16,12 +16,12 @@ import json
 import uuid
 from datetime import datetime
 
-from src.simulation.signature_generator import (
+from alakoro.simulation.signature_generator import (
     SignatureGenerator, WellGeometry, AcquisitionConfig,
     EventSignatureType, SurveyPhaseType
 )
-from src.processing.lfdas_processor import LFDASProcessor
-from src.validation.signature_validator import SignatureValidator
+from alakoro.processing.lfdas_processor import LFDASProcessor
+from alakoro.validation.signature_validator import SignatureValidator
 
 
 # ═══════════════════════════════════════════════════════════
@@ -283,12 +283,12 @@ class TestSignatureValidator:
 
 class TestEventSchema:
     def test_schema_version(self):
-        from src.events import EVENT_SCHEMA
+        from alakoro.events import EVENT_SCHEMA
         assert EVENT_SCHEMA is not None
         assert EVENT_SCHEMA['version'] == '1.1.0'
 
     def test_required_fields(self):
-        from src.events import EVENT_SCHEMA
+        from alakoro.events import EVENT_SCHEMA
         required = EVENT_SCHEMA['required']
         assert 'event_id' in required
         assert 'event_type' in required
@@ -297,7 +297,7 @@ class TestEventSchema:
         assert 'payload' in required
 
     def test_event_types_coverage(self):
-        from src.events import EVENT_SCHEMA
+        from alakoro.events import EVENT_SCHEMA
         event_types = EVENT_SCHEMA['properties']['event_type']['enum']
         assert len(event_types) == 18
         assert 'WarmBackDetected' in event_types
@@ -306,14 +306,14 @@ class TestEventSchema:
         assert 'FractureHeightGrowthDetected' in event_types
 
     def test_payload_structure(self):
-        from src.events import EVENT_SCHEMA
+        from alakoro.events import EVENT_SCHEMA
         payload = EVENT_SCHEMA['properties']['payload']
         assert 'survey_id' in payload['required']
         assert 'well_id' in payload['required']
         assert 'survey_phase' in payload['properties']
 
     def test_valid_event_example(self):
-        from src.events import EVENT_SCHEMA
+        from alakoro.events import EVENT_SCHEMA
         event = {
             'event_id': str(uuid.uuid4()),
             'event_type': 'JouleThomsonSignature',
@@ -362,7 +362,7 @@ class TestIntegration:
             EventSignatureType.FRAC_HEIGHT_GROWTH: 'FractureHeightGrowthDetected',
         }
 
-        from src.events import EVENT_SCHEMA
+        from alakoro.events import EVENT_SCHEMA
         event_types = EVENT_SCHEMA['properties']['event_type']['enum']
 
         for sig_type, event_type in mapping.items():

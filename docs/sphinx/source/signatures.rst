@@ -66,7 +66,7 @@ Exemplo de Geração / Generation Example
 
 .. code-block:: python
 
-   from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
+   from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 
    well = WellGeometry(depth_top=0, depth_bottom=3000, n_channels=3000)
    acq = AcquisitionConfig(sampling_rate_hz=1000, trace_interval_s=2.0, duration_s=3600)

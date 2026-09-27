@@ -8,9 +8,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.dasdae import DASDAEAdapter
-from src.io.escape_hatches import (
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.io.escape_hatches import (
     to_numpy,
     from_numpy,
     to_dataframe,
@@ -18,7 +18,7 @@ from src.io.escape_hatches import (
     to_xarray,
     from_xarray,
 )
-from src.io import prodml, witsml
+from alakoro.io import prodml, witsml
 
 
 def _make_patch(n_t=30, n_c=5) -> AlakoroPatch:

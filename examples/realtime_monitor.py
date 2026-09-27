@@ -11,8 +11,8 @@ from pathlib import Path
 
 import numpy as np
 
-from src.io.dasdae import DASDAEAdapter
-from src.io.streaming import StreamingSpool
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.io.streaming import StreamingSpool
 
 
 if __name__ == "__main__":

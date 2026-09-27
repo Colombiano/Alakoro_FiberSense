@@ -13,7 +13,7 @@ Fornecer estruturas de dados de alta performance e processadores de sinal que po
 ## Estrutura de Diretórios
 
 ```text
-src/cpp/
+alakoro/cpp/
 ├── CMakeLists.txt              # Build C++20 com pybind11
 ├── include/alakoro/
 │   ├── concepts.hpp            # Concepts C++20
@@ -130,7 +130,7 @@ pip install -e .
 ### Build manual com CMake
 
 ```bash
-cd src/cpp
+cd alakoro/cpp
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --parallel
@@ -154,7 +154,7 @@ O `alakoro_core` expõe tipos e processadores para três modalidades DFOS:
 
 Os processadores avançados (Butterworth, FFT, CWT, denoising, etc.) são expostos
 em variantes `*_d_das` e `*_d_dts`. A camada Python em
-`src.processing.advanced_processors` escolhe automaticamente a variante correta
+`alakoro.processing.advanced_processors` escolhe automaticamente a variante correta
 com base em `AlakoroPatch.modality`.
 
 ### Processadores térmicos (DTS)
@@ -172,6 +172,6 @@ Disponíveis apenas para DTS:
 - [x] Adicionar processadores avançados: pass_filter Butterworth, FFT, wavelets
 - [x] Generalizar processadores avançados para DAS, DTS e DSS (concluído na v2.10.0)
 - [x] Adicionar processadores térmicos C++20 para DTS (concluído na v2.10.0)
-- [x] Integrar `alakoro_core` com `src.io.dascore` para conversão zero-copy Alakoro ↔ DASCore Patch (concluído na v2.8.1)
+- [x] Integrar `alakoro_core` com `alakoro.io.dascore` para conversão zero-copy Alakoro ↔ DASCore Patch (concluído na v2.8.1)
 - [ ] Adicionar estimativa adaptativa de gradiente geotérmico (`estimate_geothermal_gradient`)
 - [ ] Otimizações SIMD/OpenMP para processadores térmicos e de eventos

@@ -9,8 +9,8 @@
 **Público-alvo:** engenheiros que conhecem Python e querem entender por que o C++20 do Alakoro é *move-only* em pontos críticos.
 
 **Arquivos-fonte consultados:**
-- `src/cpp/include/alakoro/inference_engine.hpp` — `InferenceResult`, `ResultGenerator`, `collect_results`, `execute_rule`, regras canônicas.
-- `src/cpp/src/bindings.cpp` — bindings pybind11, `vector_to_numpy`.
+- `alakoro/cpp/include/alakoro/inference_engine.hpp` — `InferenceResult`, `ResultGenerator`, `collect_results`, `execute_rule`, regras canônicas.
+- `alakoro/cpp/src/bindings.cpp` — bindings pybind11, `vector_to_numpy`.
 - `tests/test_cpp_core.py` — testes da camada nativa.
 
 ## 🇺🇸 Introduction
@@ -20,8 +20,8 @@
 **Target audience:** engineers familiar with Python who want to understand why Alakoro's C++20 core is *move-only* at critical points.
 
 **Source files consulted:**
-- `src/cpp/include/alakoro/inference_engine.hpp` — `InferenceResult`, `ResultGenerator`, `collect_results`, `execute_rule`, canonical rules.
-- `src/cpp/src/bindings.cpp` — pybind11 bindings, `vector_to_numpy`.
+- `alakoro/cpp/include/alakoro/inference_engine.hpp` — `InferenceResult`, `ResultGenerator`, `collect_results`, `execute_rule`, canonical rules.
+- `alakoro/cpp/src/bindings.cpp` — pybind11 bindings, `vector_to_numpy`.
 - `tests/test_cpp_core.py` — native layer tests.
 
 ---
@@ -297,13 +297,13 @@ auto anom2 = detail::remove_polynomial_baseline(std::move(second_half), 2);
 
 A `ResultGenerator` é a corrotina que produz `InferenceResult` via `co_yield`. Por baixo, ela guarda um `std::coroutine_handle<promise_type>`, um identificador de frame de corrotina — um recurso que não pode ser compartilhado.
 
-No arquivo `src/cpp/include/alakoro/inference_engine.hpp` (linhas 228–281):
+No arquivo `alakoro/cpp/include/alakoro/inference_engine.hpp` (linhas 228–281):
 
 #### 🇺🇸 EN
 
 `ResultGenerator` is the coroutine that produces `InferenceResult` via `co_yield`. Under the hood, it holds a `std::coroutine_handle<promise_type>`, a coroutine frame identifier — a resource that cannot be shared.
 
-In the file `src/cpp/include/alakoro/inference_engine.hpp` (lines 228–281):
+In the file `alakoro/cpp/include/alakoro/inference_engine.hpp` (lines 228–281):
 
 ```cpp
 struct ResultGenerator {
@@ -500,11 +500,11 @@ Without `std::move(gen)`, `collect_results` would try to copy the coroutine — 
 
 #### 🇧🇷 PT
 
-No `src/cpp/src/bindings.cpp`, a camada Python recebe os vetores de resultados por valor e os converte para listas/tuplas de NumPy. A função `vector_to_numpy` (linhas 43–50) já aproveita a semântica de movimento internamente:
+No `alakoro/cpp/src/bindings.cpp`, a camada Python recebe os vetores de resultados por valor e os converte para listas/tuplas de NumPy. A função `vector_to_numpy` (linhas 43–50) já aproveita a semântica de movimento internamente:
 
 #### 🇺🇸 EN
 
-In `src/cpp/src/bindings.cpp`, the Python layer receives result vectors by value and converts them into NumPy lists/tuples. The `vector_to_numpy` function (lines 43–50) already takes advantage of move semantics internally:
+In `alakoro/cpp/src/bindings.cpp`, the Python layer receives result vectors by value and converts them into NumPy lists/tuples. The `vector_to_numpy` function (lines 43–50) already takes advantage of move semantics internally:
 
 ```cpp
 template <typename T>
@@ -933,12 +933,12 @@ Move semantics is one of the performance pillars of Alakoro's C++20 inference en
 
 ### 🇧🇷 PT
 
-- `src/cpp/include/alakoro/inference_engine.hpp` — definição de `ResultGenerator`, `InferenceEngine`, `collect_results` e regras canônicas.
-- `src/cpp/src/bindings.cpp` — bindings pybind11, `vector_to_numpy` e exposição de `CanonicalInferenceEngine`.
+- `alakoro/cpp/include/alakoro/inference_engine.hpp` — definição de `ResultGenerator`, `InferenceEngine`, `collect_results` e regras canônicas.
+- `alakoro/cpp/src/bindings.cpp` — bindings pybind11, `vector_to_numpy` e exposição de `CanonicalInferenceEngine`.
 - C++ Standard: `[class.copy]`, `[class.copy.assign]`, `[expr.prim.lambda.capture]`, `[coroutine.handle]`.
 
 ### 🇺🇸 EN
 
-- `src/cpp/include/alakoro/inference_engine.hpp` — definition of `ResultGenerator`, `InferenceEngine`, `collect_results`, and canonical rules.
-- `src/cpp/src/bindings.cpp` — pybind11 bindings, `vector_to_numpy`, and exposure of `CanonicalInferenceEngine`.
+- `alakoro/cpp/include/alakoro/inference_engine.hpp` — definition of `ResultGenerator`, `InferenceEngine`, `collect_results`, and canonical rules.
+- `alakoro/cpp/src/bindings.cpp` — pybind11 bindings, `vector_to_numpy`, and exposure of `CanonicalInferenceEngine`.
 - C++ Standard: `[class.copy]`, `[class.copy.assign]`, `[expr.prim.lambda.capture]`, `[coroutine.handle]`.

@@ -13,16 +13,16 @@ from alakoro_core import (
     thermal_gradient,
 )
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.dasdae import DASDAEAdapter
-from src.ml.features import DTSFeatureExtractor
-from src.processing.advanced_processors import (
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.ml.features import DTSFeatureExtractor
+from alakoro.processing.advanced_processors import (
     geothermal_baseline_correction as py_geothermal_baseline,
     spatial_median_filter as py_spatial_median,
     thermal_anomaly_detection as py_thermal_anomaly,
     thermal_gradient as py_thermal_gradient,
 )
-from src.processing.dts_processor import DTSThermalProcessor
+from alakoro.processing.dts_processor import DTSThermalProcessor
 
 
 def _make_dts(n_t=128, n_c=16):

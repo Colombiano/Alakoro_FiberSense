@@ -9,7 +9,7 @@ Gerar uma Assinatura / Generate a Signature
 
 .. code-block:: python
 
-   from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
+   from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 
    well = WellGeometry(depth_top=0, depth_bottom=3000, n_channels=3000)
    acq = AcquisitionConfig(sampling_rate_hz=1000, trace_interval_s=2.0, duration_s=3600)
@@ -26,7 +26,7 @@ Processar com LF-DAS / Process with LF-DAS
 
 .. code-block:: python
 
-   from src.processing import LFDASProcessor
+   from alakoro.processing import LFDASProcessor
 
    lfdas = LFDASProcessor(cutoff_hz=1.0, refresh_rate_target_s=2.0)
    result = lfdas.process(jt['das'], trace_interval_s=2.0)
@@ -39,7 +39,7 @@ Validar a Assinatura / Validate the Signature
 
 .. code-block:: python
 
-   from src.validation import SignatureValidator
+   from alakoro.validation import SignatureValidator
 
    validator = SignatureValidator(well, acq)
    validation = validator.validate_signature(jt, result)
@@ -127,7 +127,7 @@ completo para dados DTS:
 
 .. code-block:: python
 
-   from src.processing import DTSThermalProcessor
+   from alakoro.processing import DTSThermalProcessor
 
    proc = DTSThermalProcessor(
        depth_step_m=1.0,
@@ -151,7 +151,7 @@ Extração de Features / Feature Extraction
 
 .. code-block:: python
 
-   from src.ml.features import DTSFeatureExtractor
+   from alakoro.ml.features import DTSFeatureExtractor
 
    extractor = DTSFeatureExtractor()
    features = extractor(temperature, depth_step_m=1.0)
@@ -183,7 +183,7 @@ A interface permite:
 
 .. code-block:: python
 
-   from src.gui import main
+   from alakoro.gui import main
    main()
 
 Veja o notebook demonstrativo / See the demo notebook:
@@ -227,4 +227,4 @@ Executar Testes / Run Tests
    pytest tests/test_dts_processor.py -v
 
    # Com cobertura / With coverage
-   pytest tests/ --cov=src --cov-report=html
+   pytest tests/ --cov=alakoro --cov-report=html

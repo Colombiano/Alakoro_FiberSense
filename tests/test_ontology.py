@@ -6,13 +6,13 @@ Ontology Tests
 import pytest
 from datetime import datetime
 
-from src.ontology import (
+from alakoro.ontology import (
     OntologyModel, Well, Wellbore, Completion, FiberOpticCable,
     Interrogator, DASMeasurement, DTSMeasurement, DSSMeasurement,
     JouleThomsonEvent, LeakEvent, FlowEvent, WarmBackEvent,
     SignatureOntologyBridge,
 )
-from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
+from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 
 
 @pytest.fixture

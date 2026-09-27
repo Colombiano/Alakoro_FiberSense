@@ -9,9 +9,9 @@ import numpy as np
 import pytest
 import xdas
 
-from src.io.alakoro_spool import AlakoroPatch, AlakoroSpool
-from src.io.dasdae import DASDAEAdapter
-from src.io.xdas_adapter import (
+from alakoro.io.alakoro_spool import AlakoroPatch, AlakoroSpool
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.io.xdas_adapter import (
     alakoro_to_xdas,
     array_to_dataarray,
     dataarray_to_array,
@@ -19,12 +19,12 @@ from src.io.xdas_adapter import (
     spool_to_datacollection,
     xdas_to_alakoro,
 )
-from src.io.xdas_formats import (
+from alakoro.io.xdas_formats import (
     read_xdas,
     write_xdas,
     supported_xdas_formats,
 )
-from src.processing.hybrid_pipeline import HybridPipeline
+from alakoro.processing.hybrid_pipeline import HybridPipeline
 
 
 @pytest.fixture

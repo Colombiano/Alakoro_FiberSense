@@ -8,10 +8,10 @@ from setuptools import setup, find_packages
 
 setup(
     name="alakoro-fibersense",
-    packages=find_packages(include=["src", "src.*", "alakoro_core", "alakoro_core.*"]),
+    packages=find_packages(include=["alakoro", "alakoro.*", "alakoro_core", "alakoro_core.*"]),
     package_data={
-        "src.events": ["*.json"],
-        "src.io.schemas": ["*.avsc"],
+        "alakoro.events": ["*.json"],
+        "alakoro.io.schemas": ["*.avsc"],
     },
     include_package_data=True,
     zip_safe=False,

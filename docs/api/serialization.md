@@ -52,14 +52,14 @@ restored = DASData.from_protobuf_bytes(payload)
 Também disponível via `AlakoroPatch`:
 
 ```python
-from src.io.alakoro_spool import AlakoroPatch
+from alakoro.io.alakoro_spool import AlakoroPatch
 
 patch = AlakoroPatch(...)
 payload = patch.to_protobuf_bytes()
 restored = AlakoroPatch.from_protobuf_bytes(payload, modality="das")
 ```
 
-O schema Protobuf está definido em `src/cpp/proto/alakoro_sensing.proto`.
+O schema Protobuf está definido em `alakoro/cpp/proto/alakoro_sensing.proto`.
 
 ---
 
@@ -76,7 +76,7 @@ pip install fastavro
 ### Uso
 
 ```python
-from src.io.alakoro_spool import AlakoroPatch
+from alakoro.io.alakoro_spool import AlakoroPatch
 
 patch = AlakoroPatch(...)
 payload = patch.to_avro_bytes(metadata={"sampling_rate_hz": 1000.0})
@@ -86,18 +86,18 @@ restored = AlakoroPatch.from_avro_bytes(payload)
 Também é possível usar diretamente:
 
 ```python
-from src.io.avro_format import serialize_avro, deserialize_avro
+from alakoro.io.avro_format import serialize_avro, deserialize_avro
 
 payload = serialize_avro(patch.data, modality="das", metadata={...})
 record = deserialize_avro(payload)
 ```
 
-O schema Avro está em `src/io/schemas/alakoro_sensing.avsc`.
+O schema Avro está em `alakoro/io/schemas/alakoro_sensing.avsc`.
 
-Também é possível salvar/carregar arquivos Avro e Protobuf via `src/io/protobuf_format.py`:
+Também é possível salvar/carregar arquivos Avro e Protobuf via `alakoro/io/protobuf_format.py`:
 
 ```python
-from src.io.protobuf_format import save_protobuf, load_protobuf
+from alakoro.io.protobuf_format import save_protobuf, load_protobuf
 
 save_protobuf("patch.pb", patch)
 restored = load_protobuf("patch.pb", modality="das")
@@ -107,7 +107,7 @@ restored = load_protobuf("patch.pb", modality="das")
 
 ## GUI
 
-A interface gráfica (PySide6) inclui um painel unificado de serialização e streaming Kafka em `src/gui/serialization_panel.py`. A aba **🔌 Serialize/Kafka** permite:
+A interface gráfica (PySide6) inclui um painel unificado de serialização e streaming Kafka em `alakoro/gui/serialization_panel.py`. A aba **🔌 Serialize/Kafka** permite:
 
 - Exportar o patch atual para Avro ou Protobuf.
 - Importar arquivos Avro/Protobuf e exibi-los no heatmap.
@@ -118,7 +118,7 @@ A interface gráfica (PySide6) inclui um painel unificado de serialização e st
 Para abrir a GUI:
 
 ```bash
-python -m src.gui.main_window
+python -m alakoro.gui.main_window
 ```
 
 ---

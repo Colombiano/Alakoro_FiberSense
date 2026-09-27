@@ -8,8 +8,8 @@ import pytest
 import dascore as dc
 from dascore import Patch
 
-from src.io.alakoro_spool import AlakoroPatch, AlakoroSpool
-from src.io.dasdae import (
+from alakoro.io.alakoro_spool import AlakoroPatch, AlakoroSpool
+from alakoro.io.dasdae import (
     DASDAEAdapter,
     alakoro_to_dascore,
     dascore_to_alakoro,
@@ -98,7 +98,7 @@ def test_alakoro_spool_to_dascore():
 
 
 def test_xdas_conversion_via_adapter():
-    from src.io.xdas_adapter import alakoro_to_xdas, xdas_to_alakoro
+    from alakoro.io.xdas_adapter import alakoro_to_xdas, xdas_to_alakoro
 
     patch = _make_patch()
     da = alakoro_to_xdas(patch)

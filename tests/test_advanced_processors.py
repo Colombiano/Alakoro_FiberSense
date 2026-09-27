@@ -32,9 +32,9 @@ from alakoro_core import (
     wavelet_denoise,
 )
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.dasdae import DASDAEAdapter
-from src.processing.advanced_processors import (
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.processing.advanced_processors import (
     butterworth_bandpass as py_bandpass,
     butterworth_highpass as py_highpass,
     butterworth_lowpass as py_lowpass,

@@ -9,9 +9,9 @@ import numpy as np
 import pytest
 import torch
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.dasdae import DASDAEAdapter
-from src.ml import (
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.ml import (
     DASDataset,
     DASFeatureExtractor,
     EventCNN,

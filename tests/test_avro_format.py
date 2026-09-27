@@ -5,8 +5,8 @@ Testes para serializacao Avro de AlakoroPatch.
 import numpy as np
 import pytest
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.avro_format import deserialize_avro, serialize_avro
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.avro_format import deserialize_avro, serialize_avro
 
 try:
     import fastavro

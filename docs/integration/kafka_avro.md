@@ -32,8 +32,8 @@ pip install fastavro kafka-python
 ## Produtor
 
 ```python
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.streaming import KafkaStreamDriver
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.streaming import KafkaStreamDriver
 
 patch = AlakoroPatch(...)
 
@@ -54,8 +54,8 @@ with driver:
 ## Consumidor
 
 ```python
-from src.io.streaming import KafkaStreamDriver
-from src.io.alakoro_spool import AlakoroPatch
+from alakoro.io.streaming import KafkaStreamDriver
+from alakoro.io.alakoro_spool import AlakoroPatch
 
 driver = KafkaStreamDriver("localhost:9092")
 with driver:
@@ -94,12 +94,12 @@ O painel **🔌 Serialize/Kafka** na interface gráfica do Alakoro (PySide6) per
 - Conecte-se como consumidor e visualize automaticamente os patches recebidos.
 - Acompanhe mensagens e eventos em log dedicado.
 
-O worker Kafka roda em thread separada (`src/gui/workers/kafka_worker.py`) para não travar a interface.
+O worker Kafka roda em thread separada (`alakoro/gui/workers/kafka_worker.py`) para não travar a interface.
 
 Para abrir:
 
 ```bash
-python -m src.gui.main_window
+python -m alakoro.gui.main_window
 ```
 
 ## Referência

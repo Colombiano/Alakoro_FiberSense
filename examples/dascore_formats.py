@@ -3,7 +3,7 @@ Exemplo 3 — Leitura/escrita de formatos DASCore via Alakoro.
 
 Demonstra como salvar e carregar AlakoroPatch em formatos suportados
 pelo DASCore (dasdae, pickle, etc.) usando a API unificada de
-src.io.dascore_formats.
+alakoro.io.dascore_formats.
 """
 
 import tempfile
@@ -11,9 +11,9 @@ from pathlib import Path
 
 import numpy as np
 
-from src.io.dascore_formats import read, write, supported_formats
-from src.io.dasdae import DASDAEAdapter
-from src.io.alakoro_spool import AlakoroPatch, AlakoroSpool
+from alakoro.io.dascore_formats import read, write, supported_formats
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.io.alakoro_spool import AlakoroPatch, AlakoroSpool
 
 
 if __name__ == "__main__":

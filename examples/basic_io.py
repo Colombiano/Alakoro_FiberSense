@@ -4,8 +4,8 @@ Exemplo 1 — Lendo dados DAS com Alakoro + DASCore.
 
 import numpy as np
 
-from src.io.alakoro_spool import AlakoroPatch, AlakoroSpool
-from src.io.dasdae import DASDAEAdapter
+from alakoro.io.alakoro_spool import AlakoroPatch, AlakoroSpool
+from alakoro.io.dasdae import DASDAEAdapter
 
 
 if __name__ == "__main__":

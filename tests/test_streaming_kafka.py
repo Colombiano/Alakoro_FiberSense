@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.streaming import KafkaStreamDriver
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.streaming import KafkaStreamDriver
 
 try:
     import kafka

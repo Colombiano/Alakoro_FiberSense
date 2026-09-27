@@ -7,8 +7,8 @@ processadores avançados C++20 do alakoro_core (median_filter_1d).
 
 import numpy as np
 
-from src.io.dasdae import DASDAEAdapter
-from src.processing.hybrid_pipeline import HybridPipeline
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.processing.hybrid_pipeline import HybridPipeline
 
 
 if __name__ == "__main__":

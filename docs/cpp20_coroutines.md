@@ -7,7 +7,7 @@ Este documento explica, de forma profunda e didática, como as **corrotinas do C
 Todas as amostras de código são extraídas do arquivo real do projeto:
 
 ```text
-src/cpp/include/alakoro/inference_engine.hpp
+alakoro/cpp/include/alakoro/inference_engine.hpp
 ```
 
 ## 🇺🇸 EN — Focus on Alakoro FiberSense
@@ -17,7 +17,7 @@ This document explains, in a deep and didactic way, how **C++20 coroutines** are
 All code samples are extracted from the project's real file:
 
 ```text
-src/cpp/include/alakoro/inference_engine.hpp
+alakoro/cpp/include/alakoro/inference_engine.hpp
 ```
 
 ---
@@ -214,7 +214,7 @@ In Alakoro we use `std::suspend_always` both at the start and at the end, allowi
 
 ## 4. 🇧🇷 PT — Implementação real: `ResultGenerator`
 
-A classe `ResultGenerator` está definida em `src/cpp/include/alakoro/inference_engine.hpp`, por volta da linha 228.
+A classe `ResultGenerator` está definida em `alakoro/cpp/include/alakoro/inference_engine.hpp`, por volta da linha 228.
 
 ### 4.1 Visão geral
 
@@ -330,7 +330,7 @@ private:
 
 ## 4. 🇺🇸 EN — Real implementation: `ResultGenerator`
 
-The `ResultGenerator` class is defined in `src/cpp/include/alakoro/inference_engine.hpp`, around line 228.
+The `ResultGenerator` class is defined in `alakoro/cpp/include/alakoro/inference_engine.hpp`, around line 228.
 
 ### 4.1 Overview
 
@@ -660,7 +660,7 @@ private:
 
 ## 7. 🇧🇷 PT — Exposição ao Python via pybind11
 
-O arquivo `src/cpp/src/bindings.cpp` expõe uma API **síncrona** ao Python, escondendo completamente as corrotinas C++.
+O arquivo `alakoro/cpp/src/bindings.cpp` expõe uma API **síncrona** ao Python, escondendo completamente as corrotinas C++.
 
 ### Estrutura do resultado
 
@@ -744,7 +744,7 @@ O generator existe apenas dentro do C++; o Python recebe uma simples `list` de `
 
 ## 7. 🇺🇸 EN — Exposing to Python via pybind11
 
-The file `src/cpp/src/bindings.cpp` exposes a **synchronous** API to Python, completely hiding the C++ coroutines.
+The file `alakoro/cpp/src/bindings.cpp` exposes a **synchronous** API to Python, completely hiding the C++ coroutines.
 
 ### Result structure
 
@@ -1105,8 +1105,8 @@ O `ResultGenerator` é uma implementação mínima mas completa: define `promise
 
 Para ver o código completo, consulte:
 
-- `src/cpp/include/alakoro/inference_engine.hpp` — definição do generator, regras e engine.
-- `src/cpp/src/bindings.cpp` — bindings pybind11 para `CanonicalInferenceEngine` e `infer_events_d`.
+- `alakoro/cpp/include/alakoro/inference_engine.hpp` — definição do generator, regras e engine.
+- `alakoro/cpp/src/bindings.cpp` — bindings pybind11 para `CanonicalInferenceEngine` e `infer_events_d`.
 
 ## 10. 🇺🇸 EN — Summary
 
@@ -1121,8 +1121,8 @@ C++20 coroutines allow Alakoro FiberSense to:
 
 For the full code, see:
 
-- `src/cpp/include/alakoro/inference_engine.hpp` — generator definition, rules, and engine.
-- `src/cpp/src/bindings.cpp` — pybind11 bindings for `CanonicalInferenceEngine` and `infer_events_d`.
+- `alakoro/cpp/include/alakoro/inference_engine.hpp` — generator definition, rules, and engine.
+- `alakoro/cpp/src/bindings.cpp` — pybind11 bindings for `CanonicalInferenceEngine` and `infer_events_d`.
 
 ---
 

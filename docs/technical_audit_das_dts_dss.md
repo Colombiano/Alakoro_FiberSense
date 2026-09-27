@@ -15,12 +15,12 @@ A fibra óptica distribuída (DFOS) transforma um cabo monomodo passivo em um ar
 ### Principais conclusões
 - **Arquitetura promissora, lógica ainda em proof-of-concept.** O projeto tem bons *boilerplates*: wrapper Python/C++20, enum canônico de 15 eventos, mapeamento DAS/DTS/DSS, backends de denoising variados, I/O ProdML/WITSML/DASCore/Xdas e pipeline híbrido. No entanto, a maior parte das regras de inferência ainda são heurísticas térmicas simples.
 - **Fusão multimodal crítica não implementada.** Não há alinhamento temporal/espacial entre LF-DAS (~2 s) e DTS (5–10 min) e nenhum módulo de desacoplamento tensão-temperatura (T/ε) por similaridade de cosseno em janela 2D — requisitos centrais do estado da arte.
-- **Coeficiente LF-DAS→temperatura fisicamente inconsistente.** `src/processing/lfdas_processor.py:146` usa `thermal_coefficient = 100.0`, enquanto a literatura indica ~0,002–0,0032 °C/rad.
+- **Coeficiente LF-DAS→temperatura fisicamente inconsistente.** `alakoro/processing/lfdas_processor.py:146` usa `thermal_coefficient = 100.0`, enquanto a literatura indica ~0,002–0,0032 °C/rad.
 - **Padrões de fraturamento ausentes.** *Heart shapes*, *blue wings*, *antennas*, *break lines* e bandas de convergência não são gerados nem detectados.
 - **Backend C++ não compilado no ambiente auditado.** `alakoro_core._alakoro_core` está ausente, inviabilizando a execução dos 163 testes citados no README e prejudicando a validação dinâmica.
 - **ML caixa-preta sem regras físicas.** `FlowRegressor` empilha DAS e DTS sem alinhamento de grids e sem discriminar influxo de refluxo/reinjeção por velocidade aparente.
 - **Tratamento de NaN/Inf e flags de qualidade por canal insuficientes.** Os processadores e o motor podem propagar dados inválidos silenciosamente.
-- **I/O funcional, mas com falhas metrológicas.** `src/io/witsml.py:280` força `data_category="das"` em todo `read_log`, descartando a modalidade real do log (DTS/DSS).
+- **I/O funcional, mas com falhas metrológicas.** `alakoro/io/witsml.py:280` força `data_category="das"` em todo `read_log`, descartando a modalidade real do log (DTS/DSS).
 - **Testes e validação têm cobertura parcial.** O gerador cobre os 15 tipos canônicos, mas o validador não os cobre individualmente e há inconsistência no critério de aprovação (85 % vs. 90 % esperado).
 - **Documentação e exemplos existem, mas carecem de unidades físicas e limitações.** Docstrings omitem unidades e justificativas para constantes mágicas.
 
@@ -42,18 +42,18 @@ A fibra óptica distribuída (DFOS) transforma um cabo monomodo passivo em um ar
   6. `findings/ml_pipeline.md`
 
 ### Como o código foi inspecionado
-A inspeção foi guiada pelo `inspection_checklist.md`, derivado dos 21 resumos. Cada item do checklist foi verificado em arquivos-fonte específicos de Python (`src/ontology/`, `src/processing/`, `src/io/`, `src/ml/`, `src/simulation/`, `src/validation/`) e C++ (`src/cpp/include/alakoro/`, `src/cpp/src/bindings.cpp`). Foram atribuídos status:
+A inspeção foi guiada pelo `inspection_checklist.md`, derivado dos 21 resumos. Cada item do checklist foi verificado em arquivos-fonte específicos de Python (`alakoro/ontology/`, `alakoro/processing/`, `alakoro/io/`, `alakoro/ml/`, `alakoro/simulation/`, `alakoro/validation/`) e C++ (`alakoro/cpp/include/alakoro/`, `alakoro/cpp/src/bindings.cpp`). Foram atribuídos status:
 - **PASS:** requisito atendido de forma satisfatória.
 - **PARTIAL:** requisito parcialmente atendido; requer melhorias.
 - **FAIL:** requisito não atendido ou atendido de forma inadequada.
 
 ### Áreas inspecionadas
-1. Motor de inferência e ontologia (`src/ontology/`)
-2. Processamento de sinais DAS/DTS/LF-DAS (`src/processing/`)
-3. Pré-processamento, filtros e denoising (`src/cpp/include/alakoro/`, `src/processing/advanced_processors.py`)
-4. Simulação, validação e testes (`src/simulation/`, `src/validation/`, `tests/`)
-5. Integração e padrões industriais (`src/io/`)
-6. ML, features e pipeline híbrido (`src/ml/`, `src/processing/hybrid_pipeline.py`)
+1. Motor de inferência e ontologia (`alakoro/ontology/`)
+2. Processamento de sinais DAS/DTS/LF-DAS (`alakoro/processing/`)
+3. Pré-processamento, filtros e denoising (`alakoro/cpp/include/alakoro/`, `alakoro/processing/advanced_processors.py`)
+4. Simulação, validação e testes (`alakoro/simulation/`, `alakoro/validation/`, `tests/`)
+5. Integração e padrões industriais (`alakoro/io/`)
+6. ML, features e pipeline híbrido (`alakoro/ml/`, `alakoro/processing/hybrid_pipeline.py`)
 
 ### Limitações da auditoria
 - **Build C++ não disponível:** não foi possível executar `pytest` para confirmar os 163 testes citados no README nem verificar o comportamento dinâmico do motor C++.
@@ -168,7 +168,7 @@ Aproximadamente **42 % dos itens inspecionados estão em FAIL**, **32 % em PARTI
 
 | ID | Item | Status | Severidade | Evidência | Recomendação |
 |----|------|--------|------------|-----------|--------------|
-| A-01 | Motor aceita DAS opcional e valida shapes | **PASS** | HIGH | `src/ontology/inference_engine.py:96-139`; binding C++ rejeita `ndim != 2`. | Manter; validar dimensões > 0. |
+| A-01 | Motor aceita DAS opcional e valida shapes | **PASS** | HIGH | `alakoro/ontology/inference_engine.py:96-139`; binding C++ rejeita `ndim != 2`. | Manter; validar dimensões > 0. |
 | A-02 | Mapeamento C++ → ontologia multimodal | **PARTIAL** | MEDIUM | `_EVENT_CLASS_MAP` cobre 15 códigos, mas só 4 têm classes especializadas; schema JSON tem 18 tipos não emitidos. | Criar subclasses para GLV, fraturamento, cimentação, etc. |
 | A-03 | Separação LF/HF nas regras | **FAIL** | HIGH | `infer()` não recebe banda; regras C++ usam energia total sem filtro. | Adicionar `low_freq_band_hz`/`high_freq_band_hz` em `InferenceMetadata`. |
 | A-04 | Parâmetros físicos obrigatórios | **PARTIAL** | HIGH | Metadados existem, mas `sampling_rate_hz` default 0.0 no C++ pode causar divisão por zero. | Validar `> 0` no Python e no binding C++. |
@@ -207,7 +207,7 @@ Aproximadamente **42 % dos itens inspecionados estão em FAIL**, **32 % em PARTI
 | C-04 | Atenuação diferencial / ringing | **FAIL** | HIGH | `DTSThermalProcessor` sem correção DAF nem máscara de `n_end_meters`. | Adicionar flags e funções C++. |
 | C-05 | Flags de qualidade por canal | **PARTIAL** | MEDIUM | `mean_temperature`, `std_temperature`, `max_anomaly_score`; sem SNR/coerência. | Criar `_compute_quality_flags`. |
 | D-01 | `HybridPipeline` preserva modalidade | **PASS** | HIGH | `hybrid_pipeline.py:53-75` propaga `modality` e `history`. | Adicionar guarda de modalidade em DASCore. |
-| D-02 | Alinhamento LF-DAS/DTS | **FAIL** | CRITICAL | Nenhuma função de regridding/resampling. | Criar `src/processing/multimodal_alignment.py`. |
+| D-02 | Alinhamento LF-DAS/DTS | **FAIL** | CRITICAL | Nenhuma função de regridding/resampling. | Criar `alakoro/processing/multimodal_alignment.py`. |
 | D-03 | Desacoplamento T/ε | **FAIL** | CRITICAL | Inexistente na área de processamento. | Implementar em `LFDASProcessor` (S21). |
 | F-05 | Strain/strain rate e padrões de fratura | **FAIL** | HIGH | Nenhum cálculo de strain rate nem detectores. | Adicionar `compute_strain_rate` e módulo de fraturamento. |
 | J-01 | Redução de dados edge | **PARTIAL** | HIGH | Decimação e PSD existem; sem pipeline orquestrado por bandas. | Criar `DASReductionPipeline`. |
@@ -281,8 +281,8 @@ Aproximadamente **42 % dos itens inspecionados estão em FAIL**, **32 % em PARTI
 | ID | Item | Status | Severidade | Evidência | Recomendação |
 |----|------|--------|------------|-----------|--------------|
 | D-01 | `HybridPipeline` preserva modalidade | **PARTIAL** | HIGH | Preserva metadados, mas guarda de dimensionalidade só em `xdas()`. | Adicionar guarda em `dascore()` e `cpp()`. |
-| D-02 | Alinhamento DAS+DTS | **FAIL** | CRITICAL | `models.py:174` e `api.py:115` fazem `np.stack` sem interpolação. | Implementar `src/ml/fusion.py` com regridding. |
-| D-03 | Desacoplamento T/ε | **FAIL** | CRITICAL | Inexistente. | Criar `src/ml/decoupling.py` (S21). |
+| D-02 | Alinhamento DAS+DTS | **FAIL** | CRITICAL | `models.py:174` e `api.py:115` fazem `np.stack` sem interpolação. | Implementar `alakoro/ml/fusion.py` com regridding. |
+| D-03 | Desacoplamento T/ε | **FAIL** | CRITICAL | Inexistente. | Criar `alakoro/ml/decoupling.py` (S21). |
 | D-04 | Inferência ternária T + energia + velocidade | **FAIL** | HIGH | `FlowRegressor` é CNN/MLP caixa-preta. | Adicionar camada híbrida física pós-modelo. |
 | E-05 | Direção de fluxo | **FAIL** | HIGH | `features.py:104-126` calcula correlação adjacente sem sinal/unidades. | Estimar `v = Δz/Δt` com sinal. |
 | F-04 | Water breakthrough ΔT/xf | **FAIL** | MEDIUM | Nenhum cálculo. | Adicionar feature `delta_T_over_xf`. |
@@ -315,25 +315,25 @@ Aproximadamente **42 % dos itens inspecionados estão em FAIL**, **32 % em PARTI
 ## 7. Recomendações e Roadmap
 
 ### Quick wins (0–4 semanas)
-1. **Corrigir `witsml.read_log`** (`src/io/witsml.py:280`) para não forçar `data_category="das"`; inferir ou receber `modality` do log.
-2. **Tornar `thermal_coefficient` configurável** em `src/processing/lfdas_processor.py:146`, com default baseado na literatura (~0,0028 °C/rad) e calibração local via gauges.
+1. **Corrigir `witsml.read_log`** (`alakoro/io/witsml.py:280`) para não forçar `data_category="das"`; inferir ou receber `modality` do log.
+2. **Tornar `thermal_coefficient` configurável** em `alakoro/processing/lfdas_processor.py:146`, com default baseado na literatura (~0,0028 °C/rad) e calibração local via gauges.
 3. **Validar `sampling_rate_hz > 0`** no wrapper Python e no binding C++ para evitar divisão por zero.
 4. **Adicionar verificações `np.isfinite`** em `InferenceEngine.infer` e nos processadores Python; propagar `quality_flags`.
 5. **Uniformizar critério de aprovação dos testes** para ≥ 90 % (`tests/test_alakoro_fibersense.py:233,260`).
 6. **Alinhar JSON Schema** com os 15 tipos canônicos emitidos pelo motor C++.
 
 ### Médio prazo (1–3 meses)
-1. **Implementar alinhamento temporal/espacial LF-DAS/DTS** em `src/processing/multimodal_alignment.py` (ou `src/ml/fusion.py`): interpolação, regridding e sincronização de `depth_step_m`/`time_s`.
-2. **Implementar desacoplamento T/ε** em `src/processing/lfdas_processor.py` ou `src/ml/decoupling.py`: regra `Δε_M = Δε_E − C·ΔT` com regressão robusta de `C` e cosine similarity em janela 2D (S21).
-3. **Adicionar correção de atenuação diferencial e máscara de ringing** em `DTSThermalProcessor` (`src/processing/dts_processor.py`) e nos leitores/escritores ProdML.
+1. **Implementar alinhamento temporal/espacial LF-DAS/DTS** em `alakoro/processing/multimodal_alignment.py` (ou `alakoro/ml/fusion.py`): interpolação, regridding e sincronização de `depth_step_m`/`time_s`.
+2. **Implementar desacoplamento T/ε** em `alakoro/processing/lfdas_processor.py` ou `alakoro/ml/decoupling.py`: regra `Δε_M = Δε_E − C·ΔT` com regressão robusta de `C` e cosine similarity em janela 2D (S21).
+3. **Adicionar correção de atenuação diferencial e máscara de ringing** em `DTSThermalProcessor` (`alakoro/processing/dts_processor.py`) e nos leitores/escritores ProdML.
 4. **Implementar discriminação de influxo/refluxo**: `FlowDiscriminationRule` usando anomalia térmica + energia acústica 15–100 Hz + velocidade aparente com sinal.
 5. **Adicionar sensores de referência** (`wht_temp`, `dht_temp`, `bottomhole_pressure`, `gr_ccl_depths`) à ontologia e ao I/O Energistics.
-6. **Implementar detectores de padrões de fraturamento** em `src/processing/advanced_processors.py`/`src/ontology/inference_engine.py`: heart shapes, blue wings, antennas, break lines, bandas de convergência.
+6. **Implementar detectores de padrões de fraturamento** em `alakoro/processing/advanced_processors.py`/`alakoro/ontology/inference_engine.py`: heart shapes, blue wings, antennas, break lines, bandas de convergência.
 7. **Expandir testes de robustez** com NaN/Inf, baixo SNR, ringing, canais mortos e shapes incompatíveis.
 8. **Finalizar MQTT** ou documentar como experimental; adicionar `well_id`/`wellbore_id` ao schema Avro.
 
 ### Longo prazo (3–6 meses)
-1. **Inversão térmica DTS** com modelo direto 1D, termo fonte por intervalo perfurado e regularização Tikhonov (`src/processing/dts_processor.py` ou módulo dedicado).
+1. **Inversão térmica DTS** com modelo direto 1D, termo fonte por intervalo perfurado e regularização Tikhonov (`alakoro/processing/dts_processor.py` ou módulo dedicado).
 2. **Modelagem geomecânica acoplada fluxo-geomecânica** para fraturamento, com validação contra KGD/Sneddon.
 3. **FIP e water breakthrough** (`detect_fip`, `delta_T_over_xf`) integrados ao motor de inferência.
 4. **Pipeline de redução edge** orquestrado (`DASReductionPipeline`) para reduzir ~TB para GB/MB com extração de energia por bandas e metadados de fator de redução.
@@ -408,30 +408,30 @@ Os 21 resumos estão em `docs/.audit_work/summaries/` e são detalhados em `cons
 - `docs/technical_audit_das_dts_dss.md` (este relatório)
 
 ### Principais caminhos de código citados
-- `src/ontology/inference_engine.py`
-- `src/ontology/sensing.py`
-- `src/ontology/events.py`
-- `src/ontology/petroleum.py`
-- `src/processing/advanced_processors.py`
-- `src/processing/lfdas_processor.py`
-- `src/processing/dts_processor.py`
-- `src/processing/hybrid_pipeline.py`
-- `src/simulation/signature_generator.py`
-- `src/validation/signature_validator.py`
-- `src/io/witsml.py`
-- `src/io/prodml.py`
-- `src/io/energistics_bridge.py`
-- `src/io/streaming.py`
-- `src/io/schemas/alakoro_sensing.avsc`
-- `src/ml/features.py`
-- `src/ml/models.py`
-- `src/ml/api.py`
-- `src/cpp/include/alakoro/inference_engine.hpp`
-- `src/cpp/include/alakoro/thermal.hpp`
-- `src/cpp/include/alakoro/filters.hpp`
-- `src/cpp/include/alakoro/denoising.hpp`
-- `src/cpp/include/alakoro/adaptive.hpp`
-- `src/cpp/src/bindings.cpp`
+- `alakoro/ontology/inference_engine.py`
+- `alakoro/ontology/sensing.py`
+- `alakoro/ontology/events.py`
+- `alakoro/ontology/petroleum.py`
+- `alakoro/processing/advanced_processors.py`
+- `alakoro/processing/lfdas_processor.py`
+- `alakoro/processing/dts_processor.py`
+- `alakoro/processing/hybrid_pipeline.py`
+- `alakoro/simulation/signature_generator.py`
+- `alakoro/validation/signature_validator.py`
+- `alakoro/io/witsml.py`
+- `alakoro/io/prodml.py`
+- `alakoro/io/energistics_bridge.py`
+- `alakoro/io/streaming.py`
+- `alakoro/io/schemas/alakoro_sensing.avsc`
+- `alakoro/ml/features.py`
+- `alakoro/ml/models.py`
+- `alakoro/ml/api.py`
+- `alakoro/cpp/include/alakoro/inference_engine.hpp`
+- `alakoro/cpp/include/alakoro/thermal.hpp`
+- `alakoro/cpp/include/alakoro/filters.hpp`
+- `alakoro/cpp/include/alakoro/denoising.hpp`
+- `alakoro/cpp/include/alakoro/adaptive.hpp`
+- `alakoro/cpp/src/bindings.cpp`
 - `tests/test_inference_engine.py`
 - `tests/test_alakoro_fibersense.py`
 - `tests/test_ml.py`

@@ -45,18 +45,13 @@ dependencies = [
     "matplotlib>=3.4.0",
     "pandas>=1.3.0",
     "xarray>=0.19.0",
-    "pytest>=7.0.0",
     "rdflib>=7.0.0",
     "dascore>=0.1.20",
     "h5py>=3.7.0",
     "obspy>=1.3.0",
     "xdas>=0.2.0",
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
     "scikit-learn>=1.0.0",
-    "fastavro>=1.9.0",
     "protobuf>=4.24.0",
-    "kafka-python>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -64,6 +59,14 @@ gui = [
     "PySide6>=6.5.0",
     "PyQtGraph>=0.13.0",
     "qdarkstyle>=3.0.0",
+]
+ml = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+]
+streaming = [
+    "fastavro>=1.9.0",
+    "kafka-python>=2.0.0",
 ]
 dev = [
     "pytest-cov>=4.0.0",
@@ -86,21 +89,21 @@ Issues = "https://github.com/Colombiano/Alakoro_FiberSense/issues"
 Changelog = "https://github.com/Colombiano/Alakoro_FiberSense/blob/main/CHANGELOG.md"
 
 [project.scripts]
-alakoro = "src.__init__:main"
-alakoro-gui = "src.__init__:main_gui"
+alakoro = "alakoro.__init__:main"
+alakoro-gui = "alakoro.__init__:main_gui"
 
 [project.entry-points."alakoro.driver"]
-example_vendor = "src.io.drivers.optional.example_vendor:ExampleVendorDriver"
+example_vendor = "alakoro.io.drivers.optional.example_vendor:ExampleVendorDriver"
 
 [tool.scikit-build]
-cmake.source-dir = "src/cpp"
+cmake.source-dir = "alakoro/cpp"
 cmake.build-type = "Release"
-wheel.packages = ["alakoro_core", "src"]
+wheel.packages = ["alakoro_core", "alakoro"]
 # Excluir fontes C++ do wheel (apenas a extensao compilada e necessaria)
-wheel.exclude = ["src/cpp/**"]
+wheel.exclude = ["alakoro/cpp/**"]
 # Incluir dados do pacote (schemas Avro, eventos JSON)
-wheel.force-include."src/events/fibersense_event_schema_v1.1.0.json" = "src/events/fibersense_event_schema_v1.1.0.json"
-wheel.force-include."src/io/schemas/alakoro_sensing.avsc" = "src/io/schemas/alakoro_sensing.avsc"
+wheel.force-include."alakoro/events/fibersense_event_schema_v1.1.0.json" = "alakoro/events/fibersense_event_schema_v1.1.0.json"
+wheel.force-include."alakoro/io/schemas/alakoro_sensing.avsc" = "alakoro/io/schemas/alakoro_sensing.avsc"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -6,8 +6,8 @@ DASCore Integration Tests
 import pytest
 import numpy as np
 
-from src.io.dascore import alakoro_to_patch, patch_to_alakoro
-from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
+from alakoro.io.dascore import alakoro_to_patch, patch_to_alakoro
+from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 
 
 @pytest.fixture

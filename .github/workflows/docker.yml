@@ -54,4 +54,4 @@ jobs:
       - name: ✅ Verificar imagem
         run: |
           docker run --rm colombiano/alakoro-fibersense:latest \
-            python -c "from src.simulation import SignatureGenerator; print('✅ Docker OK')"
+            python -c "from alakoro.simulation import SignatureGenerator; print('✅ Docker OK')"

@@ -43,7 +43,7 @@ jobs:
       - name: ✅ Validar importacao
         run: |
           python -c "import alakoro_core; print('alakoro_core OK')"
-          python -c "from src.gui.main_window import AlakoroMainWindow; print('GUI OK')"
+          python -c "from alakoro.gui.main_window import AlakoroMainWindow; print('GUI OK')"
       - name: 🧪 Executar testes
         run: pytest tests/ -v --tb=short --color=yes
 

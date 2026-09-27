@@ -15,9 +15,9 @@ from PySide6.QtWidgets import QWidget
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from src.gui.main_window import AlakoroMainWindow
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.dasdae import DASDAEAdapter
+from alakoro.gui.main_window import AlakoroMainWindow
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.dasdae import DASDAEAdapter
 
 
 @pytest.fixture
@@ -81,7 +81,7 @@ def test_heatmap_cursor_signals(qtbot, sample_patch):
 
 
 def test_preset_panel_emits_pipeline(qtbot):
-    from src.gui.processors.preset_panel import PresetPanel
+    from alakoro.gui.processors.preset_panel import PresetPanel
 
     panel = PresetPanel()
     qtbot.addWidget(panel)
@@ -102,7 +102,7 @@ def test_preset_panel_emits_pipeline(qtbot):
 # ─── Serializacao / Kafka GUI ───
 
 def test_serialization_panel_constructs(qtbot):
-    from src.gui.serialization_panel import SerializationPanel
+    from alakoro.gui.serialization_panel import SerializationPanel
 
     panel = SerializationPanel()
     qtbot.addWidget(panel)
@@ -114,7 +114,7 @@ def test_serialization_panel_constructs(qtbot):
 
 
 def test_serialization_panel_set_patch_enables_buttons(qtbot, sample_patch):
-    from src.gui.serialization_panel import SerializationPanel
+    from alakoro.gui.serialization_panel import SerializationPanel
 
     panel = SerializationPanel()
     qtbot.addWidget(panel)
@@ -126,7 +126,7 @@ def test_serialization_panel_set_patch_enables_buttons(qtbot, sample_patch):
 
 
 def test_serialization_panel_export_import_avro(qtbot, sample_patch, tmp_path):
-    from src.gui.serialization_panel import SerializationPanel
+    from alakoro.gui.serialization_panel import SerializationPanel
 
     panel = SerializationPanel()
     qtbot.addWidget(panel)
@@ -147,12 +147,12 @@ def test_serialization_panel_export_import_avro(qtbot, sample_patch, tmp_path):
 
 
 def test_serialization_panel_export_import_protobuf(qtbot, sample_patch, tmp_path):
-    from src.io.protobuf_format import _has_protobuf_core
+    from alakoro.io.protobuf_format import _has_protobuf_core
 
     if not _has_protobuf_core():
         pytest.skip("Extensao Protobuf C++ nao disponivel neste build")
 
-    from src.gui.serialization_panel import SerializationPanel
+    from alakoro.gui.serialization_panel import SerializationPanel
 
     panel = SerializationPanel()
     qtbot.addWidget(panel)
@@ -171,7 +171,7 @@ def test_serialization_panel_export_import_protobuf(qtbot, sample_patch, tmp_pat
 
 
 def test_kafka_worker_emits_patch(qtbot):
-    from src.gui.workers.kafka_worker import KafkaConsumerWorker
+    from alakoro.gui.workers.kafka_worker import KafkaConsumerWorker
 
     worker = KafkaConsumerWorker("localhost:9092")
     qtbot.addWidget(QWidget())  # ancorador para sinais

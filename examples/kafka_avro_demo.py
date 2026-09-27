@@ -31,8 +31,8 @@ import numpy as np
 import dascore as dc
 from dascore.core.attrs import PatchAttrs
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.streaming import KafkaStreamDriver
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.streaming import KafkaStreamDriver
 
 
 def make_example_patch(n_times: int = 50, n_channels: int = 16) -> AlakoroPatch:

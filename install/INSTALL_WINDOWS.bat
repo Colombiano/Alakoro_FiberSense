@@ -68,7 +68,7 @@ echo  🖥️  Criando atalho... / Creating shortcut...
 (
 echo @echo off
 echo call "%%~dp0alakoro_env\Scripts\activate.bat"
-echo python -c "from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig; from src.validation import SignatureValidator; from src.processing import LFDASProcessor; print('🎸 Alakoro FiberSense v2.2.1 pronto! / ready!')"
+echo python -c "from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig; from alakoro.validation import SignatureValidator; from alakoro.processing import LFDASProcessor; print('🎸 Alakoro FiberSense v2.2.1 pronto! / ready!')"
 echo python
 ) > Alakoro_FiberSense.bat
 
@@ -85,7 +85,7 @@ echo        Double-click: Alakoro_FiberSense.bat
 echo.
 echo     2. Ou execute no terminal / Or run in terminal:
 echo        call alakoro_env\Scripts\activate.bat
-echo        python -c "from src.simulation import SignatureGenerator; ..."
+echo        python -c "from alakoro.simulation import SignatureGenerator; ..."
 echo.
 echo  📚 Documentação: README.md
 echo  🧪 Testes: pytest tests/ -v

@@ -10,15 +10,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.drivers import (
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.drivers import (
     BaseVendorDriver,
     VendorDriverRegistry,
     detect_driver,
     list_available_drivers,
     read_vendor,
 )
-from src.io.drivers.optional.example_vendor import (
+from alakoro.io.drivers.optional.example_vendor import (
     ExampleVendorDriver,
     write_example_file,
 )
@@ -140,7 +140,7 @@ def test_registry_discovers_mock_entry_point(tmp_path: Path):
     mock_ep.load.return_value = MockVendorDriver
 
     with patch(
-        "src.io.drivers.registry.entry_points",
+        "alakoro.io.drivers.registry.entry_points",
         return_value=[mock_ep],
     ):
         registry = VendorDriverRegistry()
@@ -161,7 +161,7 @@ def test_read_vendor_mock_entry_point(tmp_path: Path):
     mock_ep.load.return_value = MockVendorDriver
 
     with patch(
-        "src.io.drivers.registry.entry_points",
+        "alakoro.io.drivers.registry.entry_points",
         return_value=[mock_ep],
     ):
         registry = VendorDriverRegistry()
@@ -183,9 +183,9 @@ def test_fallback_read_uses_xdas_or_dascore(tmp_path: Path):
     try:
         import numpy as np
 
-        from src.io.alakoro_spool import AlakoroPatch
-        from src.io.dasdae import DASDAEAdapter
-        from src.io.xdas_formats import write_xdas
+        from alakoro.io.alakoro_spool import AlakoroPatch
+        from alakoro.io.dasdae import DASDAEAdapter
+        from alakoro.io.xdas_formats import write_xdas
 
         data = np.random.randn(8, 4).astype(np.float64)
         dc_patch = DASDAEAdapter.array_to_patch(data, modality="das", dt_s=1.0, dx_m=1.0)

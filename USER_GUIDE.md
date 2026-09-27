@@ -17,7 +17,7 @@ O **Alakoro FiberSense** é uma plataforma **open-source** para processamento, s
 ### 1. Gerar uma Assinatura / Generate a Signature
 
 ```python
-from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
+from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 
 # Configurar o poço / Configure the well
 well = WellGeometry(depth_top=0, depth_bottom=3000, n_channels=3000)
@@ -37,7 +37,7 @@ print(f"   Dados DAS: {jt['das'].shape}")
 ### 2. Processar com LF-DAS / Process with LF-DAS
 
 ```python
-from src.processing import LFDASProcessor
+from alakoro.processing import LFDASProcessor
 
 lfdas = LFDASProcessor(cutoff_hz=1.0, refresh_rate_target_s=2.0)
 result = lfdas.process(jt['das'], trace_interval_s=2.0)
@@ -49,7 +49,7 @@ print(f"   Refresh rate: {result['refresh_rate_s']:.1f}s")
 ### 3. Validar a Assinatura / Validate the Signature
 
 ```python
-from src.validation import SignatureValidator
+from alakoro.validation import SignatureValidator
 
 validator = SignatureValidator(well, acq)
 validation = validator.validate_signature(jt, result)
@@ -95,7 +95,7 @@ pytest tests/test_alakoro_fibersense.py::TestSignatures -v
 pytest tests/test_alakoro_fibersense.py::TestLFDASProcessor -v
 
 # Com cobertura / With coverage
-pytest tests/ --cov=src --cov-report=html
+pytest tests/ --cov=alakoro --cov-report=html
 ```
 
 ---

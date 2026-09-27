@@ -61,7 +61,7 @@ echo -e "${YELLOW}🖥️  Criando atalho... / Creating shortcut...${NC}"
 cat > Alakoro_FiberSense.sh << 'EOF'
 #!/bin/bash
 source "$(dirname "$0")/alakoro_env/bin/activate"
-python -c "from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig; from src.validation import SignatureValidator; from src.processing import LFDASProcessor; print('🎸 Alakoro FiberSense v2.2.1 pronto! / ready!')"
+python -c "from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig; from alakoro.validation import SignatureValidator; from alakoro.processing import LFDASProcessor; print('🎸 Alakoro FiberSense v2.2.1 pronto! / ready!')"
 EOF
 chmod +x Alakoro_FiberSense.sh
 
@@ -78,7 +78,7 @@ echo "      Run: ./Alakoro_FiberSense.sh"
 echo ""
 echo "   2. Ou ative manualmente / Or activate manually:"
 echo "      source alakoro_env/bin/activate"
-echo "      python -c "from src.simulation import SignatureGenerator; ...""
+echo "      python -c "from alakoro.simulation import SignatureGenerator; ...""
 echo ""
 echo -e "${BLUE}📚 Documentação: README.md${NC}"
 echo -e "${BLUE}🧪 Testes: pytest tests/ -v${NC}"

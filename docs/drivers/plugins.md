@@ -14,8 +14,8 @@ O Alakoro FiberSense lê dados de diversos formatos abertos (TDMS, SEG-Y, HDF5, 
 Todo driver deve herdar de `BaseVendorDriver` e implementar os métodos obrigatórios:
 
 ```python
-from src.io.drivers import BaseVendorDriver
-from src.io.alakoro_spool import AlakoroPatch, AlakoroSpool
+from alakoro.io.drivers import BaseVendorDriver
+from alakoro.io.alakoro_spool import AlakoroPatch, AlakoroSpool
 
 class MeuDriver(BaseVendorDriver):
     name = "meu_fabricante"           # nome curto e único
@@ -50,7 +50,7 @@ Ao ser instalado, o plugin é descoberto automaticamente por `VendorDriverRegist
 ## Uso no Alakoro
 
 ```python
-from src.io.drivers import read_vendor, list_available_drivers, detect_driver
+from alakoro.io.drivers import read_vendor, list_available_drivers, detect_driver
 
 # Lista drivers disponíveis
 print(list_available_drivers())
@@ -70,11 +70,11 @@ patch = read_vendor("/dados/poco.bin", fallback=False)
 
 ## Driver de exemplo
 
-O pacote inclui o driver open-source `example_vendor` (`src/io/drivers/optional/example_vendor.py`) que demonstra a API completa usando arquivos `.exd` baseados em HDF5. Ele é carregado automaticamente quando `h5py` está disponível.
+O pacote inclui o driver open-source `example_vendor` (`alakoro/io/drivers/optional/example_vendor.py`) que demonstra a API completa usando arquivos `.exd` baseados em HDF5. Ele é carregado automaticamente quando `h5py` está disponível.
 
 ```python
-from src.io.drivers.optional.example_vendor import write_example_file, ExampleVendorDriver
-from src.io.drivers import read_vendor
+from alakoro.io.drivers.optional.example_vendor import write_example_file, ExampleVendorDriver
+from alakoro.io.drivers import read_vendor
 
 path = write_example_file("/tmp/demo.exd", shape=(100, 500))
 patch = read_vendor(path)

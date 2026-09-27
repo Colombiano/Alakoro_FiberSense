@@ -8,14 +8,14 @@ de oleo e gas para troca de dados de pocos, wellbores e aquisicoes.
 
 ## ProdML
 
-O modulo `src.io.prodml` trabalha com objetos `DASAcquisition` do ProdML v2.x
+O modulo `alakoro.io.prodml` trabalha com objetos `DASAcquisition` do ProdML v2.x
 e suporta namespaces conhecidos da familia `http://www.energistics.org/energyml/data/prodmlv2*`.
 
 ### Escrever ProdML
 
 ```python
-from src.io.alakoro_spool import AlakoroPatch
-from src.io import prodml
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io import prodml
 
 patch = AlakoroPatch(...)
 
@@ -54,13 +54,13 @@ metadados de varios caminhos possiveis dentro do XML.
 
 ## WITSML
 
-O modulo `src.io.witsml` trabalha com objetos `well`, `wellbore` e `log` do
+O modulo `alakoro.io.witsml` trabalha com objetos `well`, `wellbore` e `log` do
 WITSML v1.3.1.1 e v1.4.1.1.
 
 ### Escrever Log WITSML
 
 ```python
-from src.io import witsml
+from alakoro.io import witsml
 
 witsml.write_log(
     patch,
@@ -101,14 +101,14 @@ print(wellbore.uid, wellbore.well_uid)
 
 ## Ponte Semantica Energistics (ProdML ↔ WITSML)
 
-O modulo `src.io.energistics_bridge` oferece um mapeamento semantico profundo
+O modulo `alakoro.io.energistics_bridge` oferece um mapeamento semantico profundo
 entre ProdML e WITSML, permitindo enriquecer dados de aquisicao com metadados
  de poco/wellbore e converter entre os formatos mantendo a semantica.
 
 ### Modelo semantico comum: `SensingAcquisition`
 
 ```python
-from src.io.energistics_bridge import (
+from alakoro.io.energistics_bridge import (
     SensingAcquisition,
     WellReference,
     WellboreReference,
@@ -134,7 +134,7 @@ acquisition = SensingAcquisition(
 ### Cross-reference ProdML + WITSML
 
 ```python
-from src.io import energistics_bridge as bridge
+from alakoro.io import energistics_bridge as bridge
 
 # Le ProdML e enriquece com well/wellbore WITSML
 acquisition = bridge.cross_reference(
@@ -174,8 +174,8 @@ acquisition = bridge.from_witsml_log(
 ## Propriedade Intelectual / Intellectual Property
 
 - **ProdML** e **WITSML** sao padroes abertos mantidos pela **Energistics**.
-- As implementacoes do Alakoro (`src/io/prodml.py`, `src/io/witsml.py`,
-  `src/io/energistics_bridge.py`) sao **implementacoes independentes** e
+- As implementacoes do Alakoro (`alakoro/io/prodml.py`, `alakoro/io/witsml.py`,
+  `alakoro/io/energistics_bridge.py`) sao **implementacoes independentes** e
   **nao sao endossadas pela Energistics**.
 - Nenhum schema XSD, documentacao ou codigo oficial da Energistics e
   redistribuido neste repositorio. Apenas os **namespaces publicos** e as

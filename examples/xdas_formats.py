@@ -10,10 +10,10 @@ from pathlib import Path
 
 import numpy as np
 
-from src.io.alakoro_spool import AlakoroPatch, AlakoroSpool
-from src.io.dasdae import DASDAEAdapter
-from src.io.xdas_adapter import alakoro_to_xdas, spool_to_datacollection
-from src.io.xdas_formats import read_xdas, write_xdas, supported_xdas_formats
+from alakoro.io.alakoro_spool import AlakoroPatch, AlakoroSpool
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.io.xdas_adapter import alakoro_to_xdas, spool_to_datacollection
+from alakoro.io.xdas_formats import read_xdas, write_xdas, supported_xdas_formats
 
 
 if __name__ == "__main__":

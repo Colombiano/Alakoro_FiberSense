@@ -7,7 +7,7 @@ Usa alakoro_core (C++20) para detrend e taper, e DASCore para filtering.
 import numpy as np
 
 from alakoro_core import DASData, detrend, taper
-from src.io.dasdae import DASDAEAdapter
+from alakoro.io.dasdae import DASDAEAdapter
 
 
 if __name__ == "__main__":

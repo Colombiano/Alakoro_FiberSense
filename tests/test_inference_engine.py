@@ -14,8 +14,8 @@ from alakoro_core import (
     InferenceMetadata,
     CanonicalInferenceEngine,
 )
-from src.ontology import InferenceEngine, infer_events
-from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
+from alakoro.ontology import InferenceEngine, infer_events
+from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 
 
 @pytest.fixture

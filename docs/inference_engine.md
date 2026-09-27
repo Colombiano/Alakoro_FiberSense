@@ -20,7 +20,7 @@ Exemplos de eventos reconhecidos:
 - **Cement Bond Evaluation**: variação espacial de temperatura correlacionada à qualidade de cimentação.
 - **Fracture Screen-out**, **Frac Height Growth**, **Proppant Distribution**, entre outros.
 
-O motor é implementado em **C++20** (`src/cpp/include/alakoro/inference_engine.hpp`) e exposto ao Python via **pybind11**. Uma camada de wrapper Python (`src/ontology/inference_engine.py`) converte os resultados brutos do C++ em instâncias da ontologia Alakoro (`Event`, `JouleThomsonEvent`, `LeakEvent` etc.).
+O motor é implementado em **C++20** (`alakoro/cpp/include/alakoro/inference_engine.hpp`) e exposto ao Python via **pybind11**. Uma camada de wrapper Python (`alakoro/ontology/inference_engine.py`) converte os resultados brutos do C++ em instâncias da ontologia Alakoro (`Event`, `JouleThomsonEvent`, `LeakEvent` etc.).
 
 **🇺🇸 EN**
 
@@ -35,7 +35,7 @@ Examples of recognized events:
 - **Cement Bond Evaluation**: spatial temperature variation correlated with cementing quality.
 - **Fracture Screen-out**, **Frac Height Growth**, **Proppant Distribution**, among others.
 
-The engine is implemented in **C++20** (`src/cpp/include/alakoro/inference_engine.hpp`) and exposed to Python via **pybind11**. A Python wrapper layer (`src/ontology/inference_engine.py`) converts the raw C++ results into Alakoro ontology instances (`Event`, `JouleThomsonEvent`, `LeakEvent`, etc.).
+The engine is implemented in **C++20** (`alakoro/cpp/include/alakoro/inference_engine.hpp`) and exposed to Python via **pybind11**. A Python wrapper layer (`alakoro/ontology/inference_engine.py`) converts the raw C++ results into Alakoro ontology instances (`Event`, `JouleThomsonEvent`, `LeakEvent`, etc.).
 
 ---
 
@@ -172,16 +172,16 @@ The pipeline is **synchronous from the Python point of view**: C++ internally co
 
 **🇧🇷 PT**
 
-- **Cabeçalho principal**: `src/cpp/include/alakoro/inference_engine.hpp`
-- **Bindings pybind11**: `src/cpp/src/bindings.cpp`
-- **Wrapper Python**: `src/ontology/inference_engine.py`
+- **Cabeçalho principal**: `alakoro/cpp/include/alakoro/inference_engine.hpp`
+- **Bindings pybind11**: `alakoro/cpp/src/bindings.cpp`
+- **Wrapper Python**: `alakoro/ontology/inference_engine.py`
 - **Testes**: `tests/test_inference_engine.py`
 
 **🇺🇸 EN**
 
-- **Main header**: `src/cpp/include/alakoro/inference_engine.hpp`
-- **pybind11 bindings**: `src/cpp/src/bindings.cpp`
-- **Python wrapper**: `src/ontology/inference_engine.py`
+- **Main header**: `alakoro/cpp/include/alakoro/inference_engine.hpp`
+- **pybind11 bindings**: `alakoro/cpp/src/bindings.cpp`
+- **Python wrapper**: `alakoro/ontology/inference_engine.py`
 - **Tests**: `tests/test_inference_engine.py`
 
 ### 3.2 Enum `CanonicalEvent`
@@ -1037,7 +1037,7 @@ struct CementBondEvaluationRule {
 
 **🇧🇷 PT**
 
-O arquivo `src/cpp/src/bindings.cpp` expõe as seguintes entidades do módulo `_alakoro_core`:
+O arquivo `alakoro/cpp/src/bindings.cpp` expõe as seguintes entidades do módulo `_alakoro_core`:
 
 - `InferenceResult` (read-only fields).
 - `InferenceMetadata`.
@@ -1048,7 +1048,7 @@ Trecho do binding da engine:
 
 **🇺🇸 EN**
 
-The file `src/cpp/src/bindings.cpp` exposes the following entities in the `_alakoro_core` module:
+The file `alakoro/cpp/src/bindings.cpp` exposes the following entities in the `_alakoro_core` module:
 
 - `InferenceResult` (read-only fields).
 - `InferenceMetadata`.
@@ -1119,11 +1119,11 @@ py::class_<CanonicalInferenceEngine>(m, "CanonicalInferenceEngine")
 
 **🇧🇷 PT**
 
-A classe `InferenceEngine` em `src/ontology/inference_engine.py` converte os resultados C++ em objetos da ontologia Alakoro. Ela faz a ponte com o `SignatureGenerator` através do método `infer_from_signature`.
+A classe `InferenceEngine` em `alakoro/ontology/inference_engine.py` converte os resultados C++ em objetos da ontologia Alakoro. Ela faz a ponte com o `SignatureGenerator` através do método `infer_from_signature`.
 
 **🇺🇸 EN**
 
-The `InferenceEngine` class in `src/ontology/inference_engine.py` converts C++ results into Alakoro ontology objects. It bridges with `SignatureGenerator` through the `infer_from_signature` method.
+The `InferenceEngine` class in `alakoro/ontology/inference_engine.py` converts C++ results into Alakoro ontology objects. It bridges with `SignatureGenerator` through the `infer_from_signature` method.
 
 ```python
 from alakoro_core import (
@@ -1243,8 +1243,8 @@ Use o `SignatureGenerator` para criar dados sintéticos e o wrapper Python para 
 Use `SignatureGenerator` to create synthetic data and the Python wrapper to convert events:
 
 ```python
-from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
-from src.ontology import InferenceEngine
+from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
+from alakoro.ontology import InferenceEngine
 
 well = WellGeometry(depth_top=0, depth_bottom=3000, n_channels=3000)
 acq = AcquisitionConfig(sampling_rate_hz=1000, trace_interval_s=2.0, duration_s=120)
@@ -1270,7 +1270,7 @@ A função `infer_events` abstrai a criação da engine e dos metadados:
 The `infer_events` function abstracts engine and metadata creation:
 
 ```python
-from src.ontology import infer_events
+from alakoro.ontology import infer_events
 
 events = infer_events(dts, das, sampling_rate_hz=1000.0, depth_step_m=1.0)
 ```
@@ -1357,11 +1357,11 @@ To add a new canonical event, follow the four steps below.
 
 **🇧🇷 PT**
 
-Em `src/cpp/include/alakoro/inference_engine.hpp`, insira o novo evento no `enum class CanonicalEvent`:
+Em `alakoro/cpp/include/alakoro/inference_engine.hpp`, insira o novo evento no `enum class CanonicalEvent`:
 
 **🇺🇸 EN**
 
-In `src/cpp/include/alakoro/inference_engine.hpp`, insert the new event into the `enum class CanonicalEvent`:
+In `alakoro/cpp/include/alakoro/inference_engine.hpp`, insert the new event into the `enum class CanonicalEvent`:
 
 ```cpp
 enum class CanonicalEvent : std::uint8_t {
@@ -1447,11 +1447,11 @@ using CanonicalInferenceEngine = InferenceEngine<
 
 **🇧🇷 PT**
 
-Se o novo evento tiver uma classe específica na ontologia, mapeie-o em `src/ontology/inference_engine.py`:
+Se o novo evento tiver uma classe específica na ontologia, mapeie-o em `alakoro/ontology/inference_engine.py`:
 
 **🇺🇸 EN**
 
-If the new event has a specific class in the ontology, map it in `src/ontology/inference_engine.py`:
+If the new event has a specific class in the ontology, map it in `alakoro/ontology/inference_engine.py`:
 
 ```python
 from .events import NewEvent
@@ -1497,14 +1497,14 @@ class TestNewEventInference:
 
 **🇧🇷 PT**
 
-- `src/cpp/include/alakoro/inference_engine.hpp`
-- `src/cpp/src/bindings.cpp`
-- `src/ontology/inference_engine.py`
+- `alakoro/cpp/include/alakoro/inference_engine.hpp`
+- `alakoro/cpp/src/bindings.cpp`
+- `alakoro/ontology/inference_engine.py`
 - `tests/test_inference_engine.py`
 
 **🇺🇸 EN**
 
-- `src/cpp/include/alakoro/inference_engine.hpp`
-- `src/cpp/src/bindings.cpp`
-- `src/ontology/inference_engine.py`
+- `alakoro/cpp/include/alakoro/inference_engine.hpp`
+- `alakoro/cpp/src/bindings.cpp`
+- `alakoro/ontology/inference_engine.py`
 - `tests/test_inference_engine.py`

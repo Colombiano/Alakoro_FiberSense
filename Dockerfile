@@ -42,11 +42,11 @@ ENV QT_QPA_PLATFORM=offscreen
 
 # ─── Health check / Health check ───
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "from src.simulation import SignatureGenerator; print('OK')" || exit 1
+    CMD python -c "from alakoro.simulation import SignatureGenerator; print('OK')" || exit 1
 
 # ─── Comando padrao / Default command ───
 CMD ["python", "-c", \
-    "from src.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig; \
-     from src.validation import SignatureValidator; \
-     from src.processing import LFDASProcessor; \
+    "from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig; \
+     from alakoro.validation import SignatureValidator; \
+     from alakoro.processing import LFDASProcessor; \
      print('🎸 Alakoro FiberSense v2.11.0 pronto / ready!')"]

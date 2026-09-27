@@ -11,16 +11,16 @@ import pytest
 from dascore import Patch
 from dascore.core.attrs import PatchAttrs
 
-from src.io.dascore_formats import (
+from alakoro.io.dascore_formats import (
     read,
     write,
     supported_formats,
     patch_from_dascore,
     spool_from_dascore,
 )
-from src.io.dasdae import DASDAEAdapter
-from src.io.alakoro_spool import AlakoroPatch, AlakoroSpool
-from src.processing.hybrid_pipeline import HybridPipeline
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.io.alakoro_spool import AlakoroPatch, AlakoroSpool
+from alakoro.processing.hybrid_pipeline import HybridPipeline
 
 
 @pytest.fixture

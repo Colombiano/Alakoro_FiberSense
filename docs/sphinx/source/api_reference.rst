@@ -4,7 +4,7 @@ Referência da API / API Reference
 Módulo de Simulação / Simulation Module
 -----------------------------------------
 
-.. automodule:: src.simulation.signature_generator
+.. automodule:: alakoro.simulation.signature_generator
    :members:
    :undoc-members:
    :show-inheritance:
@@ -29,7 +29,7 @@ Módulo de Simulação / Simulation Module
 Módulo de Processamento / Processing Module
 --------------------------------------------
 
-.. automodule:: src.processing.lfdas_processor
+.. automodule:: alakoro.processing.lfdas_processor
    :members:
    :undoc-members:
    :show-inheritance:
@@ -38,7 +38,7 @@ Módulo de Processamento / Processing Module
       :members:
       :undoc-members:
 
-.. automodule:: src.processing.dts_processor
+.. automodule:: alakoro.processing.dts_processor
    :members:
    :undoc-members:
    :show-inheritance:
@@ -50,7 +50,7 @@ Módulo de Processamento / Processing Module
 Interface Gráfica / Graphical User Interface
 ---------------------------------------------
 
-.. automodule:: src.gui.main_window
+.. automodule:: alakoro.gui.main_window
    :members:
    :undoc-members:
    :show-inheritance:
@@ -62,7 +62,7 @@ Interface Gráfica / Graphical User Interface
 Módulo de Machine Learning / Machine Learning Module
 -----------------------------------------------------
 
-.. automodule:: src.ml.features
+.. automodule:: alakoro.ml.features
    :members:
    :undoc-members:
    :show-inheritance:
@@ -78,7 +78,7 @@ Módulo de Machine Learning / Machine Learning Module
 Módulo de Validação / Validation Module
 ----------------------------------------
 
-.. automodule:: src.validation.signature_validator
+.. automodule:: alakoro.validation.signature_validator
    :members:
    :undoc-members:
    :show-inheritance:
@@ -90,7 +90,7 @@ Módulo de Validação / Validation Module
 Módulo de Eventos / Events Module
 ----------------------------------
 
-.. automodule:: src.events
+.. automodule:: alakoro.events
    :members:
    :undoc-members:
 
@@ -98,10 +98,10 @@ Schema JSON / JSON Schema
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 O schema de eventos semânticos está disponível em:
-``src/events/fibersense_event_schema_v1.1.0.json``
+``alakoro/events/fibersense_event_schema_v1.1.0.json``
 
 The semantic event schema is available at:
-``src/events/fibersense_event_schema_v1.1.0.json``
+``alakoro/events/fibersense_event_schema_v1.1.0.json``
 
 Eventos Suportados / Supported Events:
 

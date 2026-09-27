@@ -10,10 +10,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.io import energistics_bridge as bridge
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.dasdae import DASDAEAdapter
-from src.io import prodml, witsml
+from alakoro.io import energistics_bridge as bridge
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.io import prodml, witsml
 
 
 def _make_patch(n_t=10, n_c=3) -> AlakoroPatch:

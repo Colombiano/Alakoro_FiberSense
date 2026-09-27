@@ -94,10 +94,10 @@ auto a = dobro(21);
 // auto b = dobro(std::string{"x"});
 ```
 
-#### No Alakoro: `src/cpp/include/alakoro/concepts.hpp`
+#### No Alakoro: `alakoro/cpp/include/alakoro/concepts.hpp`
 
 ```cpp
-// src/cpp/include/alakoro/concepts.hpp:25-30
+// alakoro/cpp/include/alakoro/concepts.hpp:25-30
 template <typename T>
 concept NumericScalar = std::is_arithmetic_v<T> &&
                         !std::is_same_v<T, bool> &&
@@ -113,11 +113,11 @@ representem grandezas físicas. Se um desenvolvedor tentar criar
 Outros concepts do projeto:
 
 ```cpp
-// src/cpp/include/alakoro/concepts.hpp:38-39
+// alakoro/cpp/include/alakoro/concepts.hpp:38-39
 template <typename T>
 concept FloatingPoint = std::floating_point<T>;
 
-// src/cpp/include/alakoro/concepts.hpp:44-45
+// alakoro/cpp/include/alakoro/concepts.hpp:44-45
 template <typename T>
 concept IndexType = std::integral<T> && !std::is_same_v<T, bool>;
 ```
@@ -126,7 +126,7 @@ E em `core.hpp` há o `AnySensingData`, que verifica a **interface** de uma
 classe em vez de uma hierarquia de herança:
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:216-222
+// alakoro/cpp/include/alakoro/core.hpp:216-222
 template <typename U>
 concept AnySensingData = requires(U u) {
     { U::modality } -> std::convertible_to<SensingModality>;
@@ -171,10 +171,10 @@ auto a = dobro(21);
 // auto b = dobro(std::string{"x"});
 ```
 
-#### In Alakoro: `src/cpp/include/alakoro/concepts.hpp`
+#### In Alakoro: `alakoro/cpp/include/alakoro/concepts.hpp`
 
 ```cpp
-// src/cpp/include/alakoro/concepts.hpp:25-30
+// alakoro/cpp/include/alakoro/concepts.hpp:25-30
 template <typename T>
 concept NumericScalar = std::is_arithmetic_v<T> &&
                         !std::is_same_v<T, bool> &&
@@ -190,11 +190,11 @@ represent physical quantities. If a developer tries to create
 Other concepts in the project:
 
 ```cpp
-// src/cpp/include/alakoro/concepts.hpp:38-39
+// alakoro/cpp/include/alakoro/concepts.hpp:38-39
 template <typename T>
 concept FloatingPoint = std::floating_point<T>;
 
-// src/cpp/include/alakoro/concepts.hpp:44-45
+// alakoro/cpp/include/alakoro/concepts.hpp:44-45
 template <typename T>
 concept IndexType = std::integral<T> && !std::is_same_v<T, bool>;
 ```
@@ -203,7 +203,7 @@ And in `core.hpp` there is `AnySensingData`, which checks the **interface**
 of a class rather than an inheritance hierarchy:
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:216-222
+// alakoro/cpp/include/alakoro/core.hpp:216-222
 template <typename U>
 concept AnySensingData = requires(U u) {
     { U::modality } -> std::convertible_to<SensingModality>;
@@ -245,10 +245,10 @@ auto descricao() {
 static_assert(descricao<int>() == "inteiro");
 ```
 
-#### No Alakoro: `src/cpp/include/alakoro/core.hpp`
+#### No Alakoro: `alakoro/cpp/include/alakoro/core.hpp`
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:180-184
+// alakoro/cpp/include/alakoro/core.hpp:180-184
 constexpr std::string_view modality_str() const noexcept {
     if constexpr (M == SensingModality::DAS) return "DAS";
     else if constexpr (M == SensingModality::DTS) return "DTS";
@@ -265,7 +265,7 @@ Outro uso importante é em `filters.hpp`, onde a ordem do filtro é um
 parâmetro de template:
 
 ```cpp
-// src/cpp/include/alakoro/filters.hpp:124-136
+// alakoro/cpp/include/alakoro/filters.hpp:124-136
 void compute_coefficients(double w1, double w2) {
     if constexpr (Order == 1) {
         compute_first_order(w1, w2);
@@ -306,10 +306,10 @@ auto descricao() {
 static_assert(descricao<int>() == "inteiro");
 ```
 
-#### In Alakoro: `src/cpp/include/alakoro/core.hpp`
+#### In Alakoro: `alakoro/cpp/include/alakoro/core.hpp`
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:180-184
+// alakoro/cpp/include/alakoro/core.hpp:180-184
 constexpr std::string_view modality_str() const noexcept {
     if constexpr (M == SensingModality::DAS) return "DAS";
     else if constexpr (M == SensingModality::DTS) return "DTS";
@@ -326,7 +326,7 @@ Another important use is in `filters.hpp`, where the filter order is a
 template parameter:
 
 ```cpp
-// src/cpp/include/alakoro/filters.hpp:124-136
+// alakoro/cpp/include/alakoro/filters.hpp:124-136
 void compute_coefficients(double w1, double w2) {
     if constexpr (Order == 1) {
         compute_first_order(w1, w2);
@@ -365,12 +365,12 @@ void imprimir(Args... args) {
 imprimir(1, 2.5, "texto");  // gera: imprimir<int, double, const char*>
 ```
 
-#### No Alakoro: `src/cpp/include/alakoro/inference_engine.hpp`
+#### No Alakoro: `alakoro/cpp/include/alakoro/inference_engine.hpp`
 
 A `InferenceEngine` é parametrizada por uma lista de eventos canônicos:
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:1248-1249
+// alakoro/cpp/include/alakoro/inference_engine.hpp:1248-1249
 template <CanonicalEvent... Events>
 class InferenceEngine {
 public:
@@ -421,12 +421,12 @@ void imprimir(Args... args) {
 imprimir(1, 2.5, "texto");  // generates: imprimir<int, double, const char*>
 ```
 
-#### In Alakoro: `src/cpp/include/alakoro/inference_engine.hpp`
+#### In Alakoro: `alakoro/cpp/include/alakoro/inference_engine.hpp`
 
 `InferenceEngine` is parameterized by a list of canonical events:
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:1248-1249
+// alakoro/cpp/include/alakoro/inference_engine.hpp:1248-1249
 template <CanonicalEvent... Events>
 class InferenceEngine {
 public:
@@ -477,10 +477,10 @@ void chamar_todos(Ts... ts) {
 }
 ```
 
-#### No Alakoro: `src/cpp/include/alakoro/inference_engine.hpp`
+#### No Alakoro: `alakoro/cpp/include/alakoro/inference_engine.hpp`
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:1262-1266
+// alakoro/cpp/include/alakoro/inference_engine.hpp:1262-1266
 std::vector<InferenceResult> infer(std::span<const double> dts,
                                    std::span<const double> das,
                                    std::size_t n_times,
@@ -514,10 +514,10 @@ void chamar_todos(Ts... ts) {
 }
 ```
 
-#### In Alakoro: `src/cpp/include/alakoro/inference_engine.hpp`
+#### In Alakoro: `alakoro/cpp/include/alakoro/inference_engine.hpp`
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:1262-1266
+// alakoro/cpp/include/alakoro/inference_engine.hpp:1262-1266
 std::vector<InferenceResult> infer(std::span<const double> dts,
                                    std::span<const double> das,
                                    std::size_t n_times,
@@ -563,10 +563,10 @@ constexpr std::string_view nome_do_evento(int id) {
 static_assert(nome_do_evento(0) == "joule_thomson");
 ```
 
-#### No Alakoro: `src/cpp/include/alakoro/core.hpp`
+#### No Alakoro: `alakoro/cpp/include/alakoro/core.hpp`
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:52-59
+// alakoro/cpp/include/alakoro/core.hpp:52-59
 constexpr std::string_view modality_name(SensingModality m) noexcept {
     switch (m) {
         case SensingModality::DAS: return "DAS";
@@ -584,7 +584,7 @@ No motor de inferência, `EventTraits<E>` armazena strings de evento como
 `std::string_view`:
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:106-112
+// alakoro/cpp/include/alakoro/inference_engine.hpp:106-112
 template <CanonicalEvent E>
 struct EventTraits {
     static constexpr std::string_view code = "unknown";
@@ -597,7 +597,7 @@ struct EventTraits {
 E são especializadas para cada um dos 15 eventos:
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:123-127
+// alakoro/cpp/include/alakoro/inference_engine.hpp:123-127
 ALAKORO_EVENT_TRAITS(JouleThomson,
     "joule_thomson",
     "Dipolo Térmico Joule-Thomson",
@@ -630,10 +630,10 @@ constexpr std::string_view nome_do_evento(int id) {
 static_assert(nome_do_evento(0) == "joule_thomson");
 ```
 
-#### In Alakoro: `src/cpp/include/alakoro/core.hpp`
+#### In Alakoro: `alakoro/cpp/include/alakoro/core.hpp`
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:52-59
+// alakoro/cpp/include/alakoro/core.hpp:52-59
 constexpr std::string_view modality_name(SensingModality m) noexcept {
     switch (m) {
         case SensingModality::DAS: return "DAS";
@@ -651,7 +651,7 @@ In the inference engine, `EventTraits<E>` stores event strings as
 `std::string_view`:
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:106-112
+// alakoro/cpp/include/alakoro/inference_engine.hpp:106-112
 template <CanonicalEvent E>
 struct EventTraits {
     static constexpr std::string_view code = "unknown";
@@ -664,7 +664,7 @@ struct EventTraits {
 And they are specialized for each of the 15 events:
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:123-127
+// alakoro/cpp/include/alakoro/inference_engine.hpp:123-127
 ALAKORO_EVENT_TRAITS(JouleThomson,
     "joule_thomson",
     "Dipolo Térmico Joule-Thomson",
@@ -706,7 +706,7 @@ static_assert(Fatorial<5>::value == 120);
 Em `core.hpp`, `ModalityTraits` define unidades padrão por modalidade:
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:67-85
+// alakoro/cpp/include/alakoro/core.hpp:67-85
 template <SensingModality M>
 struct ModalityTraits {
     static constexpr std::string_view default_units = "unknown";
@@ -732,7 +732,7 @@ No construtor de `SensingData`, isso é usado para preencher as unidades
 automaticamente:
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:120-125
+// alakoro/cpp/include/alakoro/core.hpp:120-125
 SensingData(std::size_t n_times, std::size_t n_channels)
     : n_times_(n_times),
       n_channels_(n_channels),
@@ -745,7 +745,7 @@ No `inference_engine.hpp`, a especialização de `EventTraits` é a base para
 `make_result<E>`, que cria um resultado preenchido com metadados do evento:
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:630-642
+// alakoro/cpp/include/alakoro/inference_engine.hpp:630-642
 template <CanonicalEvent E>
 InferenceResult make_result(double confidence, double depth_md,
                             std::string_view severity) {
@@ -790,7 +790,7 @@ static_assert(Fatorial<5>::value == 120);
 In `core.hpp`, `ModalityTraits` defines default units per modality:
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:67-85
+// alakoro/cpp/include/alakoro/core.hpp:67-85
 template <SensingModality M>
 struct ModalityTraits {
     static constexpr std::string_view default_units = "unknown";
@@ -816,7 +816,7 @@ In the `SensingData` constructor, this is used to fill the units
 automatically:
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:120-125
+// alakoro/cpp/include/alakoro/core.hpp:120-125
 SensingData(std::size_t n_times, std::size_t n_channels)
     : n_times_(n_times),
       n_channels_(n_channels),
@@ -829,7 +829,7 @@ In `inference_engine.hpp`, the specialization of `EventTraits` is the basis
 for `make_result<E>`, which creates a result filled with event metadata:
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:630-642
+// alakoro/cpp/include/alakoro/inference_engine.hpp:630-642
 template <CanonicalEvent E>
 InferenceResult make_result(double confidence, double depth_md,
                             std::string_view severity) {
@@ -891,7 +891,7 @@ unexpected complex type.
   idiomáticos.
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:202-209
+// alakoro/cpp/include/alakoro/core.hpp:202-209
 template <NumericScalar T>
 using DASData = SensingData<T, SensingModality::DAS>;
 
@@ -918,7 +918,7 @@ otimizados.
   aliases.
 
 ```cpp
-// src/cpp/include/alakoro/core.hpp:202-209
+// alakoro/cpp/include/alakoro/core.hpp:202-209
 template <NumericScalar T>
 using DASData = SensingData<T, SensingModality::DAS>;
 
@@ -950,7 +950,7 @@ O coração da metaprogramação no Alakoro está na `InferenceEngine`.
 6. A fold expression em `infer()` executa todas as regras registradas.
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:1269-1311
+// alakoro/cpp/include/alakoro/inference_engine.hpp:1269-1311
 template <CanonicalEvent E>
 void execute_rule(...) const {
     ResultGenerator gen = [&]() {
@@ -990,7 +990,7 @@ The heart of metaprogramming in Alakoro lies in `InferenceEngine`.
 6. The fold expression in `infer()` executes all registered rules.
 
 ```cpp
-// src/cpp/include/alakoro/inference_engine.hpp:1269-1311
+// alakoro/cpp/include/alakoro/inference_engine.hpp:1269-1311
 template <CanonicalEvent E>
 void execute_rule(...) const {
     ResultGenerator gen = [&]() {
@@ -1026,7 +1026,7 @@ The compiler then automatically generates a new version of the engine.
 sobre qualquer `SensingData`:
 
 ```cpp
-// src/cpp/include/alakoro/processors.hpp:225-230
+// alakoro/cpp/include/alakoro/processors.hpp:225-230
 template <AnySensingData DataT>
 void detrend(DataT& data) {
     using T = typename DataT::value_type;
@@ -1042,7 +1042,7 @@ há `virtual`, mas qualquer tipo que satisfaça o concept pode ser passado.
 filtros Butterworth especializados em tempo de compilação:
 
 ```cpp
-// src/cpp/include/alakoro/filters.hpp:51-52
+// alakoro/cpp/include/alakoro/filters.hpp:51-52
 template <FloatingPoint T, std::size_t Order>
 class ButterworthFilter {
     // ...
@@ -1055,7 +1055,7 @@ class ButterworthFilter {
 any `SensingData`:
 
 ```cpp
-// src/cpp/include/alakoro/processors.hpp:225-230
+// alakoro/cpp/include/alakoro/processors.hpp:225-230
 template <AnySensingData DataT>
 void detrend(DataT& data) {
     using T = typename DataT::value_type;
@@ -1071,7 +1071,7 @@ no `virtual`, but any type satisfying the concept can be passed.
 Butterworth filters specialized at compile time:
 
 ```cpp
-// src/cpp/include/alakoro/filters.hpp:51-52
+// alakoro/cpp/include/alakoro/filters.hpp:51-52
 template <FloatingPoint T, std::size_t Order>
 class ButterworthFilter {
     // ...
@@ -1464,16 +1464,16 @@ via pybind11 as a synchronous, fast, and strongly typed library.
 
 🇧🇷 **PT**
 
-- `src/cpp/include/alakoro/concepts.hpp`
-- `src/cpp/include/alakoro/core.hpp`
-- `src/cpp/include/alakoro/inference_engine.hpp`
-- `src/cpp/include/alakoro/processors.hpp`
-- `src/cpp/include/alakoro/filters.hpp`
+- `alakoro/cpp/include/alakoro/concepts.hpp`
+- `alakoro/cpp/include/alakoro/core.hpp`
+- `alakoro/cpp/include/alakoro/inference_engine.hpp`
+- `alakoro/cpp/include/alakoro/processors.hpp`
+- `alakoro/cpp/include/alakoro/filters.hpp`
 
 🇺🇸 **EN**
 
-- `src/cpp/include/alakoro/concepts.hpp`
-- `src/cpp/include/alakoro/core.hpp`
-- `src/cpp/include/alakoro/inference_engine.hpp`
-- `src/cpp/include/alakoro/processors.hpp`
-- `src/cpp/include/alakoro/filters.hpp`
+- `alakoro/cpp/include/alakoro/concepts.hpp`
+- `alakoro/cpp/include/alakoro/core.hpp`
+- `alakoro/cpp/include/alakoro/inference_engine.hpp`
+- `alakoro/cpp/include/alakoro/processors.hpp`
+- `alakoro/cpp/include/alakoro/filters.hpp`

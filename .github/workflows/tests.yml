@@ -71,8 +71,8 @@ jobs:
       - name: ✅ Validar importacao dos modulos
         run: |
           python -c "import alakoro_core; print('alakoro_core OK')"
-          python -c "from src.io.alakoro_spool import AlakoroPatch; print('AlakoroPatch OK')"
-          python -c "from src.gui.main_window import AlakoroMainWindow; print('GUI OK')"
+          python -c "from alakoro.io.alakoro_spool import AlakoroPatch; print('AlakoroPatch OK')"
+          python -c "from alakoro.gui.main_window import AlakoroMainWindow; print('GUI OK')"
 
       # ─── Executar testes ───
       - name: 🧪 Executar pytest
@@ -84,7 +84,7 @@ jobs:
         if: matrix.python-version == '3.11'
         run: |
           pip install pytest-cov
-          pytest tests/ --cov=src --cov-report=xml --cov-report=term
+          pytest tests/ --cov=alakoro --cov-report=xml --cov-report=term
 
       # ─── Upload cobertura ───
       - name: ⬆️  Enviar cobertura para Codecov
@@ -111,9 +111,9 @@ jobs:
       - name: 📦 Instalar ferramentas de lint
         run: pip install flake8 black
       - name: 🔍 Verificar estilo (flake8)
-        run: flake8 src/ tests/ --max-line-length=120 --ignore=E501,W503
+        run: flake8 alakoro/ tests/ --max-line-length=120 --ignore=E501,W503
       - name: 🎨 Verificar formatacao (black)
-        run: black --check src/ tests/
+        run: black --check alakoro/ tests/
 
   build:
     name: 📦 Build do pacote / Package build

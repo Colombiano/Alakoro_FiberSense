@@ -7,9 +7,9 @@ Usa dados sintéticos gerados a partir de patches com/sem evento.
 import numpy as np
 import torch
 
-from src.io.alakoro_spool import AlakoroPatch
-from src.io.dasdae import DASDAEAdapter
-from src.ml import DASDataset, EventCNN, Trainer, split_dataset
+from alakoro.io.alakoro_spool import AlakoroPatch
+from alakoro.io.dasdae import DASDAEAdapter
+from alakoro.ml import DASDataset, EventCNN, Trainer, split_dataset
 
 
 def generate_synthetic_data(n_samples=100, n_t=64, n_d=16):
