@@ -1,11 +1,11 @@
 <h1 align="center">Alakoro FiberSense v2.11.0</h1>
 
 <p align="center">
-  <strong>Plataforma Open-Source Multi-Modal para DFOS em Poços de Petróleo</strong>
+  <strong>Plataforma Open-Source Multi-Modal para DFOS en Pozos de Petróleo</strong>
 </p>
 
 <p align="center">
-  🇧🇷 Português · <a href="README.en.md">🇺🇸 English</a> · <a href="README.es.md">🇪🇸 Español</a> · <a href="README.zh.md">🇨🇳 中文</a>
+  🇧🇷 <a href="README.md">Português</a> · 🇺🇸 <a href="README.en.md">English</a> · 🇪🇸 Español · 🇨🇳 <a href="README.zh.md">中文</a>
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@
 </p>
 
 <p align="center">
-  <strong>Processamento Numérico</strong><br/>
+  <strong>Procesamiento Numérico</strong><br/>
   <a href="https://numpy.org/"><img src="https://img.shields.io/badge/NumPy-%3E%3D1.21.0-013243?logo=numpy&logoColor=white" alt="NumPy >=1.21.0"/></a>
   <a href="https://scipy.org/"><img src="https://img.shields.io/badge/SciPy-%3E%3D1.7.0-8CAAE6?logo=scipy&logoColor=white" alt="SciPy >=1.7.0"/></a>
   <a href="https://pandas.pydata.org/"><img src="https://img.shields.io/badge/pandas-%3E%3D1.3.0-150458?logo=pandas&logoColor=white" alt="pandas >=1.3.0"/></a>
@@ -49,7 +49,7 @@
 </p>
 
 <p align="center">
-  <strong>Serialização / Streaming</strong><br/>
+  <strong>Serialización / Streaming</strong><br/>
   <a href="https://avro.apache.org/"><img src="https://img.shields.io/badge/Avro-fastavro%20%3E%3D1.9.0-D94A38?logo=apache" alt="Avro fastavro >=1.9.0"/></a>
   <a href="https://protobuf.dev/"><img src="https://img.shields.io/badge/Protobuf-%3E%3D4.24.0-4B8BBE?logo=protobuf" alt="Protobuf >=4.24.0"/></a>
   <a href="https://kafka.apache.org/"><img src="https://img.shields.io/badge/Kafka-kafka--python%20%3E%3D2.0.0-231F20?logo=apache-kafka&logoColor=white" alt="Kafka kafka-python >=2.0.0"/></a>
@@ -66,15 +66,15 @@
 
 ---
 
-### 🎯 Visão Geral
+### 🎯 Descripción General
 
-O **Alakoro FiberSense** é uma plataforma **full-stack open-source** para processamento, simulação e interpretação de dados de **fibra óptica distribuída (DFOS)** — DAS, DTS e DSS — em operações de poço de petróleo e gás.
+**Alakoro FiberSense** es una plataforma **open-source full-stack** para el procesamiento, la simulación y la interpretación de datos de **fibra óptica distribuida (DFOS)** — DAS, DTS y DSS — en operaciones de pozos de petróleo y gas.
 
-> 🎸 **Alakoro** é o instrumento sagrado de **Ogum**, Orixá do ferro, tecnologia e inovação. Este projeto une a força ancestral do Alakoro com a precisão da fibra óptica distribuída.
+> 🎸 **Alakoro** es el instrumento sagrado de **Ogum**, Orixá del hierro, la tecnología y la innovación. Este proyecto une la fuerza ancestral del Alakoro con la precisión de la fibra óptica distribuida.
 
 ---
 
-### 🚀 Instalação em 10 Segundos
+### 🚀 Instalación en 10 Segundos
 
 ```bash
 # Núcleo (simulação, processamento, I/O)
@@ -84,44 +84,44 @@ pip install alakoro-fibersense
 pip install alakoro-fibersense[gui,ml,streaming]
 ```
 
-> **Extras opcionais:** `[gui]` (interface gráfica PySide6), `[ml]` (PyTorch/torchvision), `[streaming]` (Kafka + Avro). O núcleo não puxa torch nem kafka — instale apenas o que for usar.
+> **Extras opcionales:** `[gui]` (interfaz gráfica PySide6), `[ml]` (PyTorch/torchvision), `[streaming]` (Kafka + Avro). El núcleo no instala torch ni kafka — instala solo lo que vayas a usar.
 
 ---
 
-### 🎮 Escolha Seu Modo
+### 🎮 Elige Tu Modo
 
-| 🟢 **MODO LEIGO** | 🔵 **MODO GEEK** |
+| 🟢 **MODO NOVATO** | 🔵 **MODO GEEK** |
 |:---:|:---:|
-| **Clique e pronto!** | **Git, terminal, Docker** |
-| Para quem não quer saber de código | Para quem curte linha de comando |
-| [📖 Ver guia](INSTALL.md#-modo-leigo--click--ready) | [📖 Ver guia](INSTALL.md#-modo-geek--git-terminal-docker) |
+| **¡Haz clic y listo!** | **Git, terminal, Docker** |
+| Para quien no quiere saber de código | Para quien disfruta la línea de comandos |
+| [📖 Ver guía](INSTALL.md#-modo-leigo--click--ready) | [📖 Ver guía](INSTALL.md#-modo-geek--git-terminal-docker) |
 
 ---
 
-### ✨ Novidades v2.11.0
+### ✨ Novedades v2.11.0
 
-- ✅ **Interface Gráfica Desktop** (`alakoro/gui`) — PySide6 + PyQtGraph: drag-and-drop, undo/redo, heatmap 2D com ROI/colormap, perfis interativos, espectrograma STFT, presets/batch, relatórios HTML/PDF, log persistente e i18n
-- ✅ **Paridade DTS/DAS** — todos os processadores avançados C++20 agora suportam DAS e DTS (`*_d_das` / `*_d_dts`); DSS com fallback básico
-- ✅ **Processadores Térmicos C++20** (`alakoro_core`) — `thermal_gradient_d`, `geothermal_baseline_correction_d`, `thermal_anomaly_detection_d`, `spatial_median_filter_d`
-- ✅ **DTSThermalProcessor** (`alakoro/processing/dts_processor.py`) — pipeline completo de limpeza, correção geotérmica, gradiente dT/dz, detecção de anomalias e velocidade de frente térmica
-- ✅ **DTSFeatureExtractor** (`alakoro/ml/features.py`) — features estatísticas, espectrais, térmicas e de anomalia para ML em DTS
-- ✅ **Validação Térmica Avançada** (`alakoro/validation/signature_validator.py`) — checks de gradiente, anomalias e baseline geotérmico via C++20
-- ✅ **Arquitetura de Plugins para Drivers Proprietários** (`alakoro/io/drivers`) — `BaseVendorDriver`, `VendorDriverRegistry` com descoberta via entry point `alakoro.driver`, fallback para DASCore/Xdas e driver de exemplo `.exd`
-- ✅ **Biblioteca Completa de Processadores Avançados C++20** (`alakoro_core`) — Butterworth, FFT/PSD, CWT, STA/LTA, Hilbert, TKEO, median/SVD/wavelet denoising, STFT, cross-correlation, coherence, gauge compensation, LMS/RLS, EMD/EEMD, NMF
-- ✅ **Machine Learning** (`alakoro/ml`) — CNN, U-Net, regressor; Trainer; métricas; API de inferência
-- ✅ **C++20 Core** (`alakoro_core`) — DASData, DTSData, DSSData com pybind11 e metaprogramação moderna
-- ✅ **Integração Nativa com DASCore** — `AlakoroPatch`/`AlakoroSpool` compatíveis; leitura/escrita de formatos DASCore (dasdae, pickle, tdms, segy, febus, optodas, etc.); pipeline híbrido DASCore + C++20
-- ✅ **Integração Nativa com Xdas** — conversão direta `AlakoroPatch ↔ xdas.DataArray` e `AlakoroSpool ↔ xdas.DataCollection`; leitura/escrita NetCDF; pipeline híbrido Xdas + C++20
+- ✅ **Interfaz Gráfica de Escritorio** (`alakoro/gui`) — PySide6 + PyQtGraph: drag-and-drop, undo/redo, heatmap 2D con ROI/colormap, perfiles interactivos, espectrograma STFT, presets/batch, informes HTML/PDF, registro persistente e i18n
+- ✅ **Paridad DTS/DAS** — todos los procesadores avanzados C++20 ahora soportan DAS y DTS (`*_d_das` / `*_d_dts`); DSS con fallback básico
+- ✅ **Procesadores Térmicos C++20** (`alakoro_core`) — `thermal_gradient_d`, `geothermal_baseline_correction_d`, `thermal_anomaly_detection_d`, `spatial_median_filter_d`
+- ✅ **DTSThermalProcessor** (`alakoro/processing/dts_processor.py`) — pipeline completo de limpieza, corrección geotérmica, gradiente dT/dz, detección de anomalías y velocidad de frente térmica
+- ✅ **DTSFeatureExtractor** (`alakoro/ml/features.py`) — features estadísticas, espectrales, térmicas y de anomalía para ML en DTS
+- ✅ **Validación Térmica Avanzada** (`alakoro/validation/signature_validator.py`) — checks de gradiente, anomalías y baseline geotérmico vía C++20
+- ✅ **Arquitectura de Plugins para Drivers Propietarios** (`alakoro/io/drivers`) — `BaseVendorDriver`, `VendorDriverRegistry` con descubrimiento vía entry point `alakoro.driver`, fallback para DASCore/Xdas y driver de ejemplo `.exd`
+- ✅ **Biblioteca Completa de Procesadores Avanzados C++20** (`alakoro_core`) — Butterworth, FFT/PSD, CWT, STA/LTA, Hilbert, TKEO, median/SVD/wavelet denoising, STFT, cross-correlation, coherence, gauge compensation, LMS/RLS, EMD/EEMD, NMF
+- ✅ **Machine Learning** (`alakoro/ml`) — CNN, U-Net, regressor; Trainer; métricas; API de inferencia
+- ✅ **C++20 Core** (`alakoro_core`) — DASData, DTSData, DSSData con pybind11 y metaprogramación moderna
+- ✅ **Integración Nativa con DASCore** — `AlakoroPatch`/`AlakoroSpool` compatibles; lectura/escritura de formatos DASCore (dasdae, pickle, tdms, segy, febus, optodas, etc.); pipeline híbrido DASCore + C++20
+- ✅ **Integración Nativa con Xdas** — conversión directa `AlakoroPatch ↔ xdas.DataArray` y `AlakoroSpool ↔ xdas.DataCollection`; lectura/escritura NetCDF; pipeline híbrido Xdas + C++20
 - ✅ **Escape Hatches** — NumPy, pandas, xarray, ObsPy
-- ✅ **ProdML/WITSML** — leitura/escrita básica de arquivos Energistics
-- ✅ **Streaming** — monitoramento de diretório, Kafka + Avro com handshake PRODML e MQTT (básico)
-- ✅ **15 Assinaturas Canônicas** (M15) — 6 originais + 9 novas
-- ✅ **LF-DAS / eXDTS** (M1) — temperatura de alta taxa (~2s refresh)
-- ✅ **Ontologia** (`alakoro/ontology`) — modelo RDF/OWL + bridge com assinaturas
-- ✅ **Testes Unitários** — pytest com 213 testes passando
+- ✅ **ProdML/WITSML** — lectura/escritura básica de archivos Energistics
+- ✅ **Streaming** — monitorización de directorio, Kafka + Avro con handshake PRODML y MQTT (básico)
+- ✅ **15 Assinaturas Canônicas** (M15) — 6 originales + 9 nuevas
+- ✅ **LF-DAS / eXDTS** (M1) — temperatura de alta tasa (~2s refresh)
+- ✅ **Ontología** (`alakoro/ontology`) — modelo RDF/OWL + bridge con asinaturas
+- ✅ **Testes Unitários** — pytest con 213 tests pasando
 - ✅ **PyPI** — `pip install alakoro-fibersense`
-- ✅ **CI/CD** — GitHub Actions com testes, lint, build C++, PyPI e release
-- ✅ **Documentação em 4 idiomas** — PT, EN, ES, ZH
+- ✅ **CI/CD** — GitHub Actions con tests, lint, build C++, PyPI y release
+- ✅ **Documentación en 4 idiomas** — PT, EN, ES, ZH
 
 ---
 
@@ -146,7 +146,7 @@ validation = validator.validate_signature(jt, result)
 print(f"✅ {validation['passed']}/{validation['total']} passaram ({validation['success_rate']:.0f}%)")
 ```
 
-#### 🌡️ Processamento Térmico DTS
+#### 🌡️ Procesamiento Térmico DTS
 
 ```python
 import numpy as np
@@ -171,9 +171,9 @@ print(result['anomalies'].sum())         # número de amostras anômalas
 
 ---
 
-### 🔌 Drivers Proprietários
+### 🔌 Drivers Propietarios
 
-O Alakoro v2.9.0 introduz uma arquitetura de **plugins opcionais para drivers de fabricantes** DFOS/DAS. O core permanece MIT; drivers comerciais são distribuídos em pacotes separados e registrados via entry point `alakoro.driver`.
+Alakoro v2.9.0 introduce una arquitectura de **plugins opcionales para drivers de fabricantes** DFOS/DAS. El core sigue siendo MIT; los drivers comerciales se distribuyen en paquetes separados y se registran vía entry point `alakoro.driver`.
 
 ```python
 from alakoro.io.drivers import read_vendor, list_available_drivers, detect_driver
@@ -191,13 +191,13 @@ patch = read_vendor("/dados/poco.exd")
 patch = read_vendor("/dados/poco.bin", vendor_hint="meu_fabricante")
 ```
 
-> 📖 Veja o guia completo em [docs/drivers/plugins.md](docs/drivers/plugins.md).
+> 📖 Consulta la guía completa en [docs/drivers/plugins.md](docs/drivers/plugins.md).
 
 ---
 
-### 🖥️ Interface Gráfica Desktop
+### 🖥️ Interfaz Gráfica de Escritorio
 
-O Alakoro v2.11.0 inclui uma **GUI desktop nativa** construída com **PySide6** (licença LGPL) e **PyQtGraph** para visualização científica de alta performance.
+Alakoro v2.11.0 incluye una **GUI de escritorio nativa** construida con **PySide6** (licencia LGPL) y **PyQtGraph** para visualización científica de alto rendimiento.
 
 ```bash
 # Instalar com dependências da GUI
@@ -208,27 +208,27 @@ alakoro-gui
 ```
 
 Funcionalidades:
-- 📂 Carregamento de arquivos com detecção automática de formato (DASCore/Xdas/drivers)
-- 🖱️ Drag-and-drop e arquivos recentes
-- ↩️ Undo/redo de processamentos
-- 🗺️ Mapa de calor 2D com ROI, colormap e escala configuráveis
-- 📈 Perfis interativos (seleção de tempos, média ± desvio)
+- 📂 Carga de archivos con detección automática de formato (DASCore/Xdas/drivers)
+- 🖱️ Drag-and-drop y archivos recientes
+- ↩️ Undo/redo de procesamientos
+- 🗺️ Mapa de calor 2D con ROI, colormap y escala configurables
+- 📈 Perfiles interactivos (selección de tiempos, media ± desviación)
 - 📊 Espectrograma STFT por canal
-- 🔧 Painel de processadores: Butterworth, detrend/demean/taper, median/SVD denoising, STA/LTA, PSD
-- 🌡️ Painel térmico DTS: gradiente, baseline geotérmico, anomalias, pipeline completo
-- 🤖 Validação de assinaturas, relatório detalhado, máscara de anomalias e inferência ML
-- 🎓 Wizard de treinamento de modelos (Random Forest/SVM)
-- 🧱 Editor visual de pipelines e presets JSON
-- 🔄 Batch processing em pastas
-- 💾 Exportação para NetCDF, NumPy, PNG, CSV, Avro, Protobuf
-- 📊 Exportação de figuras configuráveis e relatórios HTML/PDF
-- 📝 Log persistente em `~/.alakoro/alakoro.log`
+- 🔧 Panel de procesadores: Butterworth, detrend/demean/taper, median/SVD denoising, STA/LTA, PSD
+- 🌡️ Panel térmico DTS: gradiente, baseline geotérmico, anomalías, pipeline completo
+- 🤖 Validación de asinaturas, informe detallado, máscara de anomalías e inferencia ML
+- 🎓 Asistente de entrenamiento de modelos (Random Forest/SVM)
+- 🧱 Editor visual de pipelines y presets JSON
+- 🔄 Batch processing en carpetas
+- 💾 Exportación a NetCDF, NumPy, PNG, CSV, Avro, Protobuf
+- 📊 Exportación de figuras configurables e informes HTML/PDF
+- 📝 Registro persistente en `~/.alakoro/alakoro.log`
 
-> A GUI roda em thread separada para não travar a interface durante processamentos C++20.
+> La GUI se ejecuta en un hilo separado para no bloquear la interfaz durante los procesamientos C++20.
 
 ---
 
-### 📂 Leitura de Dados
+### 📂 Lectura de Datos
 
 ```python
 # Via DASCore
@@ -247,7 +247,7 @@ patch_back = xdas_to_alakoro(xda)
 
 ---
 
-### 🗜️ Serialização e Streaming
+### 🗜️ Serialización y Streaming
 
 ```python
 # Avro (Python/fastavro) — ideal para Kafka e data lakes
@@ -268,13 +268,13 @@ with driver:
     driver.produce(patch)
 ```
 
-> 📖 Veja [docs/api/serialization.md](docs/api/serialization.md) e [docs/integration/kafka_avro.md](docs/integration/kafka_avro.md).
+> 📖 Consulta [docs/api/serialization.md](docs/api/serialization.md) y [docs/integration/kafka_avro.md](docs/integration/kafka_avro.md).
 
 ---
 
-### 📦 Instalação por Plataforma
+### 📦 Instalación por Plataforma
 
-#### 🟢 Modo Leigo
+#### 🟢 Modo Novato
 ```bash
 # Windows: clique duplo em:
 install/INSTALL_WINDOWS.bat
@@ -312,20 +312,20 @@ from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConf
 
 ---
 
-### 📚 Documentação
+### 📚 Documentación
 
-| Documento | Descrição |
-|-----------|-----------|
-| [INSTALL.md](INSTALL.md) | Guia de instalação completo |
-| [USER_GUIDE.md](USER_GUIDE.md) | Guia do usuário com exemplos |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Como contribuir |
-| [CHANGELOG.md](CHANGELOG.md) | Histórico de versões |
+| Documento | Descripción |
+|-----------|-------------|
+| [INSTALL.md](INSTALL.md) | Guía de instalación completa |
+| [USER_GUIDE.md](USER_GUIDE.md) | Guía del usuario con ejemplos |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo contribuir |
+| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones |
 | [LICENSE](LICENSE) | MIT License |
-| [cronograma/Alakoro_FiberSense_Documento_Integrado_Atualizado.md](cronograma/Alakoro_FiberSense_Documento_Integrado_Atualizado.md) | Cronograma e roadmap atualizado |
+| [cronograma/Alakoro_FiberSense_Documento_Integrado_Atualizado.md](cronograma/Alakoro_FiberSense_Documento_Integrado_Atualizado.md) | Cronograma y roadmap actualizado |
 
 ---
 
-### 🏗️ Arquitetura
+### 🏗️ Arquitectura
 
 ```
 Alakoro FiberSense v2.11.0
@@ -381,12 +381,12 @@ Alakoro FiberSense v2.11.0
 
 ---
 
-### 🤝 Contribuindo
+### 🤝 Contribuir
 
-Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes.
+Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para más detalles.
 
 ---
 
-### 📄 Licença
+### 📄 Licencia
 
 [MIT License](LICENSE) — Luiz Paulo Colombiano, 2026
