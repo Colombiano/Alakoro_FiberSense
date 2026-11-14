@@ -46,6 +46,67 @@ class OntologyModel:
         self.graph.add((ALAKORO.createdAt, RDFS.domain, ALAKORO.Entity))
         self.graph.add((ALAKORO.createdAt, RDFS.range, XSD.dateTime))
 
+        # ─── Domínio MSE: estruturas e elementos / SHM domain: structures ───
+        classes_mse = [
+            (ALAKORO.Estrutura, "Estrutura", "Structure"),
+            (ALAKORO.EdificioEclesiastico, "Edifício Eclesiástico", "Ecclesiastical Building"),
+            (ALAKORO.ElementoEstrutural, "Elemento Estrutural", "Structural Element"),
+            (ALAKORO.Alvenaria, "Alvenaria", "Masonry"),
+            (ALAKORO.Fundacao, "Fundação", "Foundation"),
+            (ALAKORO.TorreSineira, "Torre Sineira", "Bell Tower"),
+            (ALAKORO.Cobertura, "Cobertura", "Roof"),
+            (ALAKORO.Abobada, "Abóbada", "Vault"),
+            (ALAKORO.Fissura, "Fissura", "Crack"),
+            (ALAKORO.InstalacaoFibra, "Instalação de Fibra", "Fiber Installation"),
+        ]
+        for classe, pt, en in classes_mse:
+            self.graph.add((classe, RDF.type, OWL.Class))
+            self.graph.add((classe, RDFS.label, Literal(pt, lang="pt")))
+            self.graph.add((classe, RDFS.label, Literal(en, lang="en")))
+        self.graph.add((ALAKORO.EdificioEclesiastico, RDFS.subClassOf, ALAKORO.Estrutura))
+        for subclasse in (ALAKORO.Alvenaria, ALAKORO.Fundacao, ALAKORO.TorreSineira,
+                          ALAKORO.Cobertura, ALAKORO.Abobada):
+            self.graph.add((subclasse, RDFS.subClassOf, ALAKORO.ElementoEstrutural))
+
+        propriedades_mse = [
+            (ALAKORO.hasLocalizacao, XSD.string),
+            (ALAKORO.hasAnoConstrucao, XSD.integer),
+            (ALAKORO.hasEstadoConservacao, XSD.string),
+            (ALAKORO.hasEstiloArquitetonico, XSD.string),
+            (ALAKORO.hasDiocese, XSD.string),
+            (ALAKORO.hasParoquia, XSD.string),
+            (ALAKORO.hasMaterial, XSD.string),
+            (ALAKORO.hasTipoAlvenaria, XSD.string),
+            (ALAKORO.hasTipoFundacao, XSD.string),
+            (ALAKORO.hasAlturaM, XSD.float),
+            (ALAKORO.hasNumeroSinos, XSD.integer),
+            (ALAKORO.hasTipoCobertura, XSD.string),
+            (ALAKORO.hasInclinacaoGraus, XSD.float),
+            (ALAKORO.hasTipoAbobada, XSD.string),
+            (ALAKORO.hasLuzM, XSD.float),
+            (ALAKORO.hasPosicaoM, XSD.float),
+            (ALAKORO.hasLarguraMm, XSD.float),
+            (ALAKORO.hasTipoFissura, XSD.string),
+            (ALAKORO.hasAtividade, XSD.string),
+            (ALAKORO.hasComprimentoM, XSD.float),
+            (ALAKORO.hasTecnica, XSD.string),
+            (ALAKORO.hasDataInstalacao, XSD.dateTime),
+        ]
+        for propriedade, alcance in propriedades_mse:
+            self.graph.add((propriedade, RDF.type, OWL.DatatypeProperty))
+            self.graph.add((propriedade, RDFS.domain, ALAKORO.Entity))
+            self.graph.add((propriedade, RDFS.range, alcance))
+
+        propriedades_objeto_mse = [
+            (ALAKORO.hasElemento, ALAKORO.Estrutura, ALAKORO.ElementoEstrutural),
+            (ALAKORO.hasFissura, ALAKORO.ElementoEstrutural, ALAKORO.Fissura),
+            (ALAKORO.hasInstalacaoFibra, ALAKORO.Estrutura, ALAKORO.InstalacaoFibra),
+        ]
+        for propriedade, dominio, alcance in propriedades_objeto_mse:
+            self.graph.add((propriedade, RDF.type, OWL.ObjectProperty))
+            self.graph.add((propriedade, RDFS.domain, dominio))
+            self.graph.add((propriedade, RDFS.range, alcance))
+
     def add(self, entity: "AlakoroEntity"):
         """Adiciona uma entidade ao grafo."""
         entity._attach(self.graph)

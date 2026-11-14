@@ -30,6 +30,11 @@ torchvision>=0.15.0
 fastavro>=1.9.0
 kafka-python>=2.0.0
 
+# ─── Extra: mse (pip install alakoro-fibersense[mse]) ───
+# Runtime Lua para cenários do módulo MSE (alakoro.mse.cenarios).
+# Descomente para rodar o teste test_mse_lua.py no CI:
+# lupa>=2.0
+
 # ─── Extra: gui (pip install alakoro-fibersense[gui]) ───
 PySide6>=6.5.0
 PyQtGraph>=0.13.0

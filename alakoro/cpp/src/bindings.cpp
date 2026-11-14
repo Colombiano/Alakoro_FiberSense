@@ -15,6 +15,7 @@
 #include "alakoro/filters.hpp"
 #include "alakoro/fft.hpp"
 #include "alakoro/inference_engine.hpp"
+#include "alakoro/mse.hpp"
 #include "alakoro/processors.hpp"
 #include "alakoro/serialization.hpp"
 #include "alakoro/thermal.hpp"
@@ -30,6 +31,7 @@
 #include <span>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace py = pybind11;
 using namespace alakoro;
@@ -180,6 +182,35 @@ py::array_t<T> vector_to_numpy_2d(std::vector<T> vec, std::size_t n_times, std::
         data,
         capsule
     );
+}
+
+/**
+ * @brief Dispacha o nome de um material (string) para uma função template.
+ *
+ * Cada branch passa um std::integral_constant<MaterialAlvenaria, M>, assim o
+ * corpo da lambda pode usar `constexpr auto M = decltype(c)::value` com
+ * if constexpr — dispatch em tempo de compilação a partir de runtime.
+ *
+ * @throws std::invalid_argument Se o material não for um dos quatro conhecidos.
+ */
+template <typename F>
+decltype(auto) dispatch_mse_material(const std::string& material, F&& fn) {
+    namespace mse = alakoro::mse;
+    if (material == "tijolo") {
+        return fn(std::integral_constant<mse::MaterialAlvenaria, mse::MaterialAlvenaria::Tijolo>{});
+    }
+    if (material == "pedra") {
+        return fn(std::integral_constant<mse::MaterialAlvenaria, mse::MaterialAlvenaria::Pedra>{});
+    }
+    if (material == "argamassa") {
+        return fn(std::integral_constant<mse::MaterialAlvenaria, mse::MaterialAlvenaria::Argamassa>{});
+    }
+    if (material == "concreto") {
+        return fn(std::integral_constant<mse::MaterialAlvenaria, mse::MaterialAlvenaria::Concreto>{});
+    }
+    throw std::invalid_argument(
+        "dispatch_mse_material: unknown material '" + material +
+        "' (expected: tijolo, pedra, argamassa, concreto)");
 }
 
 PYBIND11_MODULE(_alakoro_core, m) {
@@ -696,4 +727,155 @@ PYBIND11_MODULE(_alakoro_core, m) {
           },
           py::arg("dts"), py::arg("das") = py::none(), py::arg("metadata"),
           "Convenience function: run CanonicalInferenceEngine.infer()");
+
+    // =============================================================================
+    // MSE — Monitoramento da Saúde Estrutural (DFOS em edifícios antigos)
+    // =============================================================================
+    namespace mse = alakoro::mse;
+
+    py::enum_<mse::MaterialAlvenaria>(m, "MaterialAlvenaria",
+                                      "Masonry materials for MSE thermal wave analysis")
+        .value("Tijolo", mse::MaterialAlvenaria::Tijolo)
+        .value("Pedra", mse::MaterialAlvenaria::Pedra)
+        .value("Argamassa", mse::MaterialAlvenaria::Argamassa)
+        .value("Concreto", mse::MaterialAlvenaria::Concreto);
+
+    m.def("mse_material_traits_d",
+          [](const std::string& material) {
+              return dispatch_mse_material(material, [](auto material_c) {
+                  constexpr auto M = decltype(material_c)::value;
+                  return py::make_tuple(
+                      mse::MaterialTraits<M>::difusividade_m2_s,
+                      mse::MaterialTraits<M>::coef_dilatacao_1_c,
+                      mse::penetracao_termica_m<M>(mse::ThermalWaveSolver<M>::kPeriodoDiarioS),
+                      mse::penetracao_termica_m<M>(mse::ThermalWaveSolver<M>::kPeriodoAnualS));
+              });
+          },
+          py::arg("material"),
+          "Material traits -> (diffusivity_m2_s, expansion_1_per_c, "
+          "penetration_daily_m, penetration_annual_m). "
+          "material: 'tijolo' | 'pedra' | 'argamassa' | 'concreto'.");
+
+    m.def("mse_thermal_wave_d",
+          [](const std::string& material,
+             py::array_t<double> profundidades,
+             py::array_t<double> tempos,
+             py::array_t<double> amplitudes_k,
+             double periodo_s,
+             bool incluir_anual) {
+              auto prof_buf = profundidades.request();
+              auto tem_buf = tempos.request();
+              auto amp_buf = amplitudes_k.request();
+              if (prof_buf.ndim != 1 || tem_buf.ndim != 1 || amp_buf.ndim != 1) {
+                  throw std::invalid_argument(
+                      "mse_thermal_wave_d: profundidades, tempos and amplitudes_k must be 1D arrays");
+              }
+              const std::size_t n_pos = static_cast<std::size_t>(prof_buf.shape[0]);
+              const std::size_t n_t = static_cast<std::size_t>(tem_buf.shape[0]);
+              if (n_pos == 0 || n_t == 0) {
+                  throw std::invalid_argument("mse_thermal_wave_d: arrays must not be empty");
+              }
+              if (amp_buf.shape[0] != tem_buf.shape[0]) {
+                  throw std::invalid_argument(
+                      "mse_thermal_wave_d: amplitudes_k must have the same size as tempos");
+              }
+              std::span<const double> prof_span(static_cast<const double*>(prof_buf.ptr), n_pos);
+              std::span<const double> tempos_span(static_cast<const double*>(tem_buf.ptr), n_t);
+              std::span<const double> amp_span(static_cast<const double*>(amp_buf.ptr), n_t);
+
+              std::vector<double> saida(n_t * n_pos, 0.0);
+              std::span<double> saida_span(saida.data(), saida.size());
+              dispatch_mse_material(material, [&](auto material_c) {
+                  constexpr auto M = decltype(material_c)::value;
+                  mse::ThermalWaveSolver<M> solver(prof_span);
+                  if (incluir_anual) {
+                      solver.template apply<true>(tempos_span, amp_span, saida_span, periodo_s);
+                  } else {
+                      solver.template apply<false>(tempos_span, amp_span, saida_span, periodo_s);
+                  }
+              });
+              return vector_to_numpy_2d(std::move(saida), n_t, n_pos);
+          },
+          py::arg("material"), py::arg("profundidades"), py::arg("tempos"),
+          py::arg("amplitudes_k"), py::arg("periodo_s"), py::arg("incluir_anual") = false,
+          "Analytic Ångström thermal wave T(t, x) for a masonry material. "
+          "Returns a 2D array (time, depth) with harmonic daily (periodo_s) plus "
+          "optional annual component.");
+
+    m.def("mse_crack_strain_profile_d",
+          [](py::array_t<double> posicoes,
+             py::array_t<double> posicoes_fissura,
+             py::array_t<double> aberturas_mm,
+             double comprimento_transferencia_m,
+             double resolucao_espacial_m) {
+              auto pos_buf = posicoes.request();
+              auto fiss_buf = posicoes_fissura.request();
+              auto ab_buf = aberturas_mm.request();
+              if (pos_buf.ndim != 1 || fiss_buf.ndim != 1 || ab_buf.ndim != 1) {
+                  throw std::invalid_argument("mse_crack_strain_profile_d: all arrays must be 1D");
+              }
+              if (fiss_buf.shape[0] != ab_buf.shape[0]) {
+                  throw std::invalid_argument(
+                      "mse_crack_strain_profile_d: posicoes_fissura and aberturas_mm sizes differ");
+              }
+              auto perfil = mse::perfil_deformacao_fissura<double>(
+                  std::span<const double>(static_cast<const double*>(pos_buf.ptr),
+                                          static_cast<std::size_t>(pos_buf.shape[0])),
+                  std::span<const double>(static_cast<const double*>(fiss_buf.ptr),
+                                          static_cast<std::size_t>(fiss_buf.shape[0])),
+                  std::span<const double>(static_cast<const double*>(ab_buf.ptr),
+                                          static_cast<std::size_t>(ab_buf.shape[0])),
+                  comprimento_transferencia_m,
+                  resolucao_espacial_m);
+              return vector_to_numpy(std::move(perfil));
+          },
+          py::arg("posicoes"), py::arg("posicoes_fissura"), py::arg("aberturas_mm"),
+          py::arg("comprimento_transferencia_m"), py::arg("resolucao_espacial_m"),
+          "Crack strain profile eps(x) = sum_k (w_k / L_t) * triangle(x; center_k, 2*SR) "
+          "with gauge-length moving average (window = L_t / SR samples).");
+
+    m.def("mse_ae_impulse_d",
+          [](std::size_t n_amostras, double fs_hz, double f0_hz, double f1_hz,
+             double duracao_s, double amplitude_ue, std::uint64_t seed) {
+              return vector_to_numpy(
+                  mse::impulso_ae(n_amostras, fs_hz, f0_hz, f1_hz,
+                                  duracao_s, amplitude_ue, seed));
+          },
+          py::arg("n_amostras"), py::arg("fs_hz"), py::arg("f0_hz"), py::arg("f1_hz"),
+          py::arg("duracao_s"), py::arg("amplitude_ue"), py::arg("seed"),
+          "Band-limited AE impulse (f0..f1, deterministic phases from seed) with fast "
+          "rise + exponential decay, followed by a permanent crack-opening step "
+          "(0.1 * amplitude_ue).");
+
+    m.def("mse_modal_decay_d",
+          [](std::size_t n_amostras, double fs_hz, double frequencia_hz,
+             double amortecimento, double amplitude) {
+              return vector_to_numpy(
+                  mse::decaimento_modal(n_amostras, fs_hz, frequencia_hz,
+                                        amortecimento, amplitude));
+          },
+          py::arg("n_amostras"), py::arg("fs_hz"), py::arg("frequencia_hz"),
+          py::arg("amortecimento"), py::arg("amplitude"),
+          "Damped modal ringing x(t) = A * exp(-zeta*wn*t) * cos(wd*t), "
+          "wd = wn*sqrt(1 - zeta^2). Typical 1-5 Hz masonry tower modes.");
+
+    // Re-exporta os nomes MSE como atributos do pacote `alakoro_core`. O
+    // __init__.py do pacote mantém uma lista fixa de importações (fora do
+    // escopo deste módulo C++); sem isso, `from alakoro_core import mse_*`
+    // falharia. PYBIND11_MODULE executa durante o `from ._alakoro_core
+    // import (...)` do __init__, então o pacote pai já está em sys.modules.
+    if (PyObject* pkg = PyImport_ImportModule("alakoro_core")) {
+        py::object pacote = py::reinterpret_steal<py::object>(pkg);
+        for (const char* nome : {"mse_thermal_wave_d",
+                                 "mse_crack_strain_profile_d",
+                                 "mse_ae_impulse_d",
+                                 "mse_modal_decay_d",
+                                 "mse_material_traits_d",
+                                 "MaterialAlvenaria"}) {
+            pacote.attr(nome) = m.attr(nome);
+        }
+    } else {
+        // Import standalone do .so (sem o pacote): mantém só o módulo nativo.
+        PyErr_Clear();
+    }
 }

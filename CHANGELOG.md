@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Adições
+
+- **Adicionado:** módulo MSE (`alakoro/mse/`) — Monitoramento da Saúde Estrutural de edificações antigas via fibra óptica distribuída (DFOS): simulador de assinaturas físicas com difusão térmica 1D em alvenaria (solução analítica de Owczarek 2021), ponte térmica de fissuras, abertura de fissura em Brillouin (DSS) com correção térmica de cross-sensibilidade (≈ 20 µε/°C), recalque diferencial, emissão acústica de fissuras (DAS) com ringing modal, vibração modal de torres de alvenaria, ruído ambiental urbano e cenário fissura multimodal (DTS+DSS+DAS na mesma posição).
+- **Adicionado:** ontologia paralela em português para o domínio MSE (`alakoro/ontology/estruturas.py`): Estrutura, EdificioEclesiastico, ElementoEstrutural (Alvenaria, Fundacao, TorreSineira, Cobertura, Abobada), Fissura e InstalacaoFibra, mais 5 eventos MSE em `alakoro/ontology/events.py` (PropagacaoFissuraEvento, AberturaFissuraTermicaEvento, EventoAcusticoFissura, AnomaliaTermicaEvento, RecalqueEvento).
+- **Adicionado:** núcleo C++20 do MSE (`alakoro/cpp/include/alakoro/mse.hpp`): traits de material em tempo de compilação (MaterialTraits<M>), solver térmico harmônico move-only (ThermalWaveSolver), fold expressions sobre blocos de fissuras, concepts (FloatingPoint), if constexpr por material/harmônico e initializers designados — exposto em Python via `alakoro_core` (`mse_thermal_wave_d`, `mse_crack_strain_profile_d`, `mse_ae_impulse_d`, `mse_modal_decay_d`, `mse_material_traits_d`), com integração automática no gerador (fallback NumPy puro mantido) e flag `NUCLEO_CPP_ATIVO`.
+- **Adicionado:** carregamento de cenários de monitoramento escritos em Lua (extra `mse`, via `lupa`): `carrega_cenario_lua`, `aplica_cenario`, `constroi_geometria` e `constroi_aquisicao`, com exemplo `examples/mse_cenario.lua` (ruína de igreja colonial monitorada por DAS+DTS+DSS).
+- **Adicionado:** visualizador Qt do MSE (`alakoro/mse/viewer.py`): `JanelaVisualizacaoMSE` com três `HeatmapView` lado a lado (Temperatura (DTS), Deformação (DSS), Acústica (DAS)), marcação de fissuras e legenda; import lazy de PySide6 (extra `gui`).
+- **Adicionado:** `MotorInferenciaMSE` — motor de inferência determinística que emite os eventos da ontologia a partir dos arrays DTS/DSS/DAS (pico de deformação por proeminência MAD, envoltória de Hilbert + STA/LTA na banda 50–500 Hz, offset térmico persistente e correção térmica Brillouin do DSS).
+
 ### Mudanças / Changed
 
 - **Changed:** pacote renomeado de `src` para `alakoro` — imports passam a ser `from alakoro.x import ...` (preparação para publicação no PyPI).

@@ -121,3 +121,113 @@ class WarmBackEvent(Event):
         super()._attach(graph)
         for depth in self.injection_depths:
             graph.add((self.uri, ALAKORO.hasInjectionDepth, Literal(depth, datatype=XSD.float)))
+
+
+class PropagacaoFissuraEvento(Event):
+    """Evento de propagação/abertura de fissura (DSS) / Crack propagation event (DSS)."""
+
+    _type = ALAKORO.PropagacaoFissuraEvento
+
+    def __init__(self, posicao_fissura_m: Optional[float] = None,
+                 abertura_ue: Optional[float] = None, **kwargs):
+        kwargs.setdefault("event_type", "CrackPropagation")
+        kwargs.setdefault("name", "Propagação de Fissura")
+        super().__init__(**kwargs)
+        self.posicao_fissura_m = posicao_fissura_m
+        self.abertura_ue = abertura_ue
+
+    def _attach(self, graph: Graph):
+        super()._attach(graph)
+        if self.posicao_fissura_m is not None:
+            graph.add((self.uri, ALAKORO.hasPosicaoFissuraM,
+                       Literal(self.posicao_fissura_m, datatype=XSD.float)))
+        if self.abertura_ue is not None:
+            graph.add((self.uri, ALAKORO.hasAberturaUe, Literal(self.abertura_ue, datatype=XSD.float)))
+
+
+class AberturaFissuraTermicaEvento(Event):
+    """Evento de abertura/fecho térmico de fissura / Thermally driven crack opening event."""
+
+    _type = ALAKORO.AberturaFissuraTermicaEvento
+
+    def __init__(self, posicao_m: Optional[float] = None,
+                 variacao_termica_c: Optional[float] = None, **kwargs):
+        kwargs.setdefault("event_type", "ThermalCrackOpening")
+        kwargs.setdefault("name", "Abertura Térmica de Fissura")
+        super().__init__(**kwargs)
+        self.posicao_m = posicao_m
+        self.variacao_termica_c = variacao_termica_c
+
+    def _attach(self, graph: Graph):
+        super()._attach(graph)
+        if self.posicao_m is not None:
+            graph.add((self.uri, ALAKORO.hasPosicaoM, Literal(self.posicao_m, datatype=XSD.float)))
+        if self.variacao_termica_c is not None:
+            graph.add((self.uri, ALAKORO.hasVariacaoTermicaC,
+                       Literal(self.variacao_termica_c, datatype=XSD.float)))
+
+
+class EventoAcusticoFissura(Event):
+    """Evento acústico de fissura (DAS) / Crack acoustic emission event (DAS)."""
+
+    _type = ALAKORO.EventoAcusticoFissura
+
+    def __init__(self, posicao_m: Optional[float] = None, energia: Optional[float] = None,
+                 taxa_eventos_h: Optional[float] = None, **kwargs):
+        kwargs.setdefault("event_type", "CrackAcousticEmission")
+        kwargs.setdefault("name", "Emissão Acústica de Fissura")
+        super().__init__(**kwargs)
+        self.posicao_m = posicao_m
+        self.energia = energia
+        self.taxa_eventos_h = taxa_eventos_h
+
+    def _attach(self, graph: Graph):
+        super()._attach(graph)
+        if self.posicao_m is not None:
+            graph.add((self.uri, ALAKORO.hasPosicaoM, Literal(self.posicao_m, datatype=XSD.float)))
+        if self.energia is not None:
+            graph.add((self.uri, ALAKORO.hasEnergia, Literal(self.energia, datatype=XSD.float)))
+        if self.taxa_eventos_h is not None:
+            graph.add((self.uri, ALAKORO.hasTaxaEventosH, Literal(self.taxa_eventos_h, datatype=XSD.float)))
+
+
+class AnomaliaTermicaEvento(Event):
+    """Evento de anomalia térmica local (DTS) / Local thermal anomaly event (DTS)."""
+
+    _type = ALAKORO.AnomaliaTermicaEvento
+
+    def __init__(self, posicao_m: Optional[float] = None,
+                 offset_k: Optional[float] = None, **kwargs):
+        kwargs.setdefault("event_type", "ThermalAnomaly")
+        kwargs.setdefault("name", "Anomalia Térmica")
+        super().__init__(**kwargs)
+        self.posicao_m = posicao_m
+        self.offset_k = offset_k
+
+    def _attach(self, graph: Graph):
+        super()._attach(graph)
+        if self.posicao_m is not None:
+            graph.add((self.uri, ALAKORO.hasPosicaoM, Literal(self.posicao_m, datatype=XSD.float)))
+        if self.offset_k is not None:
+            graph.add((self.uri, ALAKORO.hasOffsetK, Literal(self.offset_k, datatype=XSD.float)))
+
+
+class RecalqueEvento(Event):
+    """Evento de recalque diferencial / Differential settlement event."""
+
+    _type = ALAKORO.RecalqueEvento
+
+    def __init__(self, taxa_ue_dia: Optional[float] = None,
+                 posicao_m: Optional[float] = None, **kwargs):
+        kwargs.setdefault("event_type", "DifferentialSettlement")
+        kwargs.setdefault("name", "Recalque Diferencial")
+        super().__init__(**kwargs)
+        self.taxa_ue_dia = taxa_ue_dia
+        self.posicao_m = posicao_m
+
+    def _attach(self, graph: Graph):
+        super()._attach(graph)
+        if self.taxa_ue_dia is not None:
+            graph.add((self.uri, ALAKORO.hasTaxaUeDia, Literal(self.taxa_ue_dia, datatype=XSD.float)))
+        if self.posicao_m is not None:
+            graph.add((self.uri, ALAKORO.hasPosicaoM, Literal(self.posicao_m, datatype=XSD.float)))
