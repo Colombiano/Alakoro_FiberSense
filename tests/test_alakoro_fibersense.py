@@ -189,7 +189,9 @@ class TestLFDASProcessor:
     def test_thermal_coefficient(self, generator, lfdas):
         sig = generator.generate_joule_thomson()
         result = lfdas.process(sig['das'], trace_interval_s=2.0)
-        assert result['metadata']['thermal_coefficient'] == 100.0
+        # SP:I-03 (Onda 2): default 0.0028 °C/rad conforme literatura
+        # LF-DAS/eXDTS (faixa 0.001–0.005 calibrável por poço)
+        assert result['metadata']['thermal_coefficient'] == 0.0028
 
     def test_compute_relative_difference(self, generator, lfdas):
         sig = generator.generate_joule_thomson()

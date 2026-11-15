@@ -157,7 +157,9 @@ def _align_for_fusion(das: np.ndarray,
 def predict_flow(model: nn.Module,
                  das_patch: Union[AlakoroPatch, np.ndarray],
                  dts_patch: Union[AlakoroPatch, np.ndarray],
-                 device: Optional[torch.device] = None) -> Dict[str, list]:
+                 device: Optional[torch.device] = None,
+                 apply_decoupling: bool = False,
+                 decoupling_kwargs: Optional[dict] = None) -> Dict[str, list]:
     """
     Prediz taxa de fluxo por zona a partir de DAS + DTS.
 
@@ -165,8 +167,13 @@ def predict_flow(model: nn.Module,
     interpolação antes do empilhamento; grades incompatíveis sem coordenadas
     levantam ValueError.
 
+    Quando apply_decoupling=True (ML:D-03), o canal DAS é desacoplado do
+    termo térmico via alakoro.ml.decoupling.decouple_for_pipeline antes do
+    stack, e o resultado do desacoplamento é anexado em "decoupling".
+
     Retorna:
-        {"zones": [{"zone": int, "rate": float}]}
+        {"zones": [{"zone": int, "rate": float}], e opcionalmente
+         "decoupling": {...} quando apply_decoupling=True}
     """
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -180,6 +187,15 @@ def predict_flow(model: nn.Module,
 
     das, dts = _align_for_fusion(das, dts, das_patch, dts_patch)
 
+    decoupling_info = None
+    if apply_decoupling:
+        from alakoro.ml.decoupling import decouple_for_pipeline
+
+        decoupling_info = decouple_for_pipeline(
+            das, dts, **(decoupling_kwargs or {})
+        )
+        das = decoupling_info["decoupled"]
+
     # Empilha canais: (1, 2, time, distance)
     stacked = np.stack([das, dts], axis=0).astype(np.float32)
     tensor = torch.from_numpy(stacked).unsqueeze(0).to(device)
@@ -188,12 +204,19 @@ def predict_flow(model: nn.Module,
         output = model(tensor)
         rates = output.squeeze().cpu().numpy()
 
-    return {
+    result: Dict[str, list] = {
         "zones": [
             {"zone": i, "rate": float(rate)}
-            for i, rate in enumerate(rates)
+            for i, rate in enumerate(np.atleast_1d(rates))
         ]
     }
+    if decoupling_info is not None:
+        result["decoupling"] = {
+            "global_coefficient": decoupling_info["global_coefficient"],
+            "constrained": decoupling_info["constrained"],
+            "backend": decoupling_info["backend"],
+        }
+    return result
 
 
 def load_model_for_inference(model_class: str,

@@ -5,6 +5,7 @@ Alakoro FiberSense — Módulo de Machine Learning
 from .api import load_model_for_inference, predict_event, predict_flow, predict_segmentation
 from .bridge import MLOntoBridge
 from .data import DASDataset, split_dataset
+from .decoupling import decouple_for_pipeline
 from .eval import evaluate_classifier, evaluate_regressor
 from .features import DASFeatureExtractor, DTSFeatureExtractor, extract_features_batch
 from .models import EventCNN, FlowRegressor, UNet2D
@@ -16,6 +17,7 @@ __all__ = [
     "DASFeatureExtractor",
     "DTSFeatureExtractor",
     "extract_features_batch",
+    "decouple_for_pipeline",
     "EventCNN",
     "UNet2D",
     "FlowRegressor",

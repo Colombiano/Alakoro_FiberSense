@@ -17,17 +17,28 @@ class DASFeatureExtractor:
     Extrator configurável de features para patches DAS.
 
     Pode operar em modo 'flat' (vetor 1D) ou 'image' (mapa 2D).
+
+    A velocidade aparente (ML:D-04) é estimada com SINAL por correlação de
+    pico entre canais adjacentes — v = Δz/Δt — e é reportada em m/s quando
+    fs_hz e channel_spacing_m são informados, ou em canais/amostra caso
+    contrário. / The apparent velocity feature is estimated WITH SIGN via
+    peak cross-correlation between adjacent channels (v = Δz/Δt), reported
+    in m/s when fs_hz and channel_spacing_m are given.
     """
 
     def __init__(self,
                  stats: bool = True,
                  spectral: bool = True,
                  wavelet: bool = False,
-                 das_specific: bool = True):
+                 das_specific: bool = True,
+                 fs_hz: Optional[float] = None,
+                 channel_spacing_m: Optional[float] = None):
         self.stats = stats
         self.spectral = spectral
         self.wavelet = wavelet
         self.das_specific = das_specific
+        self.fs_hz = fs_hz
+        self.channel_spacing_m = channel_spacing_m
 
     def __call__(self, patch: np.ndarray) -> np.ndarray:
         """Extrai features de um patch 2D (time, distance)."""
@@ -60,14 +71,19 @@ class DASFeatureExtractor:
         ], dtype=np.float32)
 
     def _spectral_features(self, patch: np.ndarray) -> np.ndarray:
-        """Features espectrais via STFT ao longo do tempo (média por canal)."""
+        """Features espectrais via Welch ao longo do tempo (média por canal).
+
+        Usa a taxa de amostragem real fs_hz (ML:I-03) quando informada no
+        construtor; caso contrário assume fs=1.0 (comportamento legado).
+        """
         n_t, n_c = patch.shape
         if n_t < 8:
             return np.zeros(4, dtype=np.float32)
 
+        fs = float(self.fs_hz) if self.fs_hz else 1.0
         psd_per_channel = []
         for c in range(n_c):
-            f, psd = signal.welch(patch[:, c], fs=1.0, nperseg=min(64, n_t))
+            f, psd = signal.welch(patch[:, c], fs=fs, nperseg=min(64, n_t))
             psd_per_channel.append(psd)
 
         psd_mean = np.mean(psd_per_channel, axis=0)
@@ -101,6 +117,42 @@ class DASFeatureExtractor:
         except Exception:
             return np.zeros(4, dtype=np.float32)
 
+    def _apparent_velocity(self, patch: np.ndarray) -> float:
+        """
+        Velocidade aparente COM SINAL (ML:D-04) via correlação de pico entre
+        canais adjacentes: v = Δz/Δt, com Δt atraso do pico de correlação
+        cruzada. Eventos descendentes (atraso crescente com a profundidade)
+        têm v > 0; ascendentes têm v < 0. / Signed apparent velocity via
+        peak cross-correlation between adjacent channels; downward events
+        (increasing delay with depth) are positive, upward negative.
+
+        Unidades: m/s quando fs_hz e channel_spacing_m são informados no
+        construtor; canais/amostra (1/atraso, com sinal) caso contrário.
+        """
+        n_t, n_c = patch.shape
+        if n_t < 2 or n_c < 2:
+            return 0.0
+
+        velocities = []
+        for c in range(n_c - 1):
+            x0 = patch[:, c]
+            x1 = patch[:, c + 1]
+            if x0.std() < 1e-12 or x1.std() < 1e-12:
+                continue
+            x0 = x0 - x0.mean()
+            x1 = x1 - x1.mean()
+            corr = np.correlate(x1, x0, mode="full")
+            lag = int(np.argmax(corr)) - (n_t - 1)
+            if lag == 0:
+                velocities.append(0.0)
+            elif self.fs_hz and self.channel_spacing_m:
+                velocities.append(
+                    float(np.sign(lag) * self.channel_spacing_m * self.fs_hz / abs(lag))
+                )
+            else:
+                velocities.append(float(np.sign(lag) / abs(lag)))
+        return float(np.median(velocities)) if velocities else 0.0
+
     def _das_features(self, patch: np.ndarray) -> np.ndarray:
         """Features específicas de DAS: strain rate e velocidade aparente."""
         n_t, n_c = patch.shape
@@ -110,17 +162,13 @@ class DASFeatureExtractor:
         # Strain rate aproximado: derivada temporal média
         strain_rate = np.mean(np.abs(np.diff(patch, axis=0)))
 
-        # Velocidade aparente simplificada: correlação entre canais adjacentes
-        correlations = []
-        for c in range(n_c - 1):
-            if patch[:, c].std() > 0 and patch[:, c + 1].std() > 0:
-                corr = np.corrcoef(patch[:, c], patch[:, c + 1])[0, 1]
-                correlations.append(corr)
-        mean_corr = np.mean(correlations) if correlations else 0.0
+        # Velocidade aparente com sinal (substitui a correlação adjacente
+        # sempre-positiva removida na Onda 2, ML:D-04)
+        apparent_velocity = self._apparent_velocity(patch)
 
         return np.array([
             strain_rate,
-            mean_corr,
+            apparent_velocity,
             np.max(patch) - np.min(patch),  # amplitude pico-a-pico
             float(np.argmax(np.abs(patch)) / max(patch.size, 1)),
         ], dtype=np.float32)
@@ -131,18 +179,26 @@ class DTSFeatureExtractor:
     Extrator configurável de features para patches DTS.
 
     Além de estatísticas e espectrais básicas, inclui features térmicas
-    como gradiente geotérmico, anomalias e dT/dz.
+    como gradiente geotérmico, anomalias, dT/dz e delta_T_over_xf
+    (ΔT do cluster térmico / comprimento de fratura estimado, ML:E-05).
+
+    A taxa de amostragem real fs_hz (ML:I-03) pode ser informada no
+    construtor para as features espectrais; o default 1.0 preserva o
+    comportamento legado. / The real sampling rate fs_hz can be given for
+    spectral features; default 1.0 keeps legacy behavior.
     """
 
     def __init__(self,
                  stats: bool = True,
                  spectral: bool = True,
                  thermal: bool = True,
-                 anomaly: bool = True):
+                 anomaly: bool = True,
+                 fs_hz: Optional[float] = None):
         self.stats = stats
         self.spectral = spectral
         self.thermal = thermal
         self.anomaly = anomaly
+        self.fs_hz = fs_hz
 
     def __call__(self, patch: np.ndarray, depth_step_m: float = 1.0) -> np.ndarray:
         """Extrai features de um patch 2D DTS (time, depth)."""
@@ -175,14 +231,19 @@ class DTSFeatureExtractor:
         ], dtype=np.float32)
 
     def _spectral_features(self, patch: np.ndarray) -> np.ndarray:
-        """Features espectrais via Welch ao longo do tempo (média por canal)."""
+        """Features espectrais via Welch ao longo do tempo (média por canal).
+
+        Usa a taxa de amostragem real fs_hz (ML:I-03) quando informada no
+        construtor; caso contrário assume fs=1.0 (comportamento legado).
+        """
         n_t, n_c = patch.shape
         if n_t < 8:
             return np.zeros(4, dtype=np.float32)
 
+        fs = float(self.fs_hz) if self.fs_hz else 1.0
         psd_per_channel = []
         for c in range(n_c):
-            f, psd = signal.welch(patch[:, c], fs=1.0, nperseg=min(64, n_t))
+            f, psd = signal.welch(patch[:, c], fs=fs, nperseg=min(64, n_t))
             psd_per_channel.append(psd)
 
         psd_mean = np.mean(psd_per_channel, axis=0)
@@ -193,11 +254,49 @@ class DTSFeatureExtractor:
             float(f[np.argmax(psd_mean)] if len(f) > 0 else 0.0),
         ], dtype=np.float32)
 
+    def delta_T_over_xf(self, patch: np.ndarray, depth_step_m: float) -> float:
+        """
+        ΔT do cluster térmico / comprimento de fratura estimado [°C/m]
+        (ML:E-05). / Thermal-cluster ΔT over estimated fracture length.
+
+        O desvio é medido contra o perfil espacial mediano em cada instante
+        (robusto ao próprio cluster); o cluster é a faixa contígua de canais
+        ao redor do pico cuja amplitude excede 50% da amplitude de pico.
+        ΔT é a amplitude de pico do cluster e X_f a sua extensão em metros.
+        Sem desvio significativo (campo plano), retorna 0.0. / Deviation is
+        measured against the per-time spatial median (robust to the cluster
+        itself); the cluster is the contiguous channel run around the peak
+        whose amplitude exceeds 50% of the peak amplitude. ΔT is the peak
+        in-cluster amplitude and X_f its span in meters.
+        """
+        n_t, n_c = patch.shape
+        if n_t < 2 or n_c < 3:
+            return 0.0
+
+        deviation = patch - np.median(patch, axis=1, keepdims=True)
+        channel_amp = np.max(np.abs(deviation), axis=0)
+        peak_channel = int(np.argmax(channel_amp))
+        peak_amp = float(channel_amp[peak_channel])
+        if peak_amp < 1e-9:
+            return 0.0
+
+        half = 0.5 * peak_amp
+        hot = channel_amp >= half
+        lo = peak_channel
+        while lo - 1 >= 0 and hot[lo - 1]:
+            lo -= 1
+        hi = peak_channel
+        while hi + 1 < n_c and hot[hi + 1]:
+            hi += 1
+
+        xf = float((hi - lo + 1) * depth_step_m)
+        return peak_amp / xf if xf > 0.0 else 0.0
+
     def _thermal_features(self, patch: np.ndarray, depth_step_m: float) -> np.ndarray:
-        """Features térmicas: gradiente médio e variabilidade espacial."""
+        """Features térmicas: gradiente médio, variabilidade espacial e ΔT/X_f."""
         n_t, n_c = patch.shape
         if n_c < 2:
-            return np.zeros(5, dtype=np.float32)
+            return np.zeros(6, dtype=np.float32)
 
         # Gradiente geotérmico médio no tempo (dT/dz)
         gradients = np.zeros((n_t, n_c - 1), dtype=np.float32)
@@ -214,6 +313,7 @@ class DTSFeatureExtractor:
             gradients.std(),
             gradients.max(),
             gradients.min(),
+            self.delta_T_over_xf(patch, depth_step_m),
         ], dtype=np.float32)
 
     def _anomaly_features(self, patch: np.ndarray) -> np.ndarray:

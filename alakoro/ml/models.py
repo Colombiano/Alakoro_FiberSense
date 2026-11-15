@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -143,7 +144,30 @@ class FlowRegressor(nn.Module):
 
     Entrada: (batch, 2, n_time, n_distance) — canal 0: DAS, canal 1: DTS
     Saída: (batch, n_zones) — taxa de fluxo por zona
+
+    A camada de inferência física pós-modelo (ML:F-04) aplica as regras
+    ternárias de discriminação de fluxo sobre features já extraídas. Os
+    limiares são atributos de classe em português (domínio da calibração),
+    podendo ser sobrescritos por instância — inclusive via
+    `alakoro.processing.calibration.aplica_calibracao`. / The post-model
+    physical inference layer applies the ternary flow-discrimination rules
+    over extracted features. Thresholds are class attributes (Portuguese
+    calibration domain names) overridable per instance.
+
+    Matriz de decisão / Decision matrix (physical_inference):
+    | anomalia térmica | energia de banda | v > mín | discriminação   | direção |
+    |------------------|------------------|---------|-----------------|---------|
+    | sim              | sim              | sim     | hydraulic       | down    |
+    | sim              | sim              | não     | inconclusive    | up/none |
+    | sim              | não              | *       | thermal         | none    |
+    | não              | *                | *       | inconclusive    | none    |
     """
+
+    # Limiares das regras ternárias (sobrescritos por instância/calibração)
+    velocidade_minima_m_s: float = 0.0
+    banda_discriminacao_hz: Tuple[float, float] = (15.0, 100.0)
+    razao_energia_banda_minima: float = 0.3
+    anomalia_sigma: float = 3.0
 
     def __init__(self,
                  input_shape: Tuple[int, int] = (128, 32),
@@ -181,3 +205,59 @@ class FlowRegressor(nn.Module):
         x = self.conv(x)
         x = x.view(x.size(0), -1)
         return self.fc(x)
+
+    def physical_inference(self, features: dict) -> dict:
+        """
+        Inferência física pós-modelo (ML:F-04): aplica as regras ternárias
+        de discriminação de fluxo sobre um dict de features. / Post-model
+        physical inference applying the ternary flow-discrimination rules.
+
+        Args:
+            features: Dict com as chaves:
+                - "apparent_velocity_ms" (float; NaN/None = indeterminada)
+                - "band_energy_ratio" (float 0..1; fração da energia espectral
+                  dentro de banda_discriminacao_hz)
+                - "thermal_anomaly" (bool) ou "thermal_anomaly_sigma"
+                  (float; comparado com o limiar anomalia_sigma)
+
+        Returns:
+            Dict {"direction": "down" | "up" | "none",
+                  "discrimination": "hydraulic" | "thermal" | "inconclusive",
+                  "velocity_ms": float ou None}. Ver a matriz de decisão na
+                  docstring da classe. / See the decision matrix in the
+                  class docstring.
+        """
+        velocity = features.get("apparent_velocity_ms")
+        velocity = None if velocity is None else float(velocity)
+
+        if "thermal_anomaly" in features:
+            anomaly = bool(features["thermal_anomaly"])
+        else:
+            anomaly = float(features.get("thermal_anomaly_sigma", 0.0)) >= float(self.anomalia_sigma)
+
+        band_ratio = float(features.get("band_energy_ratio", 0.0))
+        band_ok = band_ratio >= float(self.razao_energia_banda_minima)
+
+        v_positive = velocity is not None and np.isfinite(velocity) \
+            and velocity > float(self.velocidade_minima_m_s)
+
+        if anomaly and band_ok and v_positive:
+            discrimination = "hydraulic"
+        elif anomaly and not band_ok:
+            discrimination = "thermal"
+        else:
+            discrimination = "inconclusive"
+
+        if v_positive:
+            direction = "down"
+        elif velocity is not None and np.isfinite(velocity) \
+                and velocity < -float(self.velocidade_minima_m_s):
+            direction = "up"
+        else:
+            direction = "none"
+
+        return {
+            "direction": direction,
+            "discrimination": discrimination,
+            "velocity_ms": velocity if velocity is not None and np.isfinite(velocity) else None,
+        }

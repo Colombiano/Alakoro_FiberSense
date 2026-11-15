@@ -598,4 +598,98 @@ __all__ = [
     "geothermal_baseline_correction",
     "thermal_anomaly_detection",
     "spatial_median_filter",
+    "extract_lfdas",
+    "extract_hf_das",
 ]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Extração de bandas LF-DAS / HF-DAS (PP:A-03, Onda 2)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _butter_filter_columns(data: np.ndarray,
+                           fs_hz: float,
+                           kind: str,
+                           band_hz: Tuple[float, float]) -> np.ndarray:
+    """Filtra um array 2D (time, channels) por canal com Butterworth + filtfilt."""
+    from scipy import signal as scipy_signal
+
+    n_t, _ = data.shape
+    nyquist = fs_hz / 2.0
+    low, high = band_hz
+    if not (0.0 < low < high < nyquist):
+        raise ValueError(
+            f"Banda {band_hz} inválida para Nyquist={nyquist} Hz; "
+            "exigido 0 < low < high < Nyquist"
+        )
+    if n_t < 8:
+        raise ValueError(f"Sinal curto demais para filtragem estável (n_t={n_t} < 8)")
+
+    b, a = scipy_signal.butter(4, [low / nyquist, high / nyquist], btype=kind)
+    filtered = np.zeros_like(data, dtype=np.float64)
+    for c in range(data.shape[1]):
+        filtered[:, c] = scipy_signal.filtfilt(b, a, data[:, c])
+    return filtered
+
+
+def extract_lfdas(data: np.ndarray,
+                  fs_hz: float,
+                  band_hz: Tuple[float, float] = (0.05, 1.0)) -> np.ndarray:
+    """
+    Extrai a banda LF-DAS (default 0.05–1.0 Hz) de um array (time, channels).
+
+    Conveniência PP:A-03 usada pelas rotas explícitas de análise de fluxo;
+    equivale ao filtro de banda de `LFDASProcessor.process_lf`, sem decimação
+    nem conversão para temperatura. / Extracts the LF-DAS band (default
+    0.05–1.0 Hz) from a (time, channels) array without decimation or
+    phase-to-temperature conversion.
+
+    Args:
+        data: Array 2D (time, channels).
+        fs_hz: Taxa de amostragem temporal [Hz] / Temporal sampling rate.
+        band_hz: Banda passa-faixa (low, high) em Hz / Bandpass band.
+
+    Returns:
+        Array filtrado com o mesmo shape da entrada / Filtered array.
+    """
+    arr = np.asarray(data, dtype=np.float64)
+    if arr.ndim != 2:
+        raise ValueError("extract_lfdas espera array 2D (time, channels)")
+    return _butter_filter_columns(arr, fs_hz, "band", band_hz)
+
+
+def extract_hf_das(data: np.ndarray,
+                   fs_hz: float,
+                   low_cutoff_hz: float = 1.0) -> np.ndarray:
+    """
+    Extrai o conteúdo acústico HF-DAS (> low_cutoff_hz, default 1.0 Hz).
+
+    Remove a banda ≤ low_cutoff_hz (incluindo o conteúdo capturado pelo
+    low-pass de 1 Hz) — complementar a `extract_lfdas`. / Extracts the HF-DAS
+    acoustic content (> low_cutoff_hz, default 1.0 Hz), removing the
+    ≤ low_cutoff_hz band.
+
+    Args:
+        data: Array 2D (time, channels).
+        fs_hz: Taxa de amostragem temporal [Hz] / Temporal sampling rate.
+        low_cutoff_hz: Frequência de corte do passa-alta [Hz] / High-pass cutoff.
+
+    Returns:
+        Array filtrado com o mesmo shape da entrada / Filtered array.
+    """
+    arr = np.asarray(data, dtype=np.float64)
+    if arr.ndim != 2:
+        raise ValueError("extract_hf_das espera array 2D (time, channels)")
+    nyquist = fs_hz / 2.0
+    if not (0.0 < low_cutoff_hz < nyquist):
+        raise ValueError(f"low_cutoff_hz={low_cutoff_hz} inválido para Nyquist={nyquist} Hz")
+    from scipy import signal as scipy_signal
+
+    n_t, n_c = arr.shape
+    if n_t < 8:
+        raise ValueError(f"Sinal curto demais para filtragem estável (n_t={n_t} < 8)")
+    b, a = scipy_signal.butter(4, low_cutoff_hz / nyquist, btype="high")
+    filtered = np.zeros_like(arr)
+    for c in range(n_c):
+        filtered[:, c] = scipy_signal.filtfilt(b, a, arr[:, c])
+    return filtered

@@ -111,7 +111,9 @@ def read(path: str | Path) -> AlakoroPatch:
     Aceita arquivos com ou sem namespace, e extrai metadados quando
     disponiveis: sampling_rate_hz, spatial_resolution_m, gauge_length_m,
     units, start_time, well_id, wellbore_id, deployment_type,
-    max_tension_kn, min_bend_radius_m e fiber_limits.
+    max_tension_kn, min_bend_radius_m, fiber_limits e, quando presentes,
+    os flags de processamento da Onda 2 (CL-07-IN): acquisition_mode,
+    daf_correction_enabled e end_mask_m.
     """
     path = Path(path)
     if not path.exists():
@@ -253,6 +255,20 @@ def read(path: str | Path) -> AlakoroPatch:
         except (ValueError, TypeError):
             fiber_limits = None
 
+    # CL-07-IN — flags de processamento Onda 2 (propagados nos attrs quando presentes)
+    acquisition_mode = _find_text(acquisition, [
+        ".//prodml:acquisitionMode",
+        ".//prodml:DASMetadata/prodml:acquisitionMode",
+    ], ns, default="", convert=str)
+    daf_correction_text = _find_text(acquisition, [
+        ".//prodml:dafCorrectionEnabled",
+        ".//prodml:DASMetadata/prodml:dafCorrectionEnabled",
+    ], ns, default="", convert=str)
+    end_mask_m = _find_text(acquisition, [
+        ".//prodml:endMaskM",
+        ".//prodml:DASMetadata/prodml:endMaskM",
+    ], ns, default=0.0, convert=float)
+
     extra_attrs: Dict[str, Any] = {}
     if gauge_length_m > 0:
         extra_attrs["gauge_length_m"] = gauge_length_m
@@ -264,6 +280,14 @@ def read(path: str | Path) -> AlakoroPatch:
         extra_attrs["min_bend_radius_m"] = min_bend_radius_m
     if fiber_limits:
         extra_attrs["fiber_limits"] = fiber_limits
+    if acquisition_mode:
+        extra_attrs["acquisition_mode"] = acquisition_mode.lower()
+    if daf_correction_text:
+        extra_attrs["daf_correction_enabled"] = daf_correction_text.strip().lower() in (
+            "1", "true", "yes",
+        )
+    if end_mask_m > 0:
+        extra_attrs["end_mask_m"] = float(end_mask_m)
 
     patch = Patch(
         data=data,
@@ -299,6 +323,9 @@ def write(
     max_tension_kn: Optional[float] = None,
     min_bend_radius_m: Optional[float] = None,
     fiber_limits: Optional[Dict[str, Any]] = None,
+    acquisition_mode: Optional[str] = None,
+    daf_correction_enabled: Optional[bool] = None,
+    end_mask_m: Optional[float] = None,
 ) -> Path:
     """
     Salva AlakoroPatch como ProdML XML simplificado mas robusto.
@@ -311,9 +338,22 @@ def write(
     Metadados de deploy (IN:J-04, todos opcionais e validados):
     deployment_type ("slickline"|"e-line"|"coiled_tubing"|"permanent"),
     max_tension_kn, min_bend_radius_m e fiber_limits (dict).
+
+    Flags de processamento Onda 2 (CL-07-IN, opcionais; quando None, são
+    lidos dos attrs do patch): acquisition_mode ("single_ended"|
+    "double_ended"|...), daf_correction_enabled (bool) e end_mask_m (float, m).
     """
     well_id = well_id if well_id is not None else patch.well_id
     wellbore_id = wellbore_id if wellbore_id is not None else getattr(patch, "wellbore_id", None)
+
+    # CL-07-IN: argumentos explícitos vencem; fallback para os attrs do patch
+    attrs = patch.attrs
+    if acquisition_mode is None:
+        acquisition_mode = getattr(attrs, "acquisition_mode", None)
+    if daf_correction_enabled is None:
+        daf_correction_enabled = getattr(attrs, "daf_correction_enabled", None)
+    if end_mask_m is None:
+        end_mask_m = getattr(attrs, "end_mask_m", None)
 
     deployment_meta = validate_deployment_metadata(
         deployment_type=deployment_type,
@@ -403,6 +443,18 @@ def write(
         ET.SubElement(metadata, _qname(prodml_ns, "fiberLimits")).text = json.dumps(
             deployment_meta["fiber_limits"]
         )
+
+    # Flags de processamento Onda 2 (CL-07-IN, opcionais)
+    if acquisition_mode:
+        ET.SubElement(metadata, _qname(prodml_ns, "acquisitionMode")).text = str(acquisition_mode).lower()
+    if daf_correction_enabled is not None:
+        ET.SubElement(metadata, _qname(prodml_ns, "dafCorrectionEnabled")).text = (
+            "true" if bool(daf_correction_enabled) else "false"
+        )
+    if end_mask_m is not None and float(end_mask_m) > 0:
+        end_mask = ET.SubElement(metadata, _qname(prodml_ns, "endMaskM"))
+        end_mask.set("uom", "m")
+        end_mask.text = f"{float(end_mask_m):.6f}"
 
     # Dados
     values = ET.SubElement(root, _qname(prodml_ns, "values"))

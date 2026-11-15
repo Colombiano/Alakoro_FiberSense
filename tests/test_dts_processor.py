@@ -133,7 +133,7 @@ def test_dts_feature_extractor():
     extractor = DTSFeatureExtractor()
     features = extractor(data, depth_step_m=1.0)
     assert features.ndim == 1
-    assert features.size == 21  # 8 stats + 4 spectral + 5 thermal + 4 anomaly
+    assert features.size == 22  # 8 stats + 4 spectral + 6 thermal (inclui ΔT/X_f) + 4 anomaly
     assert np.all(np.isfinite(features))
 
 

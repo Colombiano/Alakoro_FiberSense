@@ -71,6 +71,9 @@ streaming = [
 mse = [
     "lupa>=2.0",
 ]
+calibration = [
+    "lupa>=2.0",
+]
 dev = [
     "pytest-cov>=4.0.0",
     "flake8>=6.0.0",

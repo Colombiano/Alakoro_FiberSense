@@ -21,6 +21,10 @@ from .alakoro_spool import AlakoroPatch, AlakoroSpool
 if TYPE_CHECKING:
     import xdas  # type: ignore
 
+# Flags de processamento da Onda 2 (CL-07-IN) propagados entre conversões
+# quando presentes nos metadados (attrs do Patch DASCore).
+_FLAGS_ONDA2 = ("acquisition_mode", "daf_correction_enabled", "end_mask_m")
+
 
 class DASDAEAdapter:
     """
@@ -100,9 +104,20 @@ class DASDAEAdapter:
     @staticmethod
     def from_dascore(patch: Patch, well_id: Optional[str] = None,
                      modality: Optional[str] = None) -> AlakoroPatch:
-        """Converte DASCore Patch para AlakoroPatch."""
+        """Converte DASCore Patch para AlakoroPatch.
+
+        Propaga os flags de processamento da Onda 2 (CL-07-IN:
+        acquisition_mode, daf_correction_enabled, end_mask_m) para atributos
+        da instância quando presentes nos attrs do Patch de origem, de forma
+        que sobrevivam a conversões posteriores que reconstruam o Patch.
+        """
         modality = modality or (patch.attrs.data_category or "das")
-        return AlakoroPatch(patch, well_id=well_id, modality=modality)
+        out = AlakoroPatch(patch, well_id=well_id, modality=modality)
+        for flag in _FLAGS_ONDA2:
+            value = getattr(patch.attrs, flag, None)
+            if value is not None:
+                setattr(out, flag, value)
+        return out
 
     @staticmethod
     def spool_to_dascore(spool: AlakoroSpool):
