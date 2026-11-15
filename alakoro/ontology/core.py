@@ -107,6 +107,75 @@ class OntologyModel:
             self.graph.add((propriedade, RDFS.domain, dominio))
             self.graph.add((propriedade, RDFS.range, alcance))
 
+        # ─── Domínio poço: eventos canônicos (CL-12, IE:A-02) ───
+        # Well domain: canonical events (CL-12, IE:A-02). Registra como
+        # classes OWL as especializações de Event (as 4 pré-existentes e as
+        # 12 novas da Onda 2), tornando o grafo consultável por tipo de
+        # evento. / Registers the Event specializations (the 4 pre-existing
+        # and the 12 new Wave-2 ones) as OWL classes.
+        classes_eventos = [
+            (ALAKORO.JouleThomsonEvent, "Evento Joule-Thomson", "Joule-Thomson Event"),
+            (ALAKORO.LeakEvent, "Evento de Vazamento", "Leak Event"),
+            (ALAKORO.FlowEvent, "Evento de Fluxo", "Flow Event"),
+            (ALAKORO.WarmBackEvent, "Evento Warm-Back", "Warm-Back Event"),
+            (ALAKORO.SlopeVelocityEvent, "Evento de Velocidade por Inclinação", "Slope Velocity Event"),
+            (ALAKORO.GasLiftValveEvent, "Evento de Válvula de Gás Lift", "Gas Lift Valve Event"),
+            (ALAKORO.GLVBellowRuptureEvent, "Evento de Fole Furado de GLV", "GLV Bellow Rupture Event"),
+            (ALAKORO.ValveChatterEvent, "Evento de Chatter de Válvula", "Valve Chatter Event"),
+            (ALAKORO.FracScreenoutEvent, "Evento de Screen-out de Fratura", "Fracture Screen-out Event"),
+            (ALAKORO.FracProppantDistributionEvent, "Evento de Distribuição de Propante", "Proppant Distribution Event"),
+            (ALAKORO.FracHeightGrowthEvent, "Evento de Crescimento de Altura de Fratura", "Fracture Height Growth Event"),
+            (ALAKORO.PerforationEffectivenessEvent, "Evento de Efetividade de Canhoneio", "Perforation Effectiveness Event"),
+            (ALAKORO.CementBondEvaluationEvent, "Evento de Avaliação de Cimentação", "Cement Bond Evaluation Event"),
+            (ALAKORO.ReCementingAssessmentEvent, "Evento de Avaliação de Recimentação", "Re-Cementing Assessment Event"),
+            (ALAKORO.CrossflowZonalEvent, "Evento de Fluxo Cruzado Zonal", "Zonal Crossflow Event"),
+            (ALAKORO.CementChannelingEvent, "Evento de Canalização de Cimento", "Cement Channeling Event"),
+            (ALAKORO.WellboreReferenceMeasurements, "Medições de Referência do Poço", "Wellbore Reference Measurements"),
+        ]
+        for classe, pt, en in classes_eventos:
+            self.graph.add((classe, RDF.type, OWL.Class))
+            self.graph.add((classe, RDFS.label, Literal(pt, lang="pt")))
+            self.graph.add((classe, RDFS.label, Literal(en, lang="en")))
+
+        propriedades_poco = [
+            (ALAKORO.hasEventType, XSD.string),
+            (ALAKORO.hasTimestamp, XSD.dateTime),
+            (ALAKORO.hasDepthMD, XSD.float),
+            (ALAKORO.hasConfidence, XSD.float),
+            (ALAKORO.hasSeverity, XSD.string),
+            (ALAKORO.hasRecommendation, XSD.string),
+            (ALAKORO.hasCorrelationId, XSD.string),
+            (ALAKORO.hasInterfaceDepth, XSD.float),
+            (ALAKORO.hasLeakDepth, XSD.float),
+            (ALAKORO.hasFlowRateMs, XSD.float),
+            (ALAKORO.hasInjectionDepth, XSD.float),
+            # Campos cinemáticos CL-04 / CL-04 kinematic fields:
+            (ALAKORO.hasApparentVelocityMs, XSD.float),
+            (ALAKORO.hasFlowDirection, XSD.string),
+            (ALAKORO.hasDiscrimination, XSD.string),
+            # Especializações de GLV/chatter/frac/cimento (CL-12) / GLV,
+            # chatter, frac and cement specializations (CL-12):
+            (ALAKORO.hasValveDepthsM, XSD.float),
+            (ALAKORO.hasRuptureValveIdx, XSD.integer),
+            (ALAKORO.hasChatterBandHz, XSD.float),
+            (ALAKORO.hasFracHeightM, XSD.float),
+            (ALAKORO.hasAffectedDepthRangeM, XSD.float),
+            (ALAKORO.hasChannelCount, XSD.integer),
+            # Metadados Brillouin (SP:B-05) / Brillouin metadata (SP:B-05):
+            (ALAKORO.hasBrillouinC11MhzPerUstrain, XSD.float),
+            (ALAKORO.hasBrillouinC12MhzPerC, XSD.float),
+            (ALAKORO.hasThermalReferenceModality, XSD.string),
+            (ALAKORO.hasDualFiberConfig, XSD.boolean),
+            # Gauges de referência do poço (IE:D-05) / Well reference gauges:
+            (ALAKORO.hasGaugeDepthMD, XSD.float),
+            (ALAKORO.hasGaugeTemperatureC, XSD.float),
+            (ALAKORO.hasGaugePressureBar, XSD.float),
+        ]
+        for propriedade, alcance in propriedades_poco:
+            self.graph.add((propriedade, RDF.type, OWL.DatatypeProperty))
+            self.graph.add((propriedade, RDFS.domain, ALAKORO.Entity))
+            self.graph.add((propriedade, RDFS.range, alcance))
+
     def add(self, entity: "AlakoroEntity"):
         """Adiciona uma entidade ao grafo."""
         entity._attach(self.graph)

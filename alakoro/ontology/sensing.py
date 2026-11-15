@@ -52,7 +52,11 @@ class Measurement(AlakoroEntity):
                  spatial_resolution_m: Optional[float] = None,
                  gauge_length_m: Optional[float] = None,
                  n_channels: Optional[int] = None,
-                 n_time_samples: Optional[int] = None):
+                 n_time_samples: Optional[int] = None,
+                 brillouin_c11_mhz_per_ustrain: Optional[float] = None,
+                 brillouin_c12_mhz_per_c: Optional[float] = None,
+                 thermal_reference_modality: Optional[str] = None,
+                 dual_fiber_config: Optional[bool] = None):
         super().__init__(identifier=identifier, name=name)
         self.modality = modality
         self.start_time = start_time
@@ -62,6 +66,13 @@ class Measurement(AlakoroEntity):
         self.gauge_length_m = gauge_length_m
         self.n_channels = n_channels
         self.n_time_samples = n_time_samples
+        # Metadados Brillouin / Brillouin metadata (SP:B-05, lado ontologia):
+        # espelham os novos campos de AcquisitionMetadata do núcleo C++.
+        # mirror the new AcquisitionMetadata fields of the C++ core.
+        self.brillouin_c11_mhz_per_ustrain = brillouin_c11_mhz_per_ustrain
+        self.brillouin_c12_mhz_per_c = brillouin_c12_mhz_per_c
+        self.thermal_reference_modality = thermal_reference_modality
+        self.dual_fiber_config = dual_fiber_config
         self.wellbore: Optional[Wellbore] = None
         self.cable: Optional[FiberOpticCable] = None
         self.interrogator: Optional[Interrogator] = None
@@ -84,6 +95,18 @@ class Measurement(AlakoroEntity):
             graph.add((self.uri, ALAKORO.hasNumberOfChannels, Literal(self.n_channels, datatype=XSD.integer)))
         if self.n_time_samples is not None:
             graph.add((self.uri, ALAKORO.hasNumberOfTimeSamples, Literal(self.n_time_samples, datatype=XSD.integer)))
+        if self.brillouin_c11_mhz_per_ustrain is not None:
+            graph.add((self.uri, ALAKORO.hasBrillouinC11MhzPerUstrain,
+                       Literal(self.brillouin_c11_mhz_per_ustrain, datatype=XSD.float)))
+        if self.brillouin_c12_mhz_per_c is not None:
+            graph.add((self.uri, ALAKORO.hasBrillouinC12MhzPerC,
+                       Literal(self.brillouin_c12_mhz_per_c, datatype=XSD.float)))
+        if self.thermal_reference_modality:
+            graph.add((self.uri, ALAKORO.hasThermalReferenceModality,
+                       Literal(self.thermal_reference_modality)))
+        if self.dual_fiber_config is not None:
+            graph.add((self.uri, ALAKORO.hasDualFiberConfig,
+                       Literal(self.dual_fiber_config, datatype=XSD.boolean)))
         if self.wellbore:
             graph.add((self.uri, ALAKORO.measuredIn, self.wellbore.uri))
         if self.cable:

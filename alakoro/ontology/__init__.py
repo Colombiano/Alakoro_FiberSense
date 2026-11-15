@@ -11,7 +11,13 @@ monitoradas (MSE: edifícios antigos).
 """
 
 from .core import ALAKORO, OntologyModel, AlakoroEntity
-from .petroleum import Well, Wellbore, Completion, FiberOpticCable
+from .petroleum import (
+    Well,
+    Wellbore,
+    Completion,
+    FiberOpticCable,
+    WellboreReferenceMeasurements,
+)
 from .sensing import Interrogator, DASMeasurement, DTSMeasurement, DSSMeasurement
 from .events import (
     Event,
@@ -19,6 +25,18 @@ from .events import (
     LeakEvent,
     FlowEvent,
     WarmBackEvent,
+    SlopeVelocityEvent,
+    GasLiftValveEvent,
+    GLVBellowRuptureEvent,
+    ValveChatterEvent,
+    FracScreenoutEvent,
+    FracProppantDistributionEvent,
+    FracHeightGrowthEvent,
+    PerforationEffectivenessEvent,
+    CementBondEvaluationEvent,
+    ReCementingAssessmentEvent,
+    CrossflowZonalEvent,
+    CementChannelingEvent,
     PropagacaoFissuraEvento,
     AberturaFissuraTermicaEvento,
     EventoAcusticoFissura,
@@ -49,6 +67,7 @@ __all__ = [
     "Wellbore",
     "Completion",
     "FiberOpticCable",
+    "WellboreReferenceMeasurements",
     "Interrogator",
     "DASMeasurement",
     "DTSMeasurement",
@@ -58,6 +77,18 @@ __all__ = [
     "LeakEvent",
     "FlowEvent",
     "WarmBackEvent",
+    "SlopeVelocityEvent",
+    "GasLiftValveEvent",
+    "GLVBellowRuptureEvent",
+    "ValveChatterEvent",
+    "FracScreenoutEvent",
+    "FracProppantDistributionEvent",
+    "FracHeightGrowthEvent",
+    "PerforationEffectivenessEvent",
+    "CementBondEvaluationEvent",
+    "ReCementingAssessmentEvent",
+    "CrossflowZonalEvent",
+    "CementChannelingEvent",
     "PropagacaoFissuraEvento",
     "AberturaFissuraTermicaEvento",
     "EventoAcusticoFissura",

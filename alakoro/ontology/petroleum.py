@@ -142,3 +142,70 @@ class FiberOpticCable(AlakoroEntity):
             graph.add((self.uri, ALAKORO.hasNumberOfChannels, Literal(self.n_channels, datatype=XSD.integer)))
         if self.wellbore:
             graph.add((self.uri, ALAKORO.isCableOf, self.wellbore.uri))
+
+
+class WellboreReferenceMeasurements(AlakoroEntity):
+    """Medições de referência do poço (gauges WHT/DHT) / Wellbore reference measurements.
+
+    Conjunto de gauges de fundo/de cabeça de poço usados como referência
+    independente para calibração e validação cruzada das medições DFOS
+    (audit IE:D-05, lado ontologia). Cada gauge registra a profundidade MD,
+    a temperatura medida e, opcionalmente, a pressão.
+
+    Set of downhole/wellhead gauges used as an independent reference for
+    cross-calibrating DFOS measurements (audit IE:D-05, ontology side).
+    Each gauge records the measured depth, the measured temperature and,
+    optionally, the pressure.
+    """
+
+    _type = ALAKORO.WellboreReferenceMeasurements
+
+    def __init__(self, identifier: Optional[str] = None, name: Optional[str] = None,
+                 wellbore: Optional[Wellbore] = None):
+        super().__init__(identifier=identifier, name=name)
+        self.wellbore = wellbore
+        # Lista de dicts com chaves depth_md, temperature_c e, opcionalmente,
+        # pressure_bar / List of dicts with keys depth_md, temperature_c and
+        # optionally pressure_bar.
+        self.gauges: List[dict] = []
+
+    def add_gauge(self, depth_md: float, temperature_c: float,
+                  pressure_bar: Optional[float] = None) -> dict:
+        """Adiciona um gauge à lista / Adds a gauge to the list.
+
+        Parameters
+        ----------
+        depth_md : float
+            Profundidade medida do gauge (m MD) / Gauge measured depth (m MD).
+        temperature_c : float
+            Temperatura medida (°C) / Measured temperature (°C).
+        pressure_bar : float, optional
+            Pressão medida (bar); omitir quando o gauge não a registra /
+            Measured pressure (bar); omit for gauges without a transducer.
+
+        Returns
+        -------
+        dict
+            O gauge adicionado / The added gauge.
+        """
+        gauge = {
+            "depth_md": float(depth_md),
+            "temperature_c": float(temperature_c),
+        }
+        if pressure_bar is not None:
+            gauge["pressure_bar"] = float(pressure_bar)
+        self.gauges.append(gauge)
+        return gauge
+
+    def _attach(self, graph: Graph):
+        super()._attach(graph)
+        if self.wellbore:
+            graph.add((self.uri, ALAKORO.measuredIn, self.wellbore.uri))
+        for gauge in self.gauges:
+            graph.add((self.uri, ALAKORO.hasGaugeDepthMD,
+                       Literal(gauge["depth_md"], datatype=XSD.float)))
+            graph.add((self.uri, ALAKORO.hasGaugeTemperatureC,
+                       Literal(gauge["temperature_c"], datatype=XSD.float)))
+            if "pressure_bar" in gauge:
+                graph.add((self.uri, ALAKORO.hasGaugePressureBar,
+                           Literal(gauge["pressure_bar"], datatype=XSD.float)))

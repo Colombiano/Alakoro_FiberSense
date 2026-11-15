@@ -294,3 +294,294 @@ class TestFlowEventNoFakeFlowRate:
         assert isinstance(flow, FlowEvent)
         assert flow.flow_rate_ms is None
         assert 0.0 <= flow.confidence <= 1.0
+
+
+# =============================================================================
+# Onda 2 — CL-08 bandas LF/HF, CL-04 cinemática, IE:J-03 quality_flags,
+# CL-03 wrapper de desacoplamento
+# =============================================================================
+
+from types import SimpleNamespace
+
+from alakoro.ontology.events import SlopeVelocityEvent
+from alakoro.ontology.inference_engine import (
+    _decouple_fallback,
+    _result_to_event,
+)
+
+# Campo DAS LF lento e determinístico: pulso gaussiano (σ_t = 0.4 s)
+# deslocando-se a +20 m/s. Usado para exercitar o condicionamento CL-08
+# (bandas padrão 0.05–1 Hz) e os campos cinemáticos CL-04.
+_LF_FS = 100.0
+_LF_N_T = 2000
+_LF_N_Z = 100
+
+
+def _lf_moving_field(velocidade_ms=20.0, seed=3):
+    rng = np.random.default_rng(seed)
+    t = np.arange(_LF_N_T) / _LF_FS
+    z = np.arange(_LF_N_Z, dtype=float)
+    dt = t[:, None] - (z / velocidade_ms)[None, :]
+    return np.exp(-0.5 * (dt / 0.4) ** 2) + rng.normal(0.0, 0.01, (_LF_N_T, _LF_N_Z))
+
+
+def _das_hydraulic_case():
+    """Cenário hidráulico determinístico (espelha TestVelocidadeEDiscriminacao
+    de test_cpp_wave2): anomalia térmica + energia 15–100 Hz + evento móvel
+    coerente com velocidade > 0."""
+    fs, n_t, n_z = 1000.0, 4000, 200
+    rng = np.random.default_rng(5)
+    t = np.arange(n_t) / fs
+    z = np.arange(n_z, dtype=float)
+    dt = t[:, None] - (z / 50.0)[None, :]
+    forma = np.exp(-0.5 * (dt / 0.02) ** 2) * np.sin(2.0 * np.pi * 80.0 * dt)
+    das = forma + rng.normal(0.0, 0.02, (n_t, n_z))
+    tom = 0.5 * np.sin(2.0 * np.pi * 30.0 * t)
+    das[:, 60:140] += tom[:, None]
+    dts = np.full((n_t, n_z), 60.0)
+    dts[:, 80:120] += 8.0
+    return dts, das, fs
+
+
+class TestBandParametersCL08:
+    """CL-08 (lado Python): bandas LF-DAS e hidráulica repassadas ao C++."""
+
+    def test_metadata_reflete_bandas(self, generator, monkeypatch):
+        captured = {}
+
+        class _SpyEngine(CanonicalInferenceEngine):
+            def infer(self, dts, das, meta):
+                captured["low"] = meta.low_freq_band_hz
+                captured["high"] = meta.high_freq_band_hz
+                captured["dlow"] = meta.discrim_low_freq_hz
+                captured["dhigh"] = meta.discrim_high_freq_hz
+                captured["apply"] = meta.apply_band_filter
+                return super().infer(dts, das, meta)
+
+        monkeypatch.setattr(
+            "alakoro.ontology.inference_engine.CanonicalInferenceEngine", _SpyEngine)
+        signature = generator.generate_joule_thomson()
+        engine = InferenceEngine()
+        events = engine.infer(
+            signature["dts"], signature["das"], sampling_rate_hz=1000.0,
+            low_freq_band_hz=0.1, high_freq_band_hz=0.5,
+            discrim_low_freq_hz=20.0, discrim_high_freq_hz=80.0,
+            apply_band_filter=False,
+        )
+        assert captured["low"] == 0.1
+        assert captured["high"] == 0.5
+        assert captured["dlow"] == 20.0
+        assert captured["dhigh"] == 80.0
+        assert captured["apply"] is False
+        assert isinstance(events, list)
+
+    def test_defaults_canonicos_forwarded(self, generator, monkeypatch):
+        captured = {}
+
+        class _SpyEngine(CanonicalInferenceEngine):
+            def infer(self, dts, das, meta):
+                captured.update(low=meta.low_freq_band_hz, high=meta.high_freq_band_hz,
+                                dlow=meta.discrim_low_freq_hz,
+                                dhigh=meta.discrim_high_freq_hz,
+                                apply=meta.apply_band_filter)
+                return super().infer(dts, das, meta)
+
+        monkeypatch.setattr(
+            "alakoro.ontology.inference_engine.CanonicalInferenceEngine", _SpyEngine)
+        signature = generator.generate_joule_thomson()
+        engine = InferenceEngine()
+        engine.infer(signature["dts"], sampling_rate_hz=1000.0)
+        # Defaults do contrato C++ (InferenceMetadata).
+        assert captured == {"low": 0.05, "high": 1.0, "dlow": 15.0,
+                            "dhigh": 100.0, "apply": True}
+
+    def test_bandas_invalidas_rejeitadas(self, generator):
+        signature = generator.generate_joule_thomson()
+        engine = InferenceEngine()
+        with pytest.raises(ValueError, match="LF band"):
+            engine.infer(signature["dts"], sampling_rate_hz=1000.0,
+                         high_freq_band_hz=0.01)  # high <= low
+        with pytest.raises(ValueError, match="discrimination band"):
+            engine.infer(signature["dts"], sampling_rate_hz=1000.0,
+                         discrim_low_freq_hz=-1.0)
+
+    def test_apply_band_filter_muda_resultado(self):
+        """O condicionamento LF (CL-08) altera a estimativa de velocidade."""
+        engine = InferenceEngine()
+        dts = np.zeros((_LF_N_T, _LF_N_Z))
+        das = _lf_moving_field()
+
+        off = {e.event_type: e for e in engine.infer(
+            dts, das, sampling_rate_hz=_LF_FS, apply_band_filter=False)}
+        on = {e.event_type: e for e in engine.infer(
+            dts, das, sampling_rate_hz=_LF_FS, apply_band_filter=True)}
+
+        sv_off = off.get("slope_velocity")
+        assert sv_off is not None, "sem filtro LF o evento móvel deve ser detectado"
+        assert np.isfinite(sv_off.apparent_velocity_ms)
+        assert sv_off.apparent_velocity_ms == pytest.approx(20.0, rel=0.25)
+
+        sv_on = on.get("slope_velocity")
+        # O filtro altera o resultado: suprime o evento ou muda a velocidade.
+        if sv_on is not None:
+            assert (not np.isfinite(sv_on.apparent_velocity_ms)
+                    or sv_on.apparent_velocity_ms != pytest.approx(
+                        sv_off.apparent_velocity_ms))
+
+
+class TestKinematicFieldsCL04:
+    """CL-04: campos cinemáticos do InferenceResult → ontologia."""
+
+    def test_slope_velocity_event_campos(self):
+        engine = InferenceEngine()
+        dts = np.zeros((_LF_N_T, _LF_N_Z))
+        events = engine.infer(dts, _lf_moving_field(),
+                              sampling_rate_hz=_LF_FS, apply_band_filter=False)
+        sv = next(e for e in events if e.event_type == "slope_velocity")
+        assert isinstance(sv, SlopeVelocityEvent)
+        assert isinstance(sv, FlowEvent)
+        assert np.isfinite(sv.apparent_velocity_ms)
+        assert sv.apparent_velocity_ms == pytest.approx(20.0, rel=0.25)
+        assert sv.flow_direction == "down"
+        assert sv.flow_rate_ms is None  # nunca usar confidence como proxy
+
+    def test_flow_discrimination_mapeado_para_flow_event(self):
+        engine = InferenceEngine()
+        dts, das, fs = _das_hydraulic_case()
+        events = engine.infer(dts, das, sampling_rate_hz=fs,
+                              apply_band_filter=False)
+        fd = next(e for e in events if e.event_type == "flow_discrimination")
+        assert type(fd) is FlowEvent  # código flow_discrimination → FlowEvent
+        assert fd.discrimination == "hydraulic"
+        assert fd.flow_direction == "down"
+        assert fd.apparent_velocity_ms > 0.0
+
+    def test_nan_vira_none_em_result_to_event(self):
+        stub = SimpleNamespace(
+            event_type="slope_velocity", event_label_pt="Rastreamento",
+            event_label_en="Slope Tracking", confidence=0.9, depth_md=100.0,
+            severity="Medium", recommendation="Investigar",
+            apparent_velocity_ms=float("nan"), flow_direction="undetermined",
+            discrimination="none",
+        )
+        event = _result_to_event(stub)
+        assert isinstance(event, SlopeVelocityEvent)
+        assert event.apparent_velocity_ms is None  # NaN → None
+        assert event.flow_direction == "undetermined"
+        assert event.discrimination == "none"
+
+    def test_eventos_sem_campo_cinematico_nao_recebem_flow(self):
+        # Regras térmicas não são FlowEvent: campos cinemáticos ausentes.
+        engine = InferenceEngine()
+        dts, das, fs = _das_hydraulic_case()
+        events = engine.infer(dts, das, sampling_rate_hz=fs,
+                              apply_band_filter=False)
+        jt = next(e for e in events if e.event_type == "joule_thomson")
+        assert type(jt) is not FlowEvent
+        assert not hasattr(jt, "apparent_velocity_ms")
+
+
+class TestQualityFlagsIEJ03:
+    """IE:J-03: validação de entrada, sanitização e quality_flags."""
+
+    def test_dados_limpos_zero_invalidos(self, generator):
+        signature = generator.generate_joule_thomson()
+        engine = InferenceEngine()
+        engine.infer(signature["dts"], signature["das"], sampling_rate_hz=1000.0)
+        assert engine.quality_flags["canais_invalidos"] == 0
+        assert set(engine.quality_flags) == {"canais_invalidos", "canais_mortos"}
+
+    def test_canal_com_nan_contabilizado(self, generator):
+        signature = generator.generate_joule_thomson()
+        dts = np.array(signature["dts"], dtype=np.float64)
+        dts[:, 10] = np.nan
+        engine = InferenceEngine()
+        events = engine.infer(dts, signature["das"], sampling_rate_hz=1000.0)
+        assert isinstance(events, list)  # não quebra com NaN sanitizado
+        assert engine.quality_flags["canais_invalidos"] == 1
+
+    def test_inf_sanitizado_para_nan(self, generator):
+        signature = generator.generate_joule_thomson()
+        dts = np.array(signature["dts"], dtype=np.float64)
+        dts[:, 5] = np.inf
+        das = np.array(signature["das"], dtype=np.float64)
+        das[:, 7] = -np.inf
+        engine = InferenceEngine()
+        events = engine.infer(dts, das, sampling_rate_hz=1000.0)
+        assert isinstance(events, list)
+        assert engine.quality_flags["canais_invalidos"] == 2
+
+    def test_canal_morto_constante(self, generator):
+        signature = generator.generate_joule_thomson()
+        dts = np.array(signature["dts"], dtype=np.float64)
+        dts[:, 20] = 60.0  # canal constante (variância nula)
+        engine = InferenceEngine()
+        engine.infer(dts, signature["das"], sampling_rate_hz=1000.0)
+        assert engine.quality_flags["canais_mortos"] >= 1
+
+
+class TestDecoupleWrapperCL03:
+    """CL-03 (lado Python): wrapper decouple_strain_temperature."""
+
+    @staticmethod
+    def _campo_acoplado(n_t=120, n_z=40, coeficiente=-2800.0, seed=1):
+        rng = np.random.default_rng(seed)
+        base = 20.0 + 8.0 * np.sin(2.0 * np.pi * np.arange(n_t) / n_t)
+        T = base[:, None] + rng.normal(0.0, 0.02, (n_t, n_z))
+        sinal = np.zeros((n_t, n_z))
+        sinal[60:70, 20:25] = 500.0
+        dtemp = T - T[0, :]
+        strain = sinal + coeficiente * dtemp + rng.normal(0.0, 2.0, (n_t, n_z))
+        return strain, T, sinal
+
+    def test_wrapper_contrato_cpp(self):
+        strain, T, sinal = self._campo_acoplado()
+        engine = InferenceEngine()
+        out = engine.decouple_strain_temperature(strain, T, 24, 12, True)
+        assert set(out) == {"decoupled", "coefficient_map",
+                            "global_coefficient", "constrained"}
+        assert np.asarray(out["decoupled"]).shape == strain.shape
+        # O binding C++ devolve coefficient_map achatado; o wrapper reshapeia.
+        assert np.asarray(out["coefficient_map"]).shape == strain.shape
+        assert out["global_coefficient"] == pytest.approx(-2800.0, rel=0.05)
+        cm = np.asarray(out["coefficient_map"])
+        assert np.nanmedian(cm[5:, :]) == pytest.approx(-2800.0, rel=0.10)
+        assert np.abs(np.asarray(out["decoupled"])[60:70, 20:25] - 500.0).max() < 60.0
+
+    def test_fallback_consistente_com_cpp(self):
+        strain, T, _ = self._campo_acoplado()
+        engine = InferenceEngine()
+        out_cpp = engine.decouple_strain_temperature(strain, T, 24, 12, True)
+        out_fb = _decouple_fallback(strain, T, 24, 12, True)
+        assert set(out_fb) == set(out_cpp)
+        assert np.asarray(out_fb["decoupled"]).shape == strain.shape
+        assert np.asarray(out_fb["coefficient_map"]).shape == strain.shape
+        assert out_fb["global_coefficient"] == pytest.approx(-2800.0, rel=0.10)
+        assert out_fb["global_coefficient"] == pytest.approx(
+            out_cpp["global_coefficient"], rel=0.10)
+        corr = np.corrcoef(np.asarray(out_cpp["decoupled"]).ravel(),
+                           np.asarray(out_fb["decoupled"]).ravel())[0, 1]
+        assert corr > 0.99
+
+    def test_fallback_restricao_cs(self):
+        rng = np.random.default_rng(2)
+        n_t, n_z = 120, 40
+        base = 20.0 + 8.0 * np.sin(2.0 * np.pi * np.arange(n_t) / n_t)
+        T = base[:, None] + rng.normal(0.0, 0.02, (n_t, n_z))
+        dtemp = T - T[0, :]
+        strain = 500.0 * dtemp + rng.normal(0.0, 2.0, (n_t, n_z))  # C > 0 espúrio
+        out = _decouple_fallback(strain, T, 24, 12, True)
+        assert out["constrained"] is True
+        assert np.asarray(out["coefficient_map"]).max() <= 1e-6
+
+    def test_janela_invalida_rejeitada(self):
+        strain, T, _ = self._campo_acoplado()
+        engine = InferenceEngine()
+        with pytest.raises(ValueError, match=">= 8"):
+            engine.decouple_strain_temperature(strain, T, 4, 12)
+
+    def test_shapes_incompativeis_rejeitados(self):
+        strain, T, _ = self._campo_acoplado()
+        engine = InferenceEngine()
+        with pytest.raises(ValueError, match="same shape"):
+            engine.decouple_strain_temperature(strain, T[:, :30])
