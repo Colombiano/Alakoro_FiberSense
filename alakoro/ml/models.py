@@ -172,6 +172,12 @@ class FlowRegressor(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.ndim != 4 or x.size(1) != 2:
+            raise ValueError(
+                f"FlowRegressor expects input (batch, 2, n_time, n_distance), "
+                f"got {tuple(x.shape)}. The 2 channels are DAS and DTS aligned "
+                "on common grids (see alakoro.processing.multimodal_alignment)."
+            )
         x = self.conv(x)
         x = x.view(x.size(0), -1)
         return self.fc(x)

@@ -125,6 +125,9 @@ def alakoro_to_xdas(patch: AlakoroPatch) -> xdas.DataArray:
     attrs = dict(patch.attrs)
     attrs["well_id"] = patch.well_id
     attrs["data_category"] = patch.modality
+    wellbore_id = getattr(patch, "wellbore_id", None)
+    if wellbore_id:
+        attrs["wellbore_id"] = wellbore_id
 
     return xdas.DataArray(
         data,
@@ -167,7 +170,11 @@ def xdas_to_alakoro(
             distance_step=dx_m,
         ),
     )
-    return AlakoroPatch(patch, well_id=well_id, modality=modality)
+    out = AlakoroPatch(patch, well_id=well_id, modality=modality)
+    wellbore_id = da.attrs.get("wellbore_id")
+    if wellbore_id:
+        out.wellbore_id = wellbore_id
+    return out
 
 
 def spool_to_datacollection(spool: AlakoroSpool) -> xdas.DataCollection:

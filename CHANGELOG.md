@@ -11,6 +11,13 @@
 - **Adicionado:** visualizador Qt do MSE (`alakoro/mse/viewer.py`): `JanelaVisualizacaoMSE` com três `HeatmapView` lado a lado (Temperatura (DTS), Deformação (DSS), Acústica (DAS)), marcação de fissuras e legenda; import lazy de PySide6 (extra `gui`).
 - **Adicionado:** `MotorInferenciaMSE` — motor de inferência determinística que emite os eventos da ontologia a partir dos arrays DTS/DSS/DAS: pico de fissura por proeminência espacial MAD com máscara dupla (energia temporal + proeminência DC — detecta degraus permanentes estáticos, a assinatura clássica de fissura em Brillouin), envoltória de Hilbert + STA/LTA na banda 50–500 Hz com degrau residual, offset térmico persistente, correção térmica Brillouin do DSS (≈ 20 µε/°C), recalque diferencial por gradiente sustentado de taxa, abertura térmica de fissura por regressão contra ΔT no residual espacialmente diferencial (papel da fibra de referência folgada), dano modal por deriva da frequência fundamental (Welch primeiro vs último terço) e fusão multimodal por corroboração espacial (correlation_id compartilhado, confiança ≥ 0.9); NaN-safe (canais inválidos ignorados, Inf sanitizado).
 
+### Correções / Fixes
+
+- **Corrigido (auditoria técnica, onda 1 — IN:B-01 CRITICAL):** leitor WITSML inferia a modalidade real do log (logCurveInfo: mnemonics/units) em vez de rotular tudo como `das`; `wellbore_id` preservado na leitura.
+- **Corrigido (auditoria, onda 1 — CL-02 CRITICAL):** novo `alakoro/processing/multimodal_alignment.py` (`align_lfdas_dts`, `regrid_to_common`) — `predict_flow` do ML realinha grades LF-DAS/DTS antes do stack e rejeita shapes incompatíveis; guards de dimensionalidade nos ramos `dascore()`/`cpp()` do HybridPipeline.
+- **Corrigido (auditoria, onda 1 — CL-11):** `sampling_rate_hz <= 0` rejeitado em Python e C++ (`std::invalid_argument`); `FlowEvent` sem `flow_rate_ms` fictício (confidence é confidence); severity "Critical" do JSON Schema v1.1.0 agora emitida (GLV rupture conf > 0.95) e não mais rebaixada pelo wrapper; `infer_from_signature` deriva a taxa de amostragem da assinatura quando disponível.
+- **Corrigido (auditoria, onda 1 — CL-06):** schema Avro com `well_id`/`wellbore_id` opcionais (round-trip Kafka/Spool); MQTT marcado experimental (`NotImplementedError` documentado); metadados de deploy (`deployment_type`, `max_tension_kn`, `min_bend_radius_m`, `fiber_limits`) no ProdML/Spool com validação; gauge length lido/escrito no WITSML e recuperado na leitura ProdML (antes descartado); `chunk` do Spool respeita `dt_s`; `xdas` round-trip preserva `wellbore_id`.
+
 ### Mudanças / Changed
 
 - **Changed:** pacote renomeado de `src` para `alakoro` — imports passam a ser `from alakoro.x import ...` (preparação para publicação no PyPI).

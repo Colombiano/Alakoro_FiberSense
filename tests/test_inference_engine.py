@@ -15,6 +15,8 @@ from alakoro_core import (
     CanonicalInferenceEngine,
 )
 from alakoro.ontology import InferenceEngine, infer_events
+from alakoro.ontology.events import FlowEvent
+from alakoro.ontology.inference_engine import _resolve_sampling_rate_hz
 from alakoro.simulation import SignatureGenerator, WellGeometry, AcquisitionConfig
 
 
@@ -213,3 +215,82 @@ class TestEngineRobustness:
         }
         missing = expected - detected
         assert not missing, f"Eventos nao detectados em nenhuma assinatura: {missing}"
+
+
+# =============================================================================
+# CL-11 — Validações e placeholders do motor de inferência
+# =============================================================================
+
+class TestSamplingRateValidation:
+    """IE:A-04: sampling_rate_hz <= 0 deve ser rejeitado (Python e C++)."""
+
+    def test_python_wrapper_rejects_zero(self, generator):
+        signature = generator.generate_joule_thomson()
+        engine = InferenceEngine()
+        with pytest.raises(ValueError, match="sampling_rate_hz"):
+            engine.infer(signature["dts"], signature["das"], sampling_rate_hz=0.0)
+
+    def test_python_wrapper_rejects_negative(self, generator):
+        signature = generator.generate_joule_thomson()
+        engine = InferenceEngine()
+        with pytest.raises(ValueError, match="sampling_rate_hz"):
+            engine.infer(signature["dts"], sampling_rate_hz=-100.0)
+
+    def test_cpp_wrapper_rejects_default_zero(self, generator):
+        """InferenceMetadata default é 0.0: o C++ deve levantar ValueError."""
+        engine = CanonicalInferenceEngine()
+        meta = InferenceMetadata()  # sampling_rate_hz == 0.0
+        dts = np.zeros((10, 100), dtype=np.float64)
+        with pytest.raises(ValueError, match="sampling_rate_hz"):
+            engine.infer(dts, None, meta)
+
+
+class TestSamplingRateDerivation:
+    """infer_from_signature deriva fs de parameters/acq; fallback 1000 Hz."""
+
+    def test_from_parameters_sampling_rate(self, generator):
+        signature = generator.generate_joule_thomson()
+        signature["parameters"] = dict(
+            signature["parameters"], sampling_rate_hz=500.0
+        )
+        engine = InferenceEngine()
+        events = engine.infer_from_signature(signature)
+        assert isinstance(events, list)
+
+    def test_resolve_from_parameters(self):
+        assert _resolve_sampling_rate_hz(
+            {"parameters": {"sampling_rate_hz": 500.0}}) == 500.0
+
+    def test_resolve_from_trace_interval(self):
+        assert _resolve_sampling_rate_hz(
+            {"parameters": {"trace_interval_s": 4.0}}) == 0.25
+
+    def test_resolve_from_acq_object(self):
+        acq = AcquisitionConfig(sampling_rate_hz=250.0)
+        assert _resolve_sampling_rate_hz({"acq": acq}) == 250.0
+
+    def test_resolve_fallback_is_1000(self, generator):
+        signature = generator.generate_joule_thomson()
+        assert _resolve_sampling_rate_hz(signature) == 1000.0
+
+
+class TestCriticalSeverity:
+    """GLV bellow rupture com confiança > 0.95 emite severity Critical
+    (única condição Critical do motor, prevista no JSON Schema v1.1.0)."""
+
+    def test_glv_bellow_rupture_critical(self, generator):
+        events = _infer(generator, generator.generate_glv_bellow_rupture())
+        glv = next(e for e in events if e.event_type == "glv_bellow_rupture")
+        assert glv.confidence > 0.95
+        assert glv.severity == "Critical"
+
+
+class TestFlowEventNoFakeFlowRate:
+    """FlowEvent não deve usar confidence como placeholder de flow_rate_ms."""
+
+    def test_flow_event_flow_rate_is_none(self, generator):
+        events = _infer(generator, generator.generate_slope_velocity())
+        flow = next(e for e in events if e.event_type == "slope_velocity")
+        assert isinstance(flow, FlowEvent)
+        assert flow.flow_rate_ms is None
+        assert 0.0 <= flow.confidence <= 1.0

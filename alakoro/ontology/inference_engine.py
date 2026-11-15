@@ -48,8 +48,58 @@ _EVENT_CLASS_MAP = {
 
 
 def _map_severity(severity: str) -> str:
-    """Normaliza severidade para os valores canônicos da ontologia."""
-    return severity if severity in {"Low", "Medium", "High"} else "Low"
+    """Normaliza severidade para os valores canônicos da ontologia.
+
+    Inclui "Critical" (JSON Schema v1.1.0, payload.diagnosis.severity),
+    emitido pelo C++ quando a confiança do glv_bellow_rupture excede 0.95.
+    """
+    return severity if severity in {"Low", "Medium", "High", "Critical"} else "Low"
+
+
+def _resolve_sampling_rate_hz(signature: dict) -> float:
+    """Deriva a taxa de amostragem temporal (Hz) de um dict de assinatura.
+
+    Estratégia (primeira fonte válida vence):
+      1. ``signature['parameters']['sampling_rate_hz']`` (ou alias ``fs_hz``);
+      2. ``signature['parameters']['trace_interval_s']`` (ou ``dt_s``) → 1/dt;
+      3. objeto ou dict em ``signature['acq']``/``signature['acquisition_config']``;
+      4. fallback histórico de 1000.0 Hz.
+
+    Returns
+    -------
+    float
+        Taxa em Hz (> 0). Valores não positivos são retornados como estão e
+        rejeitados posteriormente por ``InferenceEngine.infer``.
+    """
+    params = signature.get("parameters") or {}
+    for key in ("sampling_rate_hz", "fs_hz", "sample_rate_hz"):
+        value = params.get(key)
+        if value is not None:
+            return float(value)
+    for key in ("trace_interval_s", "dt_s"):
+        dt = params.get(key)
+        if dt is not None:
+            return 1.0 / float(dt)
+
+    acq = signature.get("acq") or signature.get("acquisition_config")
+    if acq is not None:
+        if isinstance(acq, dict):
+            for key in ("sampling_rate_hz", "fs_hz", "sample_rate_hz"):
+                value = acq.get(key)
+                if value is not None:
+                    return float(value)
+            dt = acq.get("trace_interval_s") or acq.get("dt_s")
+            if dt is not None:
+                return 1.0 / float(dt)
+        else:
+            value = getattr(acq, "sampling_rate_hz", None)
+            if value is not None:
+                return float(value)
+            dt = getattr(acq, "trace_interval_s", None)
+            if dt is not None:
+                return 1.0 / float(dt)
+
+    return 1000.0
 
 
 def _result_to_event(result, timestamp: Optional[datetime] = None) -> Event:
@@ -70,7 +120,13 @@ def _result_to_event(result, timestamp: Optional[datetime] = None) -> Event:
     elif event_cls is LeakEvent:
         kwargs["leak_depth"] = result.depth_md
     elif event_cls is FlowEvent:
-        kwargs["flow_rate_ms"] = result.confidence  # proxy para PoC
+        # Sem estimativa física de vazão disponível no resultado C++: o campo
+        # opcional flow_rate_ms fica None. A confiança da regra já é propagada
+        # via kwargs["confidence"]. Uma estimativa metrológica real (ex.:
+        # velocidade da SlopeVelocityRule convertida em vazão com PVT do poço)
+        # deve preencher flow_rate_ms no futuro — nunca usar confidence como
+        # proxy, pois são grandezas distintas (0..1 vs m/s).
+        kwargs["flow_rate_ms"] = None
     elif event_cls is WarmBackEvent:
         kwargs["injection_depths"] = [result.depth_md]
 
@@ -133,6 +189,13 @@ class InferenceEngine:
         if dts.ndim != 2:
             raise ValueError("dts must be a 2D array (time, channel)")
 
+        if sampling_rate_hz <= 0:
+            raise ValueError(
+                f"sampling_rate_hz must be > 0, got {sampling_rate_hz}. "
+                "The SlopeVelocityRule divides by the sampling rate; a null or "
+                "negative rate would silently corrupt velocity estimates."
+            )
+
         if das is not None:
             das = np.asarray(das, dtype=np.float64)
             if das.shape != dts.shape:
@@ -171,7 +234,7 @@ class InferenceEngine:
         return self.infer(
             dts=dts,
             das=das,
-            sampling_rate_hz=1000.0,
+            sampling_rate_hz=_resolve_sampling_rate_hz(signature),
             depth_step_m=depth_step_m,
             timestamp=timestamp,
         )

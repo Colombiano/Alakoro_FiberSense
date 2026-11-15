@@ -94,6 +94,13 @@ class HybridPipeline:
         except Exception as exc:
             raise RuntimeError(f"DASCore method '{method}' failed: {exc}") from exc
 
+        if np.asarray(new_patch.data).ndim != 2:
+            raise ValueError(
+                f"DASCore method '{method}' changed dimensionality to "
+                f"{np.asarray(new_patch.data).ndim}D. "
+                "HybridPipeline requires 2D (time, distance) output."
+            )
+
         self._patch = AlakoroPatch(
             new_patch, well_id=self._patch.well_id, modality=self._patch.modality
         )
@@ -124,8 +131,19 @@ class HybridPipeline:
             raise RuntimeError(f"C++ processor '{processor}' failed: {exc}") from exc
 
         if isinstance(result, AlakoroPatch):
+            if result.data.ndim != 2:
+                raise ValueError(
+                    f"C++ processor '{processor}' changed dimensionality to "
+                    f"{result.data.ndim}D. HybridPipeline requires 2D (time, distance) output."
+                )
             self._patch = result
         elif isinstance(result, Patch):
+            if np.asarray(result.data).ndim != 2:
+                raise ValueError(
+                    f"C++ processor '{processor}' changed dimensionality to "
+                    f"{np.asarray(result.data).ndim}D. "
+                    "HybridPipeline requires 2D (time, distance) output."
+                )
             self._patch = AlakoroPatch(
                 result, well_id=self._patch.well_id, modality=self._patch.modality
             )

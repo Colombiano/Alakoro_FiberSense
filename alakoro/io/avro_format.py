@@ -60,7 +60,7 @@ def serialize_avro(
         modality: "das", "dts" ou "dss".
         metadata: dicionario com campos opcionais:
             sampling_rate_hz, spatial_resolution_m, gauge_length_m,
-            units, start_time.
+            units, start_time, well_id, wellbore_id.
 
     Returns:
         Bytes Avro serializados.
@@ -79,6 +79,8 @@ def serialize_avro(
                 "gauge_length_m": float(getattr(attrs, "gauge_length_m", 0.0) or 0.0),
                 "units": str(getattr(attrs, "data_units", "") or ""),
                 "start_time": str(getattr(attrs, "start_time", "") or ""),
+                "well_id": data.well_id,
+                "wellbore_id": getattr(data, "wellbore_id", None),
             }
         if metadata:
             meta_src.update(metadata)
@@ -110,6 +112,8 @@ def serialize_avro(
         "start_time": str(metadata.get("start_time", "")),
         "dtype": dtype,
         "data": arr.tobytes(),
+        "well_id": metadata.get("well_id"),
+        "wellbore_id": metadata.get("wellbore_id"),
     }
 
     buf = io.BytesIO()
@@ -127,6 +131,8 @@ def deserialize_avro(data: bytes) -> Dict[str, Any]:
             "n_times": int,
             "n_channels": int,
             "metadata": dict,
+            "well_id": Optional[str],
+            "wellbore_id": Optional[str],
             "dtype": str,
             "array": np.ndarray,
         }
@@ -140,6 +146,8 @@ def deserialize_avro(data: bytes) -> Dict[str, Any]:
     n_times = int(record["n_times"])
     n_channels = int(record["n_channels"])
     dtype = record["dtype"]
+    well_id = record.get("well_id")
+    wellbore_id = record.get("wellbore_id")
 
     arr = np.frombuffer(record["data"], dtype=dtype).reshape((n_times, n_channels))
 
@@ -153,7 +161,11 @@ def deserialize_avro(data: bytes) -> Dict[str, Any]:
             "gauge_length_m": record["gauge_length_m"],
             "units": record["units"],
             "start_time": record["start_time"],
+            "well_id": well_id,
+            "wellbore_id": wellbore_id,
         },
+        "well_id": well_id,
+        "wellbore_id": wellbore_id,
         "dtype": dtype,
         "array": arr.copy(),
     }
@@ -202,6 +214,8 @@ def read_avro(path: Union[str, Path]) -> list:
         n_times = int(record["n_times"])
         n_channels = int(record["n_channels"])
         dtype = record["dtype"]
+        well_id = record.get("well_id")
+        wellbore_id = record.get("wellbore_id")
         arr = np.frombuffer(record["data"], dtype=dtype).reshape((n_times, n_channels))
         results.append(
             {
@@ -214,7 +228,11 @@ def read_avro(path: Union[str, Path]) -> list:
                     "gauge_length_m": record["gauge_length_m"],
                     "units": record["units"],
                     "start_time": record["start_time"],
+                    "well_id": well_id,
+                    "wellbore_id": wellbore_id,
                 },
+                "well_id": well_id,
+                "wellbore_id": wellbore_id,
                 "dtype": dtype,
                 "array": arr.copy(),
             }

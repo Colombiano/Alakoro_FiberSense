@@ -24,6 +24,7 @@ Referencias:
 
 from __future__ import annotations
 
+import warnings
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -225,13 +226,92 @@ def _parse_log_data(log: ET.Element, ns: Dict[str, str]) -> Tuple[np.ndarray, Li
     return data, mnemonics, units
 
 
-def read_log(path: str | Path) -> AlakoroPatch:
+# Unidades associadas a cada modalidade DFOS (WITSML usa uoms UCUM-like)
+_TEMPERATURE_UNITS = {"degc", "degcelsius", "celsius", "degf", "degfahrenheit", "fahrenheit", "k", "kelvin"}
+_STRAIN_UNITS = {"strain", "microstrain", "ue", "µε", "με", "ustrain", "uepsilon", "1/1"}
+_ACOUSTIC_UNITS = {"m/s", "pa", "kpa", "mpa", "bar", "psi", "v", "volt", "1/s", "db", "dbm"}
+
+_TEMPERATURE_MNEMONICS = {"temp", "temperature", "ts", "dts", "degc", "degf"}
+_STRAIN_MNEMONICS = {"strain", "dss", "microstrain"}
+_ACOUSTIC_MNEMONICS = {"das", "amp", "amplitude", "phase", "paz", "raw"}
+
+
+def _normalize_unit(unit: str) -> str:
+    return unit.strip().lower().replace("°", "deg").replace(" ", "")
+
+
+def _infer_modality_from_curves(mnemonics: List[str], units: List[str]) -> Optional[str]:
+    """
+    Infere a modalidade (das/dts/dss) a partir de mnemonicos e unidades
+    declarados no logCurveInfo. Retorna None quando inconclusivo.
+    """
+    # Ignora a primeira curva quando for o indice (tempo/profundidade)
+    data_units = [_normalize_unit(u) for u in units]
+    data_mnemonics = [m.strip().lower() for m in mnemonics]
+
+    for m in data_mnemonics:
+        if m in _TEMPERATURE_MNEMONICS:
+            return "dts"
+        if m in _STRAIN_MNEMONICS:
+            return "dss"
+        if m in _ACOUSTIC_MNEMONICS:
+            return "das"
+
+    for u in data_units:
+        if not u or u == "unknown":
+            continue
+        if u in _TEMPERATURE_UNITS:
+            return "dts"
+        if u in _STRAIN_UNITS:
+            return "dss"
+        if u in _ACOUSTIC_UNITS:
+            return "das"
+
+    return None
+
+
+def _infer_modality(log: ET.Element, ns: Dict[str, str],
+                    mnemonics: List[str], units: List[str]) -> Optional[str]:
+    """
+    Infere a modalidade do log WITSML.
+
+    Estrategia (em ordem de precedencia):
+    1. logCurveInfo: mnemonicos e unidades das curvas de dados.
+    2. Atributos do log (name/uid) contendo das/dts/dss.
+    Retorna None quando inconclusivo.
+    """
+    modality = _infer_modality_from_curves(mnemonics, units)
+    if modality:
+        return modality
+
+    for path in ("witsml:name", "name"):
+        elem = log.find(path, ns)
+        if elem is not None and elem.text:
+            name = elem.text.strip().lower()
+            for candidate in ("dts", "dss", "das"):
+                if candidate in name:
+                    return candidate
+    uid = (log.get("uid") or "").lower()
+    for candidate in ("dts", "dss", "das"):
+        if candidate in uid:
+            return candidate
+    return None
+
+
+def read_log(path: str | Path, modality: Optional[str] = None) -> AlakoroPatch:
     """
     Le um arquivo WITSML Log (curva 2D) e retorna AlakoroPatch.
 
     Extrai mnemonicos e unidades do logCurveInfo quando disponivel.
     Assume que a primeira coluna e o indice (profundidade ou tempo) e
     as colunas subsequentes sao os dados.
+
+    Args:
+        path: caminho do arquivo WITSML.
+        modality: modalidade explicita ("das", "dts" ou "dss"). Quando None,
+            a modalidade e inferida do logCurveInfo (mnemonics/units) e dos
+            atributos do log; se a inferencia for inconclusiva, assume "das"
+            e emite um aviso (fallback documentado).
     """
     path = Path(path)
     if not path.exists():
@@ -269,6 +349,31 @@ def read_log(path: str | Path) -> AlakoroPatch:
     wellbore_id = _find_text(log, ["witsml:nameWellbore", "nameWellbore"], ns) or None
     unit = units[1] if len(units) >= 2 else units[0]
 
+    if modality is not None:
+        inferred = modality.lower()
+    else:
+        inferred = _infer_modality(log, ns, mnemonics, units)
+        if inferred is None:
+            warnings.warn(
+                "Could not infer modality from WITSML logCurveInfo; "
+                "falling back to 'das'. Pass modality='dts'/'dss'/'das' "
+                "to read_log() to override.",
+                stacklevel=2,
+            )
+            inferred = "das"
+
+    gauge_length_m = _find_text(
+        log, ["witsml:gaugeLength", "gaugeLength"], ns, default=0.0
+    )
+    try:
+        gauge_length_m = float(gauge_length_m)
+    except (TypeError, ValueError):
+        gauge_length_m = 0.0
+
+    extra_attrs: Dict[str, float] = {}
+    if gauge_length_m > 0:
+        extra_attrs["gauge_length_m"] = gauge_length_m
+
     patch = Patch(
         data=values,
         coords={
@@ -277,12 +382,15 @@ def read_log(path: str | Path) -> AlakoroPatch:
         },
         dims=("time", "distance"),
         attrs=PatchAttrs(
-            data_category="das",
+            data_category=inferred,
             data_units=unit,
             distance_step=dx,
+            **extra_attrs,
         ),
     )
-    out = AlakoroPatch(patch, well_id=well_id, modality="das")
+    out = AlakoroPatch(patch, well_id=well_id, modality=inferred)
+    if wellbore_id:
+        out.wellbore_id = wellbore_id
     out.source_path = str(path)
     return out
 
@@ -297,12 +405,18 @@ def write_log(
     units: Optional[List[str]] = None,
     index_mnemonic: str = "TIME",
     index_unit: str = "s",
+    gauge_length_m: Optional[float] = None,
 ) -> Path:
     """
     Salva AlakoroPatch como WITSML Log robusto.
 
     Inclui logCurveInfo com mnemonicos e unidades, e formata os dados
     no padrao WITSML (colunas separadas por virgula).
+
+    Args:
+        gauge_length_m: comprimento de gauge em metros. Se None, tenta
+            obter de patch.attrs.gauge_length_m. So e escrito quando > 0
+            (paridade com o writer ProdML).
     """
     path = Path(path)
     data = patch.data
@@ -355,6 +469,14 @@ def write_log(
     lci_index.set("uid", index_mnemonic)
     ET.SubElement(lci_index, _qname(witsml_ns, "mnemonic")).text = index_mnemonic
     ET.SubElement(lci_index, _qname(witsml_ns, "unit")).text = index_unit
+
+    # Gauge length (opcional, paridade com o writer ProdML)
+    if gauge_length_m is None:
+        gauge_length_m = float(getattr(attrs, "gauge_length_m", 0.0) or 0.0)
+    if gauge_length_m > 0:
+        gl_elem = ET.SubElement(log, _qname(witsml_ns, "gaugeLength"))
+        gl_elem.set("uom", "m")
+        gl_elem.text = f"{gauge_length_m:.6f}"
 
     # logCurveInfo para cada canal
     for mnemonic, unit in zip(mnemonics, units):

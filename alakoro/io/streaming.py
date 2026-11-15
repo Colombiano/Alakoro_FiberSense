@@ -4,7 +4,7 @@ Alakoro FiberSense — Streaming em tempo real
 Componentes básicos para processamento contínuo de dados DAS/DTS/DSS:
 - Monitoramento de diretório para novos arquivos
 - AlakoroSpool.update() incremental
-- Arquitetura preparada para Kafka/MQTT (stub)
+- Kafka + Avro (streaming oficial); MQTT experimental (nao suportado)
 """
 
 from __future__ import annotations
@@ -228,6 +228,7 @@ class KafkaStreamDriver:
                 arr = record["array"]
                 modality = record["modality"].lower()
                 meta = record["metadata"]
+                record_well_id = record.get("well_id")
 
                 n_t, n_c = arr.shape
                 dt_s = 1.0 / meta["sampling_rate_hz"] if meta["sampling_rate_hz"] > 0 else 1.0
@@ -250,7 +251,7 @@ class KafkaStreamDriver:
                         distance_step=dx_m,
                     ),
                 )
-                yield AlakoroPatch(patch, modality=modality)
+                yield AlakoroPatch(patch, well_id=record_well_id, modality=modality)
             except Exception as exc:
                 # Em caso de erro no parse, yield mensagem bruta para nao parar o stream
                 yield {"error": str(exc), "raw": msg.value}
@@ -273,9 +274,14 @@ class KafkaStreamDriver:
 
 class MQTTStreamDriver:
     """
-    Driver de streaming MQTT (stub/minimo).
+    Driver de streaming MQTT (EXPERIMENTAL / nao suportado).
 
-    Requer paho-mqtt para implementacao completa.
+    Decisao de produto: o transporte de streaming oficial do Alakoro FiberSense
+    e Kafka (ver `KafkaStreamDriver`). O suporte MQTT e experimental e ainda
+    nao foi validado para dados DFOS em producao; por isso `connect()` levanta
+    `NotImplementedError` em vez de falhar silenciosamente com um stub.
+
+    MQTT streaming is experimental and not supported; use KafkaStreamDriver.
     """
 
     def __init__(self, host: str, port: int = 1883, topic: str = "#"):
@@ -285,17 +291,13 @@ class MQTTStreamDriver:
         self._client = None
 
     def connect(self):
-        try:
-            import paho.mqtt.client as mqtt
-        except ImportError as exc:
-            raise ImportError(
-                "MQTT streaming requires paho-mqtt. "
-                "Install it with: pip install paho-mqtt"
-            ) from exc
-
-        self._client = mqtt.Client()
-        self._client.connect(self.host, self.port)
-        return self
+        """Conexao MQTT experimental — sempre levanta NotImplementedError."""
+        raise NotImplementedError(
+            "MQTT streaming is experimental and not supported yet. "
+            "Use KafkaStreamDriver (Kafka + Avro) for production streaming. "
+            "MQTT requer validacao de QoS/latencia para dados DFOS antes de "
+            "ser habilitado; acompanhado em IN:J-02 da auditoria tecnica."
+        )
 
     def subscribe(self, callback):
         if self._client is None:

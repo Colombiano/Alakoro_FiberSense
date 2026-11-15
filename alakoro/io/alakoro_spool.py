@@ -204,7 +204,12 @@ class AlakoroPatch:
                 distance_step=dx_m,
             ),
         )
-        return cls(patch, well_id=well_id, modality=modality)
+        # O well_id embutido no registro Avro tem precedencia baixa: so e
+        # usado quando o chamador nao informa um explicitamente.
+        out = cls(patch, well_id=well_id or record.get("well_id"), modality=modality)
+        if record.get("wellbore_id"):
+            out.wellbore_id = record["wellbore_id"]
+        return out
 
     # ─── Serializacao Protobuf (via C++ core) ───
 
@@ -315,20 +320,33 @@ class AlakoroSpool:
 
     def chunk(self, time: Optional[float] = None,
               overlap: float = 0.0,
+              dt_s: Optional[float] = None,
               **kwargs) -> "AlakoroSpool":
         """
         Divide cada patch em janelas temporais.
 
         Args:
-            time: duração da janela em segundos
-            overlap: sobreposição entre janelas em segundos
+            time: duração da janela. Em segundos quando `dt_s` e informado;
+                caso contrario, interpretado como numero de amostras
+                (comportamento historico).
+            overlap: sobreposição entre janelas, nas mesmas unidades de `time`.
+            dt_s: passo temporal em segundos. Quando fornecido, converte
+                `time` e `overlap` de segundos para amostras
+                (chunk_len_em_segundos / dt_s).
         """
         if time is None:
             return self
 
+        if dt_s is not None and dt_s > 0:
+            window = max(int(round(time / dt_s)), 1)
+            overlap_samples = max(int(round(overlap / dt_s)), 0)
+        else:
+            window = time
+            overlap_samples = overlap
+
         new_patches: List[AlakoroPatch] = []
         for patch in self._patches:
-            pts = _chunk_patch(patch.patch, time, overlap)
+            pts = _chunk_patch(patch.patch, window, overlap_samples)
             new_patches.extend([AlakoroPatch(p, patch.well_id, patch.modality) for p in pts])
         return AlakoroSpool(new_patches)
 
@@ -396,3 +414,50 @@ def _chunk_patch(patch: Patch, window_s: float, overlap_s: float) -> List[Patch]
         start += step
 
     return chunks if chunks else [patch]
+
+
+# ─── Metadados de deploy (IN:J-04) ───
+
+# Tipos de deploy de fibra aceitos (tubagem/instalacao em poco)
+VALID_DEPLOYMENT_TYPES = ("slickline", "e-line", "coiled_tubing", "permanent")
+
+
+def validate_deployment_metadata(
+    deployment_type: Optional[str] = None,
+    max_tension_kn: Optional[float] = None,
+    min_bend_radius_m: Optional[float] = None,
+    fiber_limits: Optional[dict] = None,
+) -> Dict[str, Any]:
+    """
+    Valida metadados opcionais de deploy de fibra e retorna um dict limpo.
+
+    Args:
+        deployment_type: "slickline", "e-line", "coiled_tubing" ou "permanent".
+        max_tension_kn: tensao maxima admitida na instalacao, em kN.
+        min_bend_radius_m: raio minimo de curvatura, em metros.
+        fiber_limits: dict opcional com limites adicionais da fibra.
+
+    Raises:
+        ValueError: se deployment_type for invalido.
+
+    Returns:
+        Dict contendo apenas os campos efetivamente fornecidos.
+    """
+    out: Dict[str, Any] = {}
+    if deployment_type is not None:
+        normalized = str(deployment_type).strip().lower()
+        if normalized not in VALID_DEPLOYMENT_TYPES:
+            raise ValueError(
+                f"Invalid deployment_type: {deployment_type!r}. "
+                f"Expected one of {list(VALID_DEPLOYMENT_TYPES)}."
+            )
+        out["deployment_type"] = normalized
+    if max_tension_kn is not None:
+        out["max_tension_kn"] = float(max_tension_kn)
+    if min_bend_radius_m is not None:
+        out["min_bend_radius_m"] = float(min_bend_radius_m)
+    if fiber_limits is not None:
+        if not isinstance(fiber_limits, dict):
+            raise ValueError(f"fiber_limits must be a dict, got {type(fiber_limits).__name__}")
+        out["fiber_limits"] = dict(fiber_limits)
+    return out

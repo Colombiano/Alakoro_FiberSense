@@ -34,6 +34,7 @@
 #include <numeric>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -52,7 +53,7 @@ struct InferenceResult {
     std::string event_label_en;  ///< Rótulo em inglês
     double confidence = 0.0;     ///< Confiança entre 0.0 e 1.0
     double depth_md = 0.0;       ///< Profundidade estimada (m)
-    std::string severity;        ///< "Low", "Medium", "High"
+    std::string severity;        ///< "Low", "Medium", "High", "Critical"
     std::string recommendation;  ///< Recomendação operacional
 };
 
@@ -925,6 +926,12 @@ struct LeakPathRule {
  *
  * Heurística: múltiplos picos de energia DAS espaçados regularmente (válvulas),
  * com um deles apresentando queda relativa de energia.
+ *
+ * Severidade "Critical": emitida quando a confiança excede 0.95 — nesse patamar
+ * a evidência DAS cobre um grande número de válvulas (>= 8 picos), o que indica
+ * fole rompido com alto risco operacional. É a única condição "Critical" do
+ * motor, alinhada ao enum do JSON Schema v1.1.0
+ * (payload.diagnosis.severity: Low | Medium | High | Critical).
  */
 struct GlvBellowRuptureRule {
     static ResultGenerator apply(std::span<const double> dts,
@@ -971,7 +978,8 @@ struct GlvBellowRuptureRule {
             double conf = std::min(static_cast<double>(peaks.size()) / 8.0, 1.0);
             if (rupture_depth > 0.0) {
                 co_yield make_result<CanonicalEvent::GlvBellowRupture>(
-                    conf, rupture_depth, conf > 0.6 ? "High" : "Medium");
+                    conf, rupture_depth,
+                    conf > 0.95 ? "Critical" : (conf > 0.6 ? "High" : "Medium"));
             }
         }
         co_return;
@@ -1252,12 +1260,21 @@ public:
 
     /**
      * @brief Executa todas as regras registradas e retorna resultados agregados.
+     *
+     * @throws std::invalid_argument Se metadata.sampling_rate_hz <= 0. Regras
+     *         como SlopeVelocityRule dividem pela taxa de amostragem; uma taxa
+     *         nula ou negativa produziria valores silenciosamente inválidos.
      */
     std::vector<InferenceResult> infer(std::span<const double> dts,
                                        std::span<const double> das,
                                        std::size_t n_times,
                                        std::size_t n_channels,
                                        const InferenceMetadata& meta) const {
+        if (meta.sampling_rate_hz <= 0.0) {
+            throw std::invalid_argument(
+                "InferenceEngine::infer: sampling_rate_hz must be > 0 (got " +
+                std::to_string(meta.sampling_rate_hz) + ")");
+        }
         std::vector<InferenceResult> all;
         all.reserve(sizeof...(Events));
         // Fold expression sobre uma lambda que executa uma regra por evento.

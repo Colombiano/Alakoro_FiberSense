@@ -29,7 +29,7 @@ import numpy as np
 from dascore import Patch
 from dascore.core.attrs import PatchAttrs
 
-from .alakoro_spool import AlakoroPatch
+from .alakoro_spool import AlakoroPatch, validate_deployment_metadata
 
 
 # Namespaces conhecidos do ProdML v2.x (mais comuns primeiro)
@@ -110,7 +110,8 @@ def read(path: str | Path) -> AlakoroPatch:
 
     Aceita arquivos com ou sem namespace, e extrai metadados quando
     disponiveis: sampling_rate_hz, spatial_resolution_m, gauge_length_m,
-    units, start_time, well_id, wellbore_id.
+    units, start_time, well_id, wellbore_id, deployment_type,
+    max_tension_kn, min_bend_radius_m e fiber_limits.
     """
     path = Path(path)
     if not path.exists():
@@ -224,6 +225,46 @@ def read(path: str | Path) -> AlakoroPatch:
             acquisition, [".//eml:Wellbore/eml:uuid", ".//prodml:nameWellbore"], ns, default="", convert=str
         )
 
+    # Metadados de deploy (IN:J-04)
+    deployment_type = _find_text(acquisition, [
+        ".//prodml:deploymentType",
+        ".//prodml:DASMetadata/prodml:deploymentType",
+    ], ns, default="", convert=str)
+    max_tension_kn = _find_text(acquisition, [
+        ".//prodml:maxTension",
+        ".//prodml:DASMetadata/prodml:maxTension",
+    ], ns, default=0.0, convert=float)
+    min_bend_radius_m = _find_text(acquisition, [
+        ".//prodml:minBendRadius",
+        ".//prodml:DASMetadata/prodml:minBendRadius",
+    ], ns, default=0.0, convert=float)
+
+    fiber_limits: Optional[dict] = None
+    fl_text = _find_text(acquisition, [
+        ".//prodml:fiberLimits",
+        ".//prodml:DASMetadata/prodml:fiberLimits",
+    ], ns, default="", convert=str)
+    if fl_text:
+        import json
+
+        try:
+            parsed = json.loads(fl_text)
+            fiber_limits = parsed if isinstance(parsed, dict) else None
+        except (ValueError, TypeError):
+            fiber_limits = None
+
+    extra_attrs: Dict[str, Any] = {}
+    if gauge_length_m > 0:
+        extra_attrs["gauge_length_m"] = gauge_length_m
+    if deployment_type:
+        extra_attrs["deployment_type"] = deployment_type.lower()
+    if max_tension_kn > 0:
+        extra_attrs["max_tension_kn"] = max_tension_kn
+    if min_bend_radius_m > 0:
+        extra_attrs["min_bend_radius_m"] = min_bend_radius_m
+    if fiber_limits:
+        extra_attrs["fiber_limits"] = fiber_limits
+
     patch = Patch(
         data=data,
         coords={
@@ -236,6 +277,7 @@ def read(path: str | Path) -> AlakoroPatch:
             data_units=units,
             time_step=np.timedelta64(int(dt_s * 1e9), "ns"),
             distance_step=dx_m,
+            **extra_attrs,
         ),
     )
 
@@ -253,6 +295,10 @@ def write(
     well_id: Optional[str] = None,
     wellbore_id: Optional[str] = None,
     start_time: Optional[datetime] = None,
+    deployment_type: Optional[str] = None,
+    max_tension_kn: Optional[float] = None,
+    min_bend_radius_m: Optional[float] = None,
+    fiber_limits: Optional[Dict[str, Any]] = None,
 ) -> Path:
     """
     Salva AlakoroPatch como ProdML XML simplificado mas robusto.
@@ -261,15 +307,20 @@ def write(
     gauge_length_m, units, modality, well_id, wellbore_id e start_time.
     Se well_id/wellbore_id nao forem informados, usa os do patch quando
     disponiveis.
+
+    Metadados de deploy (IN:J-04, todos opcionais e validados):
+    deployment_type ("slickline"|"e-line"|"coiled_tubing"|"permanent"),
+    max_tension_kn, min_bend_radius_m e fiber_limits (dict).
     """
     well_id = well_id if well_id is not None else patch.well_id
     wellbore_id = wellbore_id if wellbore_id is not None else getattr(patch, "wellbore_id", None)
-    """
-    Salva AlakoroPatch como ProdML XML simplificado mas robusto.
 
-    Preserva metadados do patch: sampling_rate_hz, spatial_resolution_m,
-    gauge_length_m, units, modality, well_id, wellbore_id e start_time.
-    """
+    deployment_meta = validate_deployment_metadata(
+        deployment_type=deployment_type,
+        max_tension_kn=max_tension_kn,
+        min_bend_radius_m=min_bend_radius_m,
+        fiber_limits=fiber_limits,
+    )
     path = Path(path)
     data = patch.data
     n_t, n_c = data.shape
@@ -334,6 +385,24 @@ def write(
     else:
         start_time_str = datetime.now(timezone.utc).isoformat()
     ET.SubElement(metadata, _qname(prodml_ns, "startTime")).text = start_time_str
+
+    # Metadados de deploy (IN:J-04, opcionais)
+    if "deployment_type" in deployment_meta:
+        ET.SubElement(metadata, _qname(prodml_ns, "deploymentType")).text = deployment_meta["deployment_type"]
+    if "max_tension_kn" in deployment_meta:
+        max_t = ET.SubElement(metadata, _qname(prodml_ns, "maxTension"))
+        max_t.set("uom", "kN")
+        max_t.text = f"{deployment_meta['max_tension_kn']:.6f}"
+    if "min_bend_radius_m" in deployment_meta:
+        min_bend = ET.SubElement(metadata, _qname(prodml_ns, "minBendRadius"))
+        min_bend.set("uom", "m")
+        min_bend.text = f"{deployment_meta['min_bend_radius_m']:.6f}"
+    if "fiber_limits" in deployment_meta:
+        import json
+
+        ET.SubElement(metadata, _qname(prodml_ns, "fiberLimits")).text = json.dumps(
+            deployment_meta["fiber_limits"]
+        )
 
     # Dados
     values = ET.SubElement(root, _qname(prodml_ns, "values"))

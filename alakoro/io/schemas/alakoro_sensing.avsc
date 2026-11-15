@@ -20,6 +20,18 @@
     {"name": "units", "type": "string"},
     {"name": "start_time", "type": "string"},
     {"name": "dtype", "type": "string"},
-    {"name": "data", "type": "bytes"}
+    {"name": "data", "type": "bytes"},
+    {
+      "name": "well_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Identificador opcional do poco (well)."
+    },
+    {
+      "name": "wellbore_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Identificador opcional do wellbore."
+    }
   ]
 }

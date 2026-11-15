@@ -20,6 +20,7 @@ from alakoro.ml import (
     UNet2D,
     evaluate_classifier,
     predict_event,
+    predict_flow,
     predict_segmentation,
     split_dataset,
 )
@@ -127,3 +128,68 @@ def test_evaluate_classifier():
     metrics = evaluate_classifier(model, loader)
     assert "accuracy" in metrics
     assert "f1" in metrics
+
+
+# =============================================================================
+# CL-02 — Alinhamento multimodal antes do stack (ML:D-02)
+# =============================================================================
+
+def _make_modality_patch(n_t=64, n_d=16, dt_s=2.0, dx_m=1.0, modality="das",
+                         units=None):
+    data = np.random.default_rng(1).normal(size=(n_t, n_d)).astype(np.float64)
+    patch = DASDAEAdapter.array_to_patch(
+        data, modality=modality, dt_s=dt_s, dx_m=dx_m, units=units
+    )
+    return AlakoroPatch(patch, modality=modality)
+
+
+def test_predict_flow_same_shape_arrays():
+    """Arrays com mesmo shape e sem coordenadas: caminho legado preservado."""
+    model = FlowRegressor(input_shape=(64, 16), n_zones=4)
+    das = np.random.default_rng(0).normal(size=(64, 16)).astype(np.float32)
+    dts = np.random.default_rng(0).normal(size=(64, 16)).astype(np.float32)
+    result = predict_flow(model, das, dts)
+    assert len(result["zones"]) == 4
+    assert all("rate" in z for z in result["zones"])
+
+
+def test_predict_flow_mismatched_arrays_raise():
+    """Shapes diferentes sem coordenadas: ValueError claro."""
+    model = FlowRegressor(input_shape=(64, 16), n_zones=4)
+    das = np.random.default_rng(0).normal(size=(64, 16)).astype(np.float32)
+    dts = np.random.default_rng(0).normal(size=(32, 16)).astype(np.float32)
+    with pytest.raises(ValueError, match="align"):
+        predict_flow(model, das, dts)
+
+
+def test_predict_flow_regrids_divergent_patches():
+    """Patches com grades temporais diferentes são realinhados antes do stack.
+
+    DAS: 64 amostras @ dt=2s (0..126s); DTS: 32 amostras @ dt=4s (0..124s).
+    A grade comum é a mais grosseira (DTS): 32 tempos. O FlowRegressor é
+    construído com input_shape (32, 16) para provar que o tensor empilhado
+    chega com as dimensões realinhadas.
+    """
+    model = FlowRegressor(input_shape=(32, 16), n_zones=4)
+    das_patch = _make_modality_patch(n_t=64, n_d=16, dt_s=2.0, modality="das",
+                                     units="1/s")
+    dts_patch = _make_modality_patch(n_t=32, n_d=16, dt_s=4.0, modality="dts",
+                                     units="degC")
+    result = predict_flow(model, das_patch, dts_patch)
+    assert len(result["zones"]) == 4
+
+
+def test_predict_flow_rejects_patch_plus_array():
+    """Um patch com coordenadas + array puro de shape diferente: ValueError."""
+    model = FlowRegressor(input_shape=(64, 16), n_zones=4)
+    das_patch = _make_modality_patch(n_t=64, n_d=16, dt_s=2.0, modality="das")
+    dts = np.random.default_rng(0).normal(size=(32, 16)).astype(np.float32)
+    with pytest.raises(ValueError, match="coordinate grids"):
+        predict_flow(model, das_patch, dts)
+
+
+def test_flow_regressor_channel_guard():
+    """FlowRegressor exige exatamente 2 canais (DAS+DTS alinhados)."""
+    model = FlowRegressor(input_shape=(16, 8), n_zones=4)
+    with pytest.raises(ValueError, match="batch, 2"):
+        model(torch.randn(1, 3, 16, 8))
