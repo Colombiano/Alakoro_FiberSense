@@ -23,6 +23,7 @@ from .events import (
     AberturaFissuraTermicaEvento,
     EventoAcusticoFissura,
     AnomaliaTermicaEvento,
+    DanoModalEvento,
     RecalqueEvento,
 )
 from .estruturas import (
@@ -61,6 +62,7 @@ __all__ = [
     "AberturaFissuraTermicaEvento",
     "EventoAcusticoFissura",
     "AnomaliaTermicaEvento",
+    "DanoModalEvento",
     "RecalqueEvento",
     "Estrutura",
     "EdificioEclesiastico",

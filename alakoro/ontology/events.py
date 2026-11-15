@@ -23,7 +23,8 @@ class Event(AlakoroEntity):
                  depth_md: Optional[float] = None,
                  confidence: Optional[float] = None,
                  severity: Optional[str] = None,
-                 recommendation: Optional[str] = None):
+                 recommendation: Optional[str] = None,
+                 correlation_id: Optional[str] = None):
         super().__init__(identifier=identifier, name=name)
         self.event_type = event_type
         self.timestamp = timestamp
@@ -31,6 +32,7 @@ class Event(AlakoroEntity):
         self.confidence = confidence
         self.severity = severity
         self.recommendation = recommendation
+        self.correlation_id = correlation_id
         self.measurements: list[Measurement] = []
 
     def add_measurement(self, measurement: Measurement):
@@ -50,6 +52,8 @@ class Event(AlakoroEntity):
             graph.add((self.uri, ALAKORO.hasSeverity, Literal(self.severity)))
         if self.recommendation:
             graph.add((self.uri, ALAKORO.hasRecommendation, Literal(self.recommendation)))
+        if self.correlation_id:
+            graph.add((self.uri, ALAKORO.hasCorrelationId, Literal(self.correlation_id)))
         for measurement in self.measurements:
             measurement._attach(graph)
             graph.add((self.uri, ALAKORO.detectedIn, measurement.uri))
@@ -129,12 +133,14 @@ class PropagacaoFissuraEvento(Event):
     _type = ALAKORO.PropagacaoFissuraEvento
 
     def __init__(self, posicao_fissura_m: Optional[float] = None,
-                 abertura_ue: Optional[float] = None, **kwargs):
+                 abertura_ue: Optional[float] = None,
+                 taxa_ue_dia: Optional[float] = None, **kwargs):
         kwargs.setdefault("event_type", "CrackPropagation")
         kwargs.setdefault("name", "Propagação de Fissura")
         super().__init__(**kwargs)
         self.posicao_fissura_m = posicao_fissura_m
         self.abertura_ue = abertura_ue
+        self.taxa_ue_dia = taxa_ue_dia
 
     def _attach(self, graph: Graph):
         super()._attach(graph)
@@ -143,6 +149,9 @@ class PropagacaoFissuraEvento(Event):
                        Literal(self.posicao_fissura_m, datatype=XSD.float)))
         if self.abertura_ue is not None:
             graph.add((self.uri, ALAKORO.hasAberturaUe, Literal(self.abertura_ue, datatype=XSD.float)))
+        if self.taxa_ue_dia is not None:
+            graph.add((self.uri, ALAKORO.hasTaxaUeDia,
+                       Literal(self.taxa_ue_dia, datatype=XSD.float)))
 
 
 class AberturaFissuraTermicaEvento(Event):
@@ -210,6 +219,34 @@ class AnomaliaTermicaEvento(Event):
             graph.add((self.uri, ALAKORO.hasPosicaoM, Literal(self.posicao_m, datatype=XSD.float)))
         if self.offset_k is not None:
             graph.add((self.uri, ALAKORO.hasOffsetK, Literal(self.offset_k, datatype=XSD.float)))
+
+
+class DanoModalEvento(Event):
+    """Evento de dano modal em torres de alvenaria / Modal damage event in masonry towers.
+
+    O dano estrutural reduz a frequência fundamental f1 (tipicamente 0,5–3%)
+    e alarga o espectro (Hubbard 2021); a variação relativa monitorada
+    alimenta severidade e confiança.
+    """
+
+    _type = ALAKORO.DanoModalEvento
+
+    def __init__(self, frequencia_hz: Optional[float] = None,
+                 variacao_relativa_pct: Optional[float] = None, **kwargs):
+        kwargs.setdefault("event_type", "ModalDamage")
+        kwargs.setdefault("name", "Dano Modal")
+        super().__init__(**kwargs)
+        self.frequencia_hz = frequencia_hz
+        self.variacao_relativa_pct = variacao_relativa_pct
+
+    def _attach(self, graph: Graph):
+        super()._attach(graph)
+        if self.frequencia_hz is not None:
+            graph.add((self.uri, ALAKORO.hasFrequenciaHz,
+                       Literal(self.frequencia_hz, datatype=XSD.float)))
+        if self.variacao_relativa_pct is not None:
+            graph.add((self.uri, ALAKORO.hasVariacaoRelativaPct,
+                       Literal(self.variacao_relativa_pct, datatype=XSD.float)))
 
 
 class RecalqueEvento(Event):
