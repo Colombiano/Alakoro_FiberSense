@@ -96,6 +96,22 @@ struct AcquisitionMetadata {
     double gauge_length_m = 0.0;        ///< Comprimento gauge do interrogador
     std::string units;                  ///< Unidades dos dados
     std::string start_time;             ///< Timestamp ISO8601 de início
+
+    // ─── Coeficientes Brillouin (DSS/BOTDA/BOTDR) ───
+    // Valores típicos de fibra monomodo padrão a 1550 nm (janela C).
+    // Typical coefficients of standard single-mode fiber at 1550 nm (C-band).
+    /// Sensibilidade Brillouin à deformação (∂νB/∂ε) em MHz/µε.
+    /// Brillouin strain sensitivity at 1550 nm (~0.05 MHz per microstrain).
+    double brillouin_c11_mhz_per_ustrain = 0.05;
+    /// Sensibilidade Brillouin à temperatura (∂νB/∂T) em MHz/°C.
+    /// Brillouin temperature sensitivity at 1550 nm (~1.0 MHz per °C).
+    double brillouin_c12_mhz_per_c = 1.0;
+    /// Modalidade usada como referência térmica para compensação cruzada
+    /// ("dts" | "das" | "none"). Thermal reference modality for cross-compensation.
+    std::string thermal_reference_modality = "dts";
+    /// Configuração com fibra dupla (p.ex. loop duplo p/ double-ended).
+    /// Dual-fiber configuration (e.g. double-ended loop deployment).
+    bool dual_fiber_config = false;
 };
 
 /**

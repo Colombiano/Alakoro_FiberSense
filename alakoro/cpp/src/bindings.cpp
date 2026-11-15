@@ -10,6 +10,7 @@
 #include "alakoro/adaptive.hpp"
 #include "alakoro/core.hpp"
 #include "alakoro/decomposition.hpp"
+#include "alakoro/decoupling.hpp"
 #include "alakoro/denoising.hpp"
 #include "alakoro/event_detection.hpp"
 #include "alakoro/filters.hpp"
@@ -26,6 +27,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -140,13 +143,28 @@ void bind_metadata(py::module& m) {
         .def_readwrite("gauge_length_m", &AcquisitionMetadata::gauge_length_m)
         .def_readwrite("units", &AcquisitionMetadata::units)
         .def_readwrite("start_time", &AcquisitionMetadata::start_time)
+        .def_readwrite("brillouin_c11_mhz_per_ustrain",
+                       &AcquisitionMetadata::brillouin_c11_mhz_per_ustrain,
+                       "Brillouin strain sensitivity at 1550 nm (MHz per microstrain)")
+        .def_readwrite("brillouin_c12_mhz_per_c",
+                       &AcquisitionMetadata::brillouin_c12_mhz_per_c,
+                       "Brillouin temperature sensitivity at 1550 nm (MHz per degC)")
+        .def_readwrite("thermal_reference_modality",
+                       &AcquisitionMetadata::thermal_reference_modality,
+                       "Thermal reference modality for cross-compensation ('dts'|'das'|'none')")
+        .def_readwrite("dual_fiber_config", &AcquisitionMetadata::dual_fiber_config,
+                       "Dual-fiber (double-ended loop) configuration flag")
         .def("__repr__", [](const AcquisitionMetadata& meta) {
             std::ostringstream oss;
             oss << "AcquisitionMetadata(sampling_rate_hz=" << meta.sampling_rate_hz
                 << ", spatial_resolution_m=" << meta.spatial_resolution_m
                 << ", gauge_length_m=" << meta.gauge_length_m
                 << ", units=" << meta.units
-                << ", start_time=" << meta.start_time << ")";
+                << ", start_time=" << meta.start_time
+                << ", brillouin_c11_mhz_per_ustrain=" << meta.brillouin_c11_mhz_per_ustrain
+                << ", brillouin_c12_mhz_per_c=" << meta.brillouin_c12_mhz_per_c
+                << ", thermal_reference_modality=" << meta.thermal_reference_modality
+                << ", dual_fiber_config=" << meta.dual_fiber_config << ")";
             return oss.str();
         });
 }
@@ -616,6 +634,155 @@ PYBIND11_MODULE(_alakoro_core, m) {
           py::arg("data"), py::arg("window_size"),
           "Apply spatial median filter along depth (double, DTS)");
 
+    // =============================================================================
+    // Onda 2 — CL-03 desacoplamento tensão-temperatura / CL-07 máscara e atenuação
+    // =============================================================================
+
+    // Valida um par de arrays 2D com shapes idênticas; devolve (n_t, n_z).
+    auto validate_pair_2d = [](py::array_t<double> a, py::array_t<double> b,
+                               const char* name_a, const char* name_b) {
+        auto buf_a = a.request();
+        auto buf_b = b.request();
+        if (buf_a.ndim != 2 || buf_b.ndim != 2) {
+            throw std::invalid_argument(
+                std::string(name_a) + " and " + name_b +
+                " must be 2D arrays (time, channel)");
+        }
+        if (buf_a.shape[0] != buf_b.shape[0] || buf_a.shape[1] != buf_b.shape[1]) {
+            throw std::invalid_argument(
+                std::string(name_a) + " and " + name_b +
+                " must have the same shape (time, channel)");
+        }
+        if (buf_a.shape[0] == 0 || buf_a.shape[1] == 0) {
+            throw std::invalid_argument(
+                std::string(name_a) + " and " + name_b + " must not be empty");
+        }
+        return std::make_pair(static_cast<std::size_t>(buf_a.shape[0]),
+                              static_cast<std::size_t>(buf_a.shape[1]));
+    };
+
+    m.def("decouple_strain_temperature_d",
+          [validate_pair_2d](py::array_t<double> strain, py::array_t<double> temp,
+                             std::size_t win_t, std::size_t win_z, bool constrain_cs) {
+              auto [n_t, n_z] = validate_pair_2d(strain, temp, "strain", "temp");
+              auto strain_buf = strain.request();
+              auto temp_buf = temp.request();
+              std::span<const double> strain_span(
+                  static_cast<const double*>(strain_buf.ptr), n_t * n_z);
+              std::span<const double> temp_span(
+                  static_cast<const double*>(temp_buf.ptr), n_t * n_z);
+
+              alakoro::decoupling::DecouplingResult<double> result =
+                  constrain_cs
+                      ? alakoro::decoupling::decouple_windowed_2d<double, true>(
+                            strain_span, temp_span, n_t, n_z, win_t, win_z)
+                      : alakoro::decoupling::decouple_windowed_2d<double, false>(
+                            strain_span, temp_span, n_t, n_z, win_t, win_z);
+
+              py::dict out;
+              out["decoupled"] = vector_to_numpy_2d(
+                  std::move(result.decoupled), n_t, n_z);
+              out["coefficient_map"] = vector_to_numpy(
+                  std::move(result.coefficient_map));
+              out["global_coefficient"] = result.global_coefficient;
+              out["constrained"] = result.constrained;
+              return out;
+          },
+          py::arg("strain"), py::arg("temp"), py::arg("win_t"), py::arg("win_z"),
+          py::arg("constrain_cs") = true,
+          "Windowed 2D strain-temperature decoupling (CL-03). strain/temp are "
+          "2D (time, channel) float64 arrays with identical shapes. Returns a "
+          "dict with keys: 'decoupled' (2D corrected field), 'coefficient_map' "
+          "(1D per-position coupling coefficient C), 'global_coefficient' "
+          "(Theil-Sen over the whole field) and 'constrained' (True when the "
+          "physical constraint C <= 0 was enforced). Windows must be >= 8.");
+
+    m.def("mask_trailing_meters_d",
+          [](py::array_t<double> data, double step_m, double mask_m) {
+              auto buf = data.request();
+              if (buf.ndim != 2) {
+                  throw std::invalid_argument(
+                      "mask_trailing_meters_d: data must be a 2D array (time, channel)");
+              }
+              const std::size_t n_t = static_cast<std::size_t>(buf.shape[0]);
+              const std::size_t n_z = static_cast<std::size_t>(buf.shape[1]);
+              std::vector<double> work(n_t * n_z);
+              const double* src = static_cast<const double*>(buf.ptr);
+              std::copy(src, src + work.size(), work.begin());
+              alakoro::thermal::mask_trailing_meters<double>(
+                  std::span<double>(work), n_t, n_z, step_m, mask_m);
+              return vector_to_numpy_2d(std::move(work), n_t, n_z);
+          },
+          py::arg("data"), py::arg("step_m"), py::arg("mask_m"),
+          "Mask the trailing mask_m meters of every trace with NaN (CL-07, "
+          "dead fiber zone). data is a 2D (time, channel) float64 array.");
+
+    m.def("attenuation_correct_single_ended_d",
+          [](py::array_t<double> data, double step_m,
+             double ref_start_m, double ref_end_m) {
+              auto buf = data.request();
+              if (buf.ndim != 2) {
+                  throw std::invalid_argument(
+                      "attenuation_correct_single_ended_d: data must be a 2D array (time, channel)");
+              }
+              if (step_m <= 0.0) {
+                  throw std::invalid_argument(
+                      "attenuation_correct_single_ended_d: step_m must be positive");
+              }
+              const std::size_t n_t = static_cast<std::size_t>(buf.shape[0]);
+              const std::size_t n_z = static_cast<std::size_t>(buf.shape[1]);
+              const std::size_t ref_start = static_cast<std::size_t>(
+                  std::llround(ref_start_m / step_m));
+              const std::size_t ref_end = static_cast<std::size_t>(
+                  std::llround(ref_end_m / step_m));
+              if (ref_start >= ref_end || ref_end > n_z) {
+                  throw std::invalid_argument(
+                      "attenuation_correct_single_ended_d: reference zone "
+                      "[ref_start_m, ref_end_m) is out of range for the field");
+              }
+              std::span<const double> data_span(
+                  static_cast<const double*>(buf.ptr), n_t * n_z);
+              auto result = alakoro::thermal::attenuation_correct_single_ended<double>(
+                  data_span, n_t, n_z, step_m, {ref_start, ref_end});
+              const double slope = result.slope_per_m;
+              const double intercept = result.intercept;
+              py::dict out;
+              out["corrected"] = vector_to_numpy_2d(std::move(result.corrected), n_t, n_z);
+              out["slope_per_m"] = slope;
+              out["intercept"] = intercept;
+              return out;
+          },
+          py::arg("data"), py::arg("step_m"), py::arg("ref_start_m"), py::arg("ref_end_m"),
+          "Single-ended differential attenuation correction (CL-07): fits a "
+          "linear-in-distance drift of the thermal background on the temporal "
+          "mean over the reference zone [ref_start_m, ref_end_m) and subtracts "
+          "the extrapolated line from the whole field. Returns a dict with "
+          "keys: 'corrected' (2D), 'slope_per_m', 'intercept'.");
+
+    m.def("correct_attenuation_double_ended_d",
+          [](py::array_t<double> data, double step_m, std::size_t switch_index) {
+              auto buf = data.request();
+              if (buf.ndim != 2) {
+                  throw std::invalid_argument(
+                      "correct_attenuation_double_ended_d: data must be a 2D array (time, channel)");
+              }
+              const std::size_t n_t = static_cast<std::size_t>(buf.shape[0]);
+              const std::size_t n_z = static_cast<std::size_t>(buf.shape[1]);
+              alakoro::thermal::DoubleEndedConfig config;
+              config.switch_index = switch_index;
+              config.step_m = step_m;
+              config.reference_channel_set = true;
+              std::span<const double> data_span(
+                  static_cast<const double*>(buf.ptr), n_t * n_z);
+              // Extension point documentado (CL-07): levanta std::invalid_argument
+              // após validar a configuração.
+              return alakoro::thermal::correct_attenuation_double_ended<double>(
+                  data_span, n_t, n_z, config);
+          },
+          py::arg("data"), py::arg("step_m"), py::arg("switch_index"),
+          "Documented extension point (CL-07): full double-ended attenuation "
+          "correction requires real two-ended data and raises ValueError by design.");
+
     // Serializacao: metodos por modalidade estao nas classes SensingData.
     // Estes helpers globais permanecem para compatibilidade, orientando o usuario.
     m.def("serialize_avro", []() {
@@ -642,6 +809,12 @@ PYBIND11_MODULE(_alakoro_core, m) {
         .def_readonly("depth_md", &InferenceResult::depth_md)
         .def_readonly("severity", &InferenceResult::severity)
         .def_readonly("recommendation", &InferenceResult::recommendation)
+        .def_readonly("apparent_velocity_ms", &InferenceResult::apparent_velocity_ms,
+                      "Signed apparent velocity in m/s (+=descending); NaN=undetermined")
+        .def_readonly("flow_direction", &InferenceResult::flow_direction,
+                      "'up' | 'down' | 'undetermined'")
+        .def_readonly("discrimination", &InferenceResult::discrimination,
+                      "'hydraulic' | 'thermal' | 'inconclusive'; 'none' when not applicable")
         .def("__repr__", [](const InferenceResult& r) {
             std::ostringstream oss;
             oss << "InferenceResult(" << r.event_type
@@ -656,7 +829,17 @@ PYBIND11_MODULE(_alakoro_core, m) {
         .def_readwrite("sampling_rate_hz", &InferenceMetadata::sampling_rate_hz)
         .def_readwrite("depth_step_m", &InferenceMetadata::depth_step_m)
         .def_readwrite("surface_temp_c", &InferenceMetadata::surface_temp_c)
-        .def_readwrite("geo_gradient_cpm", &InferenceMetadata::geo_gradient_cpm);
+        .def_readwrite("geo_gradient_cpm", &InferenceMetadata::geo_gradient_cpm)
+        .def_readwrite("low_freq_band_hz", &InferenceMetadata::low_freq_band_hz,
+                       "LF-DAS band lower edge (Hz); below ~0.05 Hz is quasi-static strain")
+        .def_readwrite("high_freq_band_hz", &InferenceMetadata::high_freq_band_hz,
+                       "LF-DAS band upper edge (Hz); above ~1 Hz is acoustic content")
+        .def_readwrite("discrim_low_freq_hz", &InferenceMetadata::discrim_low_freq_hz,
+                       "Hydraulic energy band lower edge (Hz) for flow discrimination")
+        .def_readwrite("discrim_high_freq_hz", &InferenceMetadata::discrim_high_freq_hz,
+                       "Hydraulic energy band upper edge (Hz)")
+        .def_readwrite("apply_band_filter", &InferenceMetadata::apply_band_filter,
+                       "Apply Butterworth bandpass (low..high freq band) to DAS before rules");
 
     py::class_<CanonicalInferenceEngine>(m, "CanonicalInferenceEngine")
         .def(py::init<>())
@@ -859,10 +1042,11 @@ PYBIND11_MODULE(_alakoro_core, m) {
           "Damped modal ringing x(t) = A * exp(-zeta*wn*t) * cos(wd*t), "
           "wd = wn*sqrt(1 - zeta^2). Typical 1-5 Hz masonry tower modes.");
 
-    // Re-exporta os nomes MSE como atributos do pacote `alakoro_core`. O
-    // __init__.py do pacote mantém uma lista fixa de importações (fora do
-    // escopo deste módulo C++); sem isso, `from alakoro_core import mse_*`
-    // falharia. PYBIND11_MODULE executa durante o `from ._alakoro_core
+    // Re-exporta os nomes MSE e da Onda 2 como atributos do pacote
+    // `alakoro_core`. O __init__.py do pacote mantém uma lista fixa de
+    // importações (fora do escopo deste módulo C++); sem isso,
+    // `from alakoro_core import mse_*` / `decouple_strain_temperature_d`
+    // falhariam. PYBIND11_MODULE executa durante o `from ._alakoro_core
     // import (...)` do __init__, então o pacote pai já está em sys.modules.
     if (PyObject* pkg = PyImport_ImportModule("alakoro_core")) {
         py::object pacote = py::reinterpret_steal<py::object>(pkg);
@@ -871,7 +1055,11 @@ PYBIND11_MODULE(_alakoro_core, m) {
                                  "mse_ae_impulse_d",
                                  "mse_modal_decay_d",
                                  "mse_material_traits_d",
-                                 "MaterialAlvenaria"}) {
+                                 "MaterialAlvenaria",
+                                 "decouple_strain_temperature_d",
+                                 "mask_trailing_meters_d",
+                                 "attenuation_correct_single_ended_d",
+                                 "correct_attenuation_double_ended_d"}) {
             pacote.attr(nome) = m.attr(nome);
         }
     } else {

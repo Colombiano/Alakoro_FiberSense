@@ -18,12 +18,21 @@
  *     expressions para percorrer todas as regras.
  *   - Do ponto de vista do Python, a API exposta é síncrona: a engine
  *     consome o generator C++ internamente e devolve um vector de resultados.
+ *
+ * Onda 2 (auditoria técnica): CL-08 (banda LF-DAS no traço antes das regras),
+ * CL-04 (SlopeVelocity por correlação cruzada do envelope com velocidade COM
+ * SINAL + FlowDiscriminationRule ternária) e campos cinemáticos em
+ * InferenceResult (apparent_velocity_ms, flow_direction, discrimination).
  */
 
 #pragma once
 
 #include "alakoro/concepts.hpp"
 #include "alakoro/core.hpp"
+#include "alakoro/event_detection.hpp"
+#include "alakoro/filters.hpp"
+#include "alakoro/fft.hpp"
+#include "alakoro/time_frequency.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -55,6 +64,17 @@ struct InferenceResult {
     double depth_md = 0.0;       ///< Profundidade estimada (m)
     std::string severity;        ///< "Low", "Medium", "High", "Critical"
     std::string recommendation;  ///< Recomendação operacional
+
+    // ─── CL-04: velocidade de escoamento e discriminação ternária ───
+    /// Velocidade aparente COM SINAL em m/s (convencão: + = descendente,
+    /// z crescente com a profundidade MD). NaN = indeterminada.
+    /// Signed apparent velocity in m/s (+ = descending); NaN = undetermined.
+    float apparent_velocity_ms = std::numeric_limits<float>::quiet_NaN();
+    /// Direção do fluxo: "up" | "down" | "undetermined".
+    std::string flow_direction = "undetermined";
+    /// Discriminação ternária da FlowDiscriminationRule:
+    /// "hydraulic" | "thermal" | "inconclusive"; "none" quando não aplicável.
+    std::string discrimination = "none";
 };
 
 /**
@@ -79,6 +99,7 @@ enum class CanonicalEvent : std::uint8_t {
     ReCementingAssessment,
     CrossflowZonal,
     CementChanneling,
+    FlowDiscrimination,  ///< CL-04: discriminação ternária de fluxo
 };
 
 /**
@@ -92,6 +113,21 @@ struct InferenceMetadata {
     double depth_step_m = 1.0;     ///< Espaçamento entre canais/profundidades
     double surface_temp_c = 20.0;  ///< Temperatura superficial para baseline
     double geo_gradient_cpm = 0.03;///< Gradiente geotérmico (°C/m)
+
+    // ─── CL-08: bandas LF-DAS e hidráulica ───
+    /// Banda LF-DAS inferior (Hz): abaixo de ~0.05 Hz fica o strain
+    /// quase-estático (separado); acima de ~1 Hz, conteúdo acústico.
+    double low_freq_band_hz = 0.05;
+    /// Banda LF-DAS superior (Hz). Acima deste limiar o sinal é acústico.
+    double high_freq_band_hz = 1.0;
+    /// Banda de energia hidráulica inferior (Hz) para a discriminação
+    /// ternária de fluxo (CL-04).
+    double discrim_low_freq_hz = 15.0;
+    /// Banda de energia hidráulica superior (Hz).
+    double discrim_high_freq_hz = 100.0;
+    /// Se true, aplica bandpass Butterworth (filters.hpp) no traço DAS
+    /// nas bandas [low_freq_band_hz, high_freq_band_hz] antes das regras.
+    bool apply_band_filter = true;
 };
 
 // =============================================================================
@@ -210,6 +246,13 @@ ALAKORO_EVENT_TRAITS(CementChanneling,
     "Canalização de Cimento",
     "Cement Channeling",
     "Avaliar necessidade de squeeze para eliminar canais no cimento.");
+
+ALAKORO_EVENT_TRAITS(FlowDiscrimination,
+    "flow_discrimination",
+    "Discriminação de Fluxo (Térmico × Hidráulico)",
+    "Flow Discrimination (Thermal × Hydraulic)",
+    "Correlacionar evidências térmicas (DTS), acústicas (DAS 15-100 Hz) e "
+    "cinemáticas (velocidade aparente) antes de classificar o evento.");
 
 #undef ALAKORO_EVENT_TRAITS
 
@@ -604,6 +647,269 @@ inline double channel_to_depth(std::size_t channel, double depth_step_m) {
     return static_cast<double>(channel) * depth_step_m;
 }
 
+// ─── CL-04: velocidade aparente por correlação cruzada do envelope ───
+
+/// Limiar de concordância do pico de correlação (CL-04): abaixo dele o
+/// deslocamento observado é considerado acidental e a velocidade fica
+/// indeterminada.
+inline constexpr double kVelocityCorrelationThreshold = 0.5;
+
+/**
+ * @brief Estimativa de velocidade aparente com sinal (CL-04).
+ *
+ * Convencão de sinal: v = dz/dt com z = profundidade MD (crescente para
+ * baixo). v > 0 → frente/evento descendente; v < 0 → ascendente.
+ * determined == false modela velocidade indeterminada (apparent_velocity_ms
+ * permanece NaN no InferenceResult).
+ */
+struct VelocityEstimate {
+    double velocity_ms = std::numeric_limits<double>::quiet_NaN();
+    double correlation = 0.0;   ///< Pico de correlação do melhor par adjacente
+    double lag_samples = 0.0;   ///< Atraso refinado (parabólico), em amostras
+    std::size_t channel = 0;    ///< Canal do melhor par (c, c+1)
+    bool determined = false;
+};
+
+/**
+ * @brief Refinamento parabólico de sub-amostra de um pico discreto.
+ *
+ * Dados os valores vizinhos y[-1], y[0], y[+1] do pico, devolve o deslocamento
+ * δ ∈ [-1, 1] do máximo da parábola que interpola os três pontos.
+ */
+inline double parabolic_peak_offset(double y_prev, double y_peak, double y_next) noexcept {
+    const double denom = y_prev - 2.0 * y_peak + y_next;
+    if (std::abs(denom) < 1e-12) return 0.0;
+    const double delta = 0.5 * (y_prev - y_next) / denom;
+    return std::clamp(delta, -1.0, 1.0);
+}
+
+/**
+ * @brief Verifica se um campo contém energia não-trivial.
+ */
+inline bool has_nonzero_energy(std::span<const double> field) {
+    double acc = 0.0;
+    for (double v : field) acc += v * v;
+    return acc > 1e-20;
+}
+
+/**
+ * @brief Estima velocidade aparente a partir de um campo 2D (t × z).
+ *
+ * Algoritmo (CL-04):
+ *   1. remove a média temporal por canal (anomalia);
+ *   2. calcula a envoltória de Hilbert por canal (event_detection.hpp);
+ *   3. correlação cruzada (time_frequency.hpp) das envoltórias de canais
+ *      adjacentes (c, c+1) com atraso máximo limitado;
+ *   4. pico global com refinamento parabólico de sub-amostra;
+ *   5. v = depth_step · fs / lag (lag > 0 → descendente → v > 0).
+ *
+ * Sem concordância (correlação máxima < 0.5), deslocamento menor que meia
+ * amostra (região onde o refinamento sub-amostra é fisicamente duvidoso) ou
+ * campo degenerado → recai no rastreio de frente (front tracking), o
+ * estimador apropriado para frentes térmicas quase-estáticas, cuja
+ * envoltória não carrega informação de fase temporal (o pico de correlação
+ * degenera para lag ≈ 0). O rastreio localiza a frente (argmin/argmax
+ * significativo por fatia temporal) e ajusta z_front(t) por mínimos
+ * quadrados; a concordância é o |r| de Pearson do ajuste.
+ */
+inline VelocityEstimate estimate_velocity_from_field(std::span<const double> field,
+                                                     std::size_t n_times,
+                                                     std::size_t n_channels,
+                                                     const InferenceMetadata& meta) {
+    VelocityEstimate est;
+    if (field.empty() || n_times < 16 || n_channels < 2 ||
+        meta.sampling_rate_hz <= 0.0 || meta.depth_step_m <= 0.0) {
+        return est;
+    }
+
+    // 1. Anomalia: remove média temporal por canal.
+    std::vector<double> anomaly(field.size());
+    for (std::size_t c = 0; c < n_channels; ++c) {
+        double mean = 0.0;
+        for (std::size_t t = 0; t < n_times; ++t) mean += field[t * n_channels + c];
+        mean /= static_cast<double>(n_times);
+        for (std::size_t t = 0; t < n_times; ++t) {
+            anomaly[t * n_channels + c] = field[t * n_channels + c] - mean;
+        }
+    }
+
+    // 2. Envoltória de Hilbert por canal.
+    const auto envelope = event_detection::hilbert_envelope_2d(
+        std::span<const double>(anomaly), n_times, n_channels);
+
+    // 3. Correlação cruzada das envoltórias de canais adjacentes, com
+    //    rastreio de pico parabólico por par.
+    const std::size_t max_lag = std::min<std::size_t>(n_times / 4, 256);
+    struct PairLag {
+        double lag;
+        double peak;
+        std::size_t channel;
+    };
+    std::vector<PairLag> candidates;
+    candidates.reserve(n_channels);
+    std::vector<double> x(n_times), y(n_times);
+    for (std::size_t c = 0; c + 1 < n_channels; ++c) {
+        for (std::size_t t = 0; t < n_times; ++t) {
+            x[t] = envelope[t * n_channels + c];
+            y[t] = envelope[t * n_channels + c + 1];
+        }
+        auto corr = time_frequency::cross_correlation(
+            std::span<const double>(x), std::span<const double>(y), max_lag);
+
+        const auto peak_it = std::max_element(corr.begin(), corr.end());
+        const std::size_t p = static_cast<std::size_t>(std::distance(corr.begin(), peak_it));
+        const double peak = *peak_it;
+        if (peak < kVelocityCorrelationThreshold) continue;
+
+        double delta = 0.0;
+        if (p > 0 && p + 1 < corr.size()) {
+            delta = parabolic_peak_offset(corr[p - 1], corr[p], corr[p + 1]);
+        }
+        candidates.push_back(PairLag{
+            static_cast<double>(p) - static_cast<double>(max_lag) + delta,
+            peak, c});
+    }
+
+    // 4. Concordância: um deslocamento real aparece em vários pares
+    //    adjacentes consecutivos com o mesmo lag; picos isolados de ruído
+    //    são rejeitados por não terem apoio (consenso espacial).
+    double best_lag = 0.0;
+    double best_peak = 0.0;
+    std::size_t best_channel = 0;
+    for (const auto& cand : candidates) {
+        std::size_t supporters = 0;
+        for (const auto& other : candidates) {
+            if (std::abs(other.lag - cand.lag) <= 1.0) ++supporters;
+        }
+        if (supporters >= 3 && cand.peak > best_peak) {
+            best_peak = cand.peak;
+            best_lag = cand.lag;
+            best_channel = cand.channel;
+        }
+    }
+
+    // 5. Concordância + deslocamento mínimo de meia amostra.
+    if (best_peak >= kVelocityCorrelationThreshold && std::abs(best_lag) >= 0.5) {
+        est.velocity_ms = meta.depth_step_m * meta.sampling_rate_hz / best_lag;
+        est.correlation = best_peak;
+        est.lag_samples = best_lag;
+        est.channel = best_channel;
+        est.determined = true;
+        return est;
+    }
+
+    // 6. Fallback: rastreio de frente para regimes quase-estáticos.
+    //    Por fatia temporal, localiza o desvio máximo significativo
+    //    (> 3 · MAD da fatia) e ajusta z_front(t) por mínimos quadrados.
+    std::vector<double> tz, zz;
+    tz.reserve(n_times);
+    zz.reserve(n_times);
+    double idx_sum = 0.0;
+    std::size_t n_tracked = 0;
+    std::vector<double> slice(n_channels);
+    for (std::size_t t = 0; t < n_times; ++t) {
+        for (std::size_t c = 0; c < n_channels; ++c) slice[c] = field[t * n_channels + c];
+        const double med = percentile(slice, 50.0);
+        const double slice_mad = mad(slice);
+        const auto min_it = std::min_element(slice.begin(), slice.end());
+        const auto max_it = std::max_element(slice.begin(), slice.end());
+        const double dev_min = med - *min_it;
+        const double dev_max = *max_it - med;
+        const double dev = std::max(dev_min, dev_max);
+        const double spread = 1.4826 * slice_mad;
+        if (dev > 3.0 * std::max(spread, 1e-9)) {
+            const std::size_t idx = (dev_min >= dev_max)
+                ? static_cast<std::size_t>(std::distance(slice.begin(), min_it))
+                : static_cast<std::size_t>(std::distance(slice.begin(), max_it));
+            zz.push_back(static_cast<double>(idx) * meta.depth_step_m);
+            tz.push_back(static_cast<double>(t) / meta.sampling_rate_hz);
+            idx_sum += static_cast<double>(idx);
+            ++n_tracked;
+        }
+    }
+
+    if (zz.size() >= 6) {
+        // Ajuste linear z = v·t + b (mínimos quadrados 2×2) + Pearson r.
+        const std::size_t n = zz.size();
+        double sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0, syy = 0.0;
+        for (std::size_t i = 0; i < n; ++i) {
+            sx += tz[i]; sy += zz[i];
+            sxx += tz[i] * tz[i]; sxy += tz[i] * zz[i];
+            syy += zz[i] * zz[i];
+        }
+        const double dn = static_cast<double>(n);
+        const double var_x = sxx - sx * sx / dn;
+        const double var_y = syy - sy * sy / dn;
+        if (std::abs(var_x) > 1e-12 && std::abs(var_y) > 1e-12) {
+            const double v = (sxy - sx * sy / dn) / var_x;
+            const double r = (sxy - sx * sy / dn) / std::sqrt(var_x * var_y);
+            if (std::abs(r) >= kVelocityCorrelationThreshold) {
+                est.velocity_ms = v;
+                est.correlation = std::abs(r);
+                est.channel = static_cast<std::size_t>(idx_sum / static_cast<double>(n_tracked));
+                est.lag_samples = meta.depth_step_m * meta.sampling_rate_hz / v;
+                est.determined = true;
+            }
+        }
+    }
+    return est;
+}
+
+/**
+ * @brief Estima velocidade aparente priorizando DAS e recaindo em DTS.
+ *
+ * A assinatura canônica de slope velocity pode vir apenas como frente térmica
+ * móvel (DAS degenerado/zerado); nesse caso a cinemática é estimada sobre o
+ * campo DTS. Quando o DAS contém energia, ele é usado (sensível ao
+ * bandpass LF de CL-08). Cada campo é analisado primeiro por correlação
+ * cruzada do envelope e, se não houver concordância, por rastreio de frente
+ * (regime quase-estático, CL-04).
+ */
+inline VelocityEstimate estimate_apparent_velocity(std::span<const double> dts,
+                                                   std::span<const double> das,
+                                                   std::size_t n_times,
+                                                   std::size_t n_channels,
+                                                   const InferenceMetadata& meta) {
+    if (!das.empty() && has_nonzero_energy(das)) {
+        auto est = estimate_velocity_from_field(das, n_times, n_channels, meta);
+        if (est.determined) return est;
+        // DAS energético porém incoerente: tenta DTS antes de desistir.
+    }
+    if (!dts.empty()) {
+        return estimate_velocity_from_field(dts, n_times, n_channels, meta);
+    }
+    return VelocityEstimate{};
+}
+
+/**
+ * @brief Energia DAS por canal restrita a uma banda espectral (CL-04).
+ *
+ * Soma da PSD (fft.hpp) nos bins de frequência em [f_low, f_high] Hz para
+ * cada canal. Retorna vetor de tamanho n_channels.
+ */
+inline std::vector<double> band_energy_profile(std::span<const double> das,
+                                               std::size_t n_times,
+                                               std::size_t n_channels,
+                                               double sampling_rate_hz,
+                                               double f_low,
+                                               double f_high) {
+    std::vector<double> energy(n_channels, 0.0);
+    if (das.empty() || sampling_rate_hz <= 0.0 || f_high <= f_low) return energy;
+
+    const auto psd = fft::psd<double>(das, n_times, n_channels, sampling_rate_hz);
+    const std::size_t n_freq = n_times / 2 + 1;
+    for (std::size_t c = 0; c < n_channels; ++c) {
+        double acc = 0.0;
+        for (std::size_t k = 0; k < n_freq; ++k) {
+            const double f = static_cast<double>(k) * sampling_rate_hz /
+                             static_cast<double>(n_times);
+            if (f >= f_low && f <= f_high) acc += psd[k * n_channels + c];
+        }
+        energy[c] = acc;
+    }
+    return energy;
+}
+
 } // namespace detail
 
 // =============================================================================
@@ -693,49 +999,158 @@ struct JouleThomsonRule {
 };
 
 /**
- * @brief Regra 2: Slope Velocity.
+ * @brief Regra 2: Slope Velocity (CL-04 — velocidade COM SINAL).
  *
- * Heurística: detectar deslocamento de frente térmica comparando metades
- * temporais do perfil médio.
+ * Heurística: correlação cruzada das envoltórias de Hilbert entre canais
+ * adjacentes (função cross_correlation de time_frequency.hpp) com
+ * rastreio de pico parabólico de sub-amostra. A velocidade aparente é COM
+ * SINAL: v = dz/dt com z = profundidade MD (v > 0 → descendente).
+ *
+ * Critério de emissão (rejeição de produção espúria): a regra só emite
+ * evento quando a velocidade é determinada, positiva (v > 0) e o pico de
+ * correlação do melhor par adjacente é concordante (≥ 0.5). Caso contrário
+ * (v ≤ 0, correlação < 0.5 ou campo sem energia) a velocidade fica
+ * indeterminada (NaN) e NENHUM evento é emitido.
+ *
+ * A estimativa prioriza o DAS (sensível ao bandpass LF de CL-08) e recai
+ * no campo DTS quando o DAS é degenerado (frente térmica pura). Para frentes
+ * quase-estáticas, cujo envelope não carrega fase temporal, a velocidade é
+ * estimada por rastreio de frente (CL-04, ver estimate_velocity_from_field).
  */
 struct SlopeVelocityRule {
     static ResultGenerator apply(std::span<const double> dts,
-                                 std::span<const double>,
+                                 std::span<const double> das,
                                  std::size_t n_times,
                                  std::size_t n_channels,
                                  const InferenceMetadata& meta) {
-        if (n_times < 10 || n_channels == 0) co_return;
-        std::size_t mid_t = n_times / 2;
+        auto est = detail::estimate_apparent_velocity(dts, das, n_times, n_channels, meta);
 
-        auto first_half = detail::temporal_mean(dts.subspan(0, mid_t * n_channels),
-                                                 mid_t, n_channels);
-        auto second_half = detail::temporal_mean(
-            dts.subspan(mid_t * n_channels, (n_times - mid_t) * n_channels),
-            n_times - mid_t, n_channels);
+        // CL-04: v <= 0 ou correlação máxima < 0.5 → indeterminado e a regra
+        // não emite evento (rejeição de produção espúria).
+        if (!est.determined || !(est.velocity_ms > 0.0)) co_return;
 
-        auto anom1 = detail::remove_polynomial_baseline(std::move(first_half), 2);
-        auto anom2 = detail::remove_polynomial_baseline(std::move(second_half), 2);
+        const double conf = std::min(est.correlation, 1.0);
+        const double depth = detail::channel_to_depth(est.channel, meta.depth_step_m);
 
-        // Encontra o frente móvel pela máxima diferença de posição entre
-        // o vale mais forte da primeira metade e o vale mais forte da segunda.
-        std::size_t p1 = std::distance(anom1.begin(), std::min_element(anom1.begin(), anom1.end()));
-        std::size_t p2 = std::distance(anom2.begin(), std::min_element(anom2.begin(), anom2.end()));
+        auto res = make_result<CanonicalEvent::SlopeVelocity>(
+            conf, depth, conf > 0.7 ? "High" : "Medium");
+        res.apparent_velocity_ms = static_cast<float>(est.velocity_ms);
+        res.flow_direction = "down";  // v > 0 → frente descendente
+        res.recommendation += " Velocidade aparente: " +
+            std::to_string(est.velocity_ms) + " m/s (descendente).";
+        co_yield std::move(res);
+    }
+};
 
-        double dz = std::abs(static_cast<double>(p2) - static_cast<double>(p1)) * meta.depth_step_m;
-        double dt = (n_times > 1) ? static_cast<double>(n_times) / meta.sampling_rate_hz : 0.0;
-        double velocity = (dt > 0.0) ? dz / dt : 0.0;
-        double conf = std::min(dz / 100.0, 1.0);
-        double depth = detail::channel_to_depth((p1 + p2) / 2, meta.depth_step_m);
+/**
+ * @brief Regra 16 (CL-04): Discriminação ternária de fluxo.
+ *
+ * Emite um InferenceResult com classificação "hydraulic" | "thermal" |
+ * "inconclusive" quando há evidências concomitantes na mesma profundidade:
+ *
+ *   (i)   anomalia térmica DTS (mesma lógica das regras térmicas existentes:
+ *         perfil médio temporal, baseline polinomial, threshold MAD);
+ *   (ii)  energia DAS na banda hidráulica [discrim_low_freq_hz,
+ *         discrim_high_freq_hz] acima do fundo (MAD espacial sobre canais);
+ *   (iii) velocidade aparente > 0 determinada (correlação ≥ 0.5).
+ *
+ * Matriz de decisão / Decision matrix:
+ *
+ *   (i) térmica | (ii) banda | (iii) v>0 | discriminação
+ *   ------------+-----------+----------+----------------
+ *       sim     |    sim    |   sim    |  hydraulic
+ *       sim     |    não    |   não    |  thermal  (só térmico forte)
+ *   demais combinações não vazias        |  inconclusive
+ *
+ * A regra só emite quando ao menos uma condição é satisfeita; nada consta
+ * (campo sem evidências) → co_return silencioso. A direção do fluxo é
+ * propagada em flow_direction ("up"/"down"/"undetermined") a partir do sinal
+ * da velocidade quando determinada.
+ *
+ * Nota: esta regra analisa o DAS bruto (não condicionado pelo bandpass LF
+ * de CL-08) porque a banda hidráulica (15–100 Hz) é espectralmente distinta
+ * da banda LF (0.05–1 Hz) — o engine faz esse despacho via if constexpr em
+ * execute_rule.
+ */
+struct FlowDiscriminationRule {
+    static ResultGenerator apply(std::span<const double> dts,
+                                 std::span<const double> das,
+                                 std::size_t n_times,
+                                 std::size_t n_channels,
+                                 const InferenceMetadata& meta) {
+        if (n_times == 0 || n_channels == 0 || dts.empty()) co_return;
 
-        double threshold = detail::adaptive_threshold(anom2, detail::AdaptiveMethod::Mad, 1.5);
-        double min2 = *std::min_element(anom2.begin(), anom2.end());
-        if (conf > 0.15 && std::abs(min2) > threshold) {
-            auto res = make_result<CanonicalEvent::SlopeVelocity>(
-                conf, depth, conf > 0.7 ? "High" : "Medium");
-            res.recommendation += " Velocidade estimada: " + std::to_string(velocity) + " m/s.";
-            co_yield std::move(res);
+        // (i) Anomalia térmica (regra térmica existente concordando).
+        bool thermal_ok = false;
+        std::size_t thermal_idx = 0;
+        {
+            auto mean_profile = detail::temporal_mean(dts, n_times, n_channels);
+            auto anomaly = detail::remove_polynomial_baseline(std::move(mean_profile), 2);
+            const double threshold =
+                detail::adaptive_threshold(anomaly, detail::AdaptiveMethod::Mad, 1.5);
+            double max_abs = 0.0;
+            for (std::size_t i = 0; i < anomaly.size(); ++i) {
+                if (std::abs(anomaly[i]) > max_abs) {
+                    max_abs = std::abs(anomaly[i]);
+                    thermal_idx = i;
+                }
+            }
+            thermal_ok = max_abs > threshold && max_abs > 1e-12;
         }
-        co_return;
+
+        // (ii) Energia DAS na banda hidráulica acima do fundo (MAD espacial).
+        bool band_ok = false;
+        std::size_t band_idx = 0;
+        if (!das.empty() && detail::has_nonzero_energy(das)) {
+            auto energy = detail::band_energy_profile(das, n_times, n_channels,
+                                                      meta.sampling_rate_hz,
+                                                      meta.discrim_low_freq_hz,
+                                                      meta.discrim_high_freq_hz);
+            const double background = detail::percentile(energy, 50.0);
+            const double spread = detail::mad(energy);
+            const double limit = background + 2.0 * 1.4826 * spread;
+            double max_e = 0.0;
+            for (std::size_t c = 0; c < n_channels; ++c) {
+                if (energy[c] > max_e) {
+                    max_e = energy[c];
+                    band_idx = c;
+                }
+            }
+            band_ok = max_e > limit;
+        }
+
+        // (iii) Velocidade aparente > 0 determinada.
+        const auto vest = detail::estimate_apparent_velocity(dts, das, n_times, n_channels, meta);
+        const bool velocity_ok = vest.determined && vest.velocity_ms > 0.0;
+
+        const int n_met = (thermal_ok ? 1 : 0) + (band_ok ? 1 : 0) + (velocity_ok ? 1 : 0);
+        if (n_met == 0) co_return;
+
+        std::string_view discrimination;
+        if (thermal_ok && band_ok && velocity_ok) {
+            discrimination = "hydraulic";
+        } else if (thermal_ok && !band_ok && !velocity_ok) {
+            discrimination = "thermal";  // só térmico forte
+        } else {
+            discrimination = "inconclusive";
+        }
+
+        // Profundidade: prioriza a evidência térmica, depois acústica, depois
+        // o canal da melhor estimativa de velocidade.
+        std::size_t idx = thermal_ok ? thermal_idx : (band_ok ? band_idx : vest.channel);
+        const double depth = detail::channel_to_depth(idx, meta.depth_step_m);
+        const double conf = static_cast<double>(n_met) / 3.0;
+
+        auto res = make_result<CanonicalEvent::FlowDiscrimination>(
+            conf, depth,
+            conf > 0.7 ? "High" : (conf > 0.4 ? "Medium" : "Low"));
+        res.discrimination = std::string(discrimination);
+        if (vest.determined) {
+            res.apparent_velocity_ms = static_cast<float>(vest.velocity_ms);
+            res.flow_direction = vest.velocity_ms > 0.0 ? "down" : "up";
+        }
+        res.recommendation += " Discriminação: " + std::string(discrimination) + ".";
+        co_yield std::move(res);
     }
 };
 
@@ -1264,6 +1679,12 @@ public:
      * @throws std::invalid_argument Se metadata.sampling_rate_hz <= 0. Regras
      *         como SlopeVelocityRule dividem pela taxa de amostragem; uma taxa
      *         nula ou negativa produziria valores silenciosamente inválidos.
+     *
+     * CL-08: quando metadata.apply_band_filter é true e o DAS está presente,
+     * aplica um bandpass Butterworth (filters.hpp) na banda LF-DAS
+     * [low_freq_band_hz, high_freq_band_hz] antes das regras. O condicionamento
+     * só é aplicado quando a banda cabe abaixo de Nyquist; caso contrário é
+     * ignorado (degradação graceful, sem exceção).
      */
     std::vector<InferenceResult> infer(std::span<const double> dts,
                                        std::span<const double> das,
@@ -1275,52 +1696,75 @@ public:
                 "InferenceEngine::infer: sampling_rate_hz must be > 0 (got " +
                 std::to_string(meta.sampling_rate_hz) + ")");
         }
+
+        // CL-08: condicionamento LF do traço DAS antes das regras.
+        std::vector<double> das_filtered;
+        std::span<const double> das_conditioned = das;
+        if (meta.apply_band_filter && !das.empty()) {
+            const double nyquist = meta.sampling_rate_hz / 2.0;
+            if (meta.low_freq_band_hz > 0.0 &&
+                meta.high_freq_band_hz > meta.low_freq_band_hz &&
+                meta.high_freq_band_hz < nyquist) {
+                das_filtered.assign(das.begin(), das.end());
+                filters::butterworth_bandpass<double, 2>(
+                    std::span<double>(das_filtered), n_times, n_channels,
+                    meta.sampling_rate_hz,
+                    meta.low_freq_band_hz, meta.high_freq_band_hz);
+                das_conditioned = std::span<const double>(das_filtered);
+            }
+        }
+
         std::vector<InferenceResult> all;
         all.reserve(sizeof...(Events));
         // Fold expression sobre uma lambda que executa uma regra por evento.
-        (execute_rule<Events>(dts, das, n_times, n_channels, meta, all), ...);
+        (execute_rule<Events>(dts, das_conditioned, das, n_times, n_channels, meta, all), ...);
         return all;
     }
 
 private:
     template <CanonicalEvent E>
     void execute_rule(std::span<const double> dts,
-                      std::span<const double> das,
+                      std::span<const double> das_conditioned,
+                      std::span<const double> das_raw,
                       std::size_t n_times,
                       std::size_t n_channels,
                       const InferenceMetadata& meta,
                       std::vector<InferenceResult>& out) const {
         ResultGenerator gen = [&]() {
             if constexpr (E == CanonicalEvent::JouleThomson) {
-                return JouleThomsonRule::apply(dts, das, n_times, n_channels, meta);
+                return JouleThomsonRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::SlopeVelocity) {
-                return SlopeVelocityRule::apply(dts, das, n_times, n_channels, meta);
+                return SlopeVelocityRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::WarmBack) {
-                return WarmBackRule::apply(dts, das, n_times, n_channels, meta);
+                return WarmBackRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::ValveChatter) {
-                return ValveChatterRule::apply(dts, das, n_times, n_channels, meta);
+                return ValveChatterRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::SluggingCycle) {
-                return SluggingCycleRule::apply(dts, das, n_times, n_channels, meta);
+                return SluggingCycleRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::LeakPath) {
-                return LeakPathRule::apply(dts, das, n_times, n_channels, meta);
+                return LeakPathRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::GlvBellowRupture) {
-                return GlvBellowRuptureRule::apply(dts, das, n_times, n_channels, meta);
+                return GlvBellowRuptureRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::PerforationEffectiveness) {
-                return PerforationEffectivenessRule::apply(dts, das, n_times, n_channels, meta);
+                return PerforationEffectivenessRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::FracScreenout) {
-                return FracScreenoutRule::apply(dts, das, n_times, n_channels, meta);
+                return FracScreenoutRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::FracProppantDistribution) {
-                return FracProppantDistributionRule::apply(dts, das, n_times, n_channels, meta);
+                return FracProppantDistributionRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::FracHeightGrowth) {
-                return FracHeightGrowthRule::apply(dts, das, n_times, n_channels, meta);
+                return FracHeightGrowthRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::CementBondEvaluation) {
-                return CementBondEvaluationRule::apply(dts, das, n_times, n_channels, meta);
+                return CementBondEvaluationRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::ReCementingAssessment) {
-                return ReCementingAssessmentRule::apply(dts, das, n_times, n_channels, meta);
+                return ReCementingAssessmentRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::CrossflowZonal) {
-                return CrossflowZonalRule::apply(dts, das, n_times, n_channels, meta);
+                return CrossflowZonalRule::apply(dts, das_conditioned, n_times, n_channels, meta);
             } else if constexpr (E == CanonicalEvent::CementChanneling) {
-                return CementChannelingRule::apply(dts, das, n_times, n_channels, meta);
+                return CementChannelingRule::apply(dts, das_conditioned, n_times, n_channels, meta);
+            } else if constexpr (E == CanonicalEvent::FlowDiscrimination) {
+                // CL-04: a discriminação analisa o DAS bruto — o bandpass LF
+                // de CL-08 destruiria a banda hidráulica (15–100 Hz).
+                return FlowDiscriminationRule::apply(dts, das_raw, n_times, n_channels, meta);
             } else {
                 // Nunca deve ocorrer, mas mantém o código bem formado.
                 return ResultGenerator{nullptr};
@@ -1334,7 +1778,7 @@ private:
 };
 
 /**
- * @brief Alias conveniente para a engine com todos os 15 eventos.
+ * @brief Alias conveniente para a engine com todos os 16 eventos.
  */
 using CanonicalInferenceEngine = InferenceEngine<
     CanonicalEvent::JouleThomson,
@@ -1351,7 +1795,8 @@ using CanonicalInferenceEngine = InferenceEngine<
     CanonicalEvent::CementBondEvaluation,
     CanonicalEvent::ReCementingAssessment,
     CanonicalEvent::CrossflowZonal,
-    CanonicalEvent::CementChanneling
+    CanonicalEvent::CementChanneling,
+    CanonicalEvent::FlowDiscrimination
 >;
 
 } // namespace inference

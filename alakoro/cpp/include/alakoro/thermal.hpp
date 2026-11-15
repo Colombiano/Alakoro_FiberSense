@@ -30,6 +30,7 @@
 #include <limits>
 #include <span>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace alakoro::thermal {
@@ -270,6 +271,223 @@ std::vector<T> spatial_median_filter(std::span<const T> data,
         }
     }
     return filtered;
+}
+
+/**
+ * @brief Zera (NaN) os últimos `mask_m` metros de cada traço DTS/DAS.
+ *
+ * A ponta do cabo (região morta / dead zone) frequentemente produz valores
+ * sem significado físico. Esta função mascara essa região in-place,
+ * preenchendo com quiet_NaN para que regras downstream ignorem a zona.
+ *
+ * Masks the trailing `mask_m` meters of every trace with quiet_NaN
+ * (dead fiber zone), in place.
+ *
+ * Recursos C++20: concepts (FloatingPoint), std::span in-place, if constexpr
+ * para seleção de política de preenchimento (NaN vs. zero).
+ *
+ * @tparam T Tipo de ponto flutuante
+ * @param data Dados 2D (time, channels) — modificado in-place
+ * @param n_times Número de amostras no tempo
+ * @param n_channels Número de canais
+ * @param step_m Passo entre canais em metros
+ * @param mask_m Extensão a mascarar a partir da ponta, em metros
+ * @param use_nan Se true preenche com NaN; se false, com zero
+ */
+template <FloatingPoint T>
+void mask_trailing_meters(std::span<T> data,
+                          std::size_t n_times,
+                          std::size_t n_channels,
+                          double step_m,
+                          double mask_m,
+                          bool use_nan = true) {
+    if (step_m <= 0.0) {
+        throw std::invalid_argument("mask_trailing_meters: step_m must be positive");
+    }
+    if (mask_m < 0.0) {
+        throw std::invalid_argument("mask_trailing_meters: mask_m must be >= 0");
+    }
+    if (data.size() != n_times * n_channels) {
+        throw std::invalid_argument("mask_trailing_meters: data size does not match shape");
+    }
+
+    // Número de canais a partir da ponta que ficam mascarados.
+    const std::size_t n_mask = std::min<std::size_t>(
+        n_channels, static_cast<std::size_t>(std::ceil(mask_m / step_m)));
+    if (n_mask == 0) return;
+
+    const T fill = [&] {
+        if constexpr (std::numeric_limits<T>::has_quiet_NaN) {
+            return use_nan ? std::numeric_limits<T>::quiet_NaN() : T{};
+        } else {
+            return T{};
+        }
+    }();
+
+    for (std::size_t t = 0; t < n_times; ++t) {
+        const std::size_t base = t * n_channels;
+        for (std::size_t k = 0; k < n_mask; ++k) {
+            data[base + (n_channels - 1 - k)] = fill;
+        }
+    }
+}
+
+/**
+ * @brief Resultado da correção de atenuação single-ended.
+ *
+ * Aggregate simples para interoperar com pybind11 (dict em Python).
+ */
+template <FloatingPoint T>
+struct AttenuationCorrectionResult {
+    std::vector<T> corrected;  ///< Campo corrigido (flat, mesmo shape da entrada)
+    double slope_per_m = 0.0;  ///< Deriva linear-in-distância estimada (unidades/m)
+    double intercept = 0.0;    ///< Offset no início da fibra (unidades)
+};
+
+/**
+ * @brief Correção de atenuação diferencial single-ended (CL-07).
+ *
+ * Em DTS single-ended, a perda diferencial Stokes/anti-Stokes ao longo da
+ * fibra aparece como uma deriva aproximadamente linear da temperatura
+ * medida com a distância. Esta função estima essa deriva ajustando uma reta
+ * sobre o perfil médio temporal restrito a uma zona de referência
+ * (`reference_zone`, em índices de canal [início, fim)) assumida isotérmica
+ * (fundo térmico estável), e corrige o campo inteiro subtraindo a reta
+ * extrapolada: corrected = data − (slope·z + intercept).
+ *
+ * Single-ended differential attenuation correction: fits a linear-in-distance
+ * drift on the time-averaged profile over a configurable isothermal reference
+ * zone and subtracts the extrapolated line from the whole field.
+ *
+ * Simplificação documentada (vs. double-ended completo): com um único extremo
+ * não é possível separar perda diferencial de temperatura verdadeira; a deriva
+ * residual é modelada como linear e ancorada na zona de referência. A versão
+ * double-ended (Stokes+anti-Stokes dos dois extremos) fica como extension
+ * point documentado em DoubleEndedConfig.
+ *
+ * @tparam T Tipo de ponto flutuante
+ * @param data Dados 2D (time, channels)
+ * @param n_times Número de amostras no tempo
+ * @param n_channels Número de canais
+ * @param step_m Passo entre canais em metros
+ * @param reference_zone Zona de referência [start, end) em índices de canal
+ * @return AttenuationCorrectionResult com campo corrigido e coeficientes
+ * @throws std::invalid_argument Se step_m <= 0, zona inválida ou shape incompatível
+ */
+template <FloatingPoint T>
+AttenuationCorrectionResult<T>
+attenuation_correct_single_ended(std::span<const T> data,
+                                 std::size_t n_times,
+                                 std::size_t n_channels,
+                                 double step_m,
+                                 std::pair<std::size_t, std::size_t> reference_zone) {
+    if (step_m <= 0.0) {
+        throw std::invalid_argument(
+            "attenuation_correct_single_ended: step_m must be positive");
+    }
+    if (data.size() != n_times * n_channels || n_times == 0 || n_channels == 0) {
+        throw std::invalid_argument(
+            "attenuation_correct_single_ended: data size does not match shape");
+    }
+    if (reference_zone.first >= reference_zone.second ||
+        reference_zone.second > n_channels) {
+        throw std::invalid_argument(
+            "attenuation_correct_single_ended: reference_zone must satisfy "
+            "0 <= start < end <= n_channels");
+    }
+
+    // Perfil médio temporal na zona de referência.
+    const std::size_t zone_len = reference_zone.second - reference_zone.first;
+    std::vector<double> zone_mean(zone_len, 0.0);
+    for (std::size_t k = 0; k < zone_len; ++k) {
+        const std::size_t c = reference_zone.first + k;
+        double sum = 0.0;
+        for (std::size_t t = 0; t < n_times; ++t) {
+            sum += static_cast<double>(data[t * n_channels + c]);
+        }
+        zone_mean[k] = sum / static_cast<double>(n_times);
+    }
+
+    // Regressão linear mínimos quadrados: z vs. zone_mean.
+    double sum_x = 0.0, sum_y = 0.0, sum_xx = 0.0, sum_xy = 0.0;
+    for (std::size_t k = 0; k < zone_len; ++k) {
+        const double x = static_cast<double>(reference_zone.first + k) * step_m;
+        const double y = zone_mean[k];
+        sum_x += x;
+        sum_y += y;
+        sum_xx += x * x;
+        sum_xy += x * y;
+    }
+    const double n = static_cast<double>(zone_len);
+    const double denom = n * sum_xx - sum_x * sum_x;
+    double slope = 0.0;
+    double intercept = sum_y / n;
+    if (std::abs(denom) > 1e-12) {
+        slope = (n * sum_xy - sum_x * sum_y) / denom;
+        intercept = (sum_y - slope * sum_x) / n;
+    }
+
+    AttenuationCorrectionResult<T> result;
+    result.slope_per_m = slope;
+    result.intercept = intercept;
+    result.corrected.resize(data.size());
+    for (std::size_t t = 0; t < n_times; ++t) {
+        for (std::size_t c = 0; c < n_channels; ++c) {
+            const double z = static_cast<double>(c) * step_m;
+            result.corrected[t * n_channels + c] = static_cast<T>(
+                static_cast<double>(data[t * n_channels + c]) - (slope * z + intercept));
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief Configuração para correção de atenuação double-ended.
+ *
+ * Extension point documentado (CL-07): a correção double-ended completa
+ * requer dados reais dos dois extremos da fibra (configuração loop), com
+ * Stokes/anti-Stokes medidos em ambas as direções. Sem esses dados, a
+ * função `correct_attenuation_double_ended` valida a configuração e levanta
+ * std::invalid_argument — decisão de escopo da auditoria técnica.
+ *
+ * Documented extension point: full double-ended correction needs real
+ * two-ended fiber data; without it the function throws by design.
+ */
+struct DoubleEndedConfig {
+    std::size_t switch_index = 0;  ///< Índice do canal onde o loop inverte
+    double step_m = 1.0;           ///< Passo entre canais em metros
+    bool reference_channel_set = false;  ///< Zona de referência configurada
+};
+
+/**
+ * @brief Placeholder validado para correção double-ended (experimental).
+ *
+ * @throws std::invalid_argument Sempre, com mensagem explicativa, após
+ *         validar os parâmetros da configuração.
+ */
+template <FloatingPoint T>
+std::vector<T> correct_attenuation_double_ended(
+    std::span<const T> data,
+    std::size_t n_times,
+    std::size_t n_channels,
+    const DoubleEndedConfig& config) {
+    if (config.step_m <= 0.0) {
+        throw std::invalid_argument(
+            "correct_attenuation_double_ended: step_m must be positive");
+    }
+    if (data.size() != n_times * n_channels || n_times == 0 || n_channels == 0) {
+        throw std::invalid_argument(
+            "correct_attenuation_double_ended: data size does not match shape");
+    }
+    if (config.switch_index >= n_channels) {
+        throw std::invalid_argument(
+            "correct_attenuation_double_ended: switch_index out of range");
+    }
+    throw std::invalid_argument(
+        "double-ended attenuation correction is experimental and not "
+        "implemented: it requires real two-ended Stokes/anti-Stokes data "
+        "(see DoubleEndedConfig). Use attenuation_correct_single_ended as a "
+        "documented simplification anchored on a reference zone.");
 }
 
 } // namespace alakoro::thermal
